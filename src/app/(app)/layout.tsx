@@ -1,11 +1,13 @@
 "use client";
 
 import { TopNavbar } from "@/components/layout/top-navbar";
+import { ToastContainer } from "@/components/ui/toast";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-cream">
       <TopNavbar />
+      <ToastContainer />
       <main className="flex-1 p-6">
         {children}
       </main>

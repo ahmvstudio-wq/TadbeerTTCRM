@@ -75,9 +75,9 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600 mx-auto mb-3" />
-          <p className="text-slate-500 text-sm">Loading dashboard...</p>
+        <div className="text-center animate-fade-in">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-teal mx-auto mb-3" />
+          <p className="text-text-muted text-sm">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -103,16 +103,16 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-enter">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
         <p className="text-slate-500 mt-1">Welcome back. Here is your overview.</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
         {statCards.map((stat) => (
           <Link key={stat.label} href={stat.href}>
-            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <Card className="hover-lift press-effect cursor-pointer transition-all duration-200">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div>
