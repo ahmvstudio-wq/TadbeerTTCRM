@@ -79,6 +79,13 @@ export default function OutreachPage() {
     setLoading(false);
   };
 
+  const getTouchesForLead = useCallback((leadId: string) => touches.filter((t) => t.lead_id === leadId), [touches]);
+  const getTouchesByDate = useCallback((date: string) => touches.filter((t) => t.sent_at.startsWith(date)), [touches]);
+  const allDates = useMemo(() => [...new Set(touches.map((t) => t.sent_at.split("T")[0]))].sort().reverse(), [touches]);
+  const today = new Date().toISOString().split("T")[0];
+  const todayTouches = touches.filter((t) => t.sent_at.startsWith(today));
+  const pendingFollowUps = touches.filter((t) => t.follow_up_date && t.follow_up_date <= today);
+
   // ─── Gate Phase ───────────────────────────────────────────────────
   if (phase === "gate") {
     return (
@@ -102,17 +109,6 @@ export default function OutreachPage() {
       </div>
     );
   }
-
-  // ─── Data Helpers ─────────────────────────────────────────────────
-  const getTouchesForLead = useCallback((leadId: string) => touches.filter((t) => t.lead_id === leadId), [touches]);
-
-  const getTouchesByDate = useCallback((date: string) => touches.filter((t) => t.sent_at.startsWith(date)), [touches]);
-
-  const allDates = useMemo(() => [...new Set(touches.map((t) => t.sent_at.split("T")[0]))].sort().reverse(), [touches]);
-
-  const today = new Date().toISOString().split("T")[0];
-  const todayTouches = touches.filter((t) => t.sent_at.startsWith(today));
-  const pendingFollowUps = touches.filter((t) => t.follow_up_date && t.follow_up_date <= today);
 
   // ─── Actions ──────────────────────────────────────────────────────
   const openTouchDialog = (leadId: string, channel: string) => {
