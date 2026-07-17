@@ -41,7 +41,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-cream px-4">
       <div className="w-full max-w-sm">
         <div className="flex justify-center mb-6">
-          <Image src="/logo/tadbeer-logo.png" alt="Tadbeer" width={80} height={80} className="object-contain" priority />
+          <Image src="/logo/tadbeer-logo.png" alt="Tadbeer" width={160} height={160} className="object-contain h-28 w-auto" priority />
         </div>
 
         <Card>

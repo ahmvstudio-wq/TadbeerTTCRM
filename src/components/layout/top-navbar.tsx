@@ -40,9 +40,9 @@ export function TopNavbar() {
 
   return (
     <header className="sticky top-0 z-50 bg-cream border-b border-border">
-      <div className="flex items-center justify-between h-20 px-4 sm:px-6">
+      <div className="flex items-center justify-between h-24 px-4 sm:px-6">
         <Link href="/dashboard" className="flex-shrink-0">
-          <Image src="/logo/tadbeer-logo.png" alt="Tadbeer" width={120} height={120} className="object-contain h-14 w-auto" priority />
+          <Image src="/logo/tadbeer-logo.png" alt="Tadbeer" width={160} height={160} className="object-contain h-16 w-auto" priority />
         </Link>
 
         <div className="flex items-center gap-1">
