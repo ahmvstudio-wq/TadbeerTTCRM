@@ -16,7 +16,11 @@ import {
   Pencil,
   X,
   CheckCircle,
+  ChevronDown,
+  ChevronRight,
+  MessageCircle,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -121,6 +125,8 @@ export default function ProspectsPage() {
     }
   };
 
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
   const statusCounts = Object.entries(COMPANY_STATUSES).map(([key, val]) => ({
     key: key as CompanyStatus,
     label: val.label,
@@ -215,67 +221,98 @@ export default function ProspectsPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-3 px-4 text-xs font-medium text-text-secondary uppercase">Person</th>
-                    <th className="text-left py-3 px-4 text-xs font-medium text-text-secondary uppercase">Company</th>
-                    <th className="text-left py-3 px-4 text-xs font-medium text-text-secondary uppercase">Industry</th>
-                    <th className="text-left py-3 px-4 text-xs font-medium text-text-secondary uppercase">Status</th>
-                    <th className="text-left py-3 px-4 text-xs font-medium text-text-secondary uppercase">Location</th>
-                    <th className="text-right py-3 px-4 text-xs font-medium text-text-secondary uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {prospects.map((prospect) => (
-                    <tr key={prospect.id} className="border-b border-border-light hover:bg-surface-hover">
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-lg bg-brand-teal-light flex items-center justify-center flex-shrink-0">
-                            <Building2 className="h-4 w-4 text-brand-teal" />
-                          </div>
-                          <div>
-                            <Link href={`/prospects/${prospect.id}`} className="text-sm font-medium text-text-primary hover:text-brand-teal">
-                              {prospect.contacts?.[0]?.full_name || prospect.company_name}
-                            </Link>
-                            {prospect.contacts?.[0]?.title && (
-                              <p className="text-xs text-text-muted">{prospect.contacts[0].title}</p>
-                            )}
-                          </div>
+            <div className="divide-y divide-border-light">
+              {prospects.map((prospect) => {
+                const contact = prospect.contacts?.[0];
+                const isExpanded = expandedId === prospect.id;
+                return (
+                  <div key={prospect.id}>
+                    {/* Main row */}
+                    <div
+                      className="flex items-center gap-4 py-3 px-4 hover:bg-cream-dark/30 cursor-pointer transition-colors"
+                      onClick={() => setExpandedId(isExpanded ? null : prospect.id)}
+                    >
+                      {/* Expand arrow */}
+                      <button className="flex-shrink-0 text-text-muted">
+                        {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                      </button>
+
+                      {/* Person icon */}
+                      <div className="h-9 w-9 rounded-lg bg-brand-teal-light flex items-center justify-center flex-shrink-0">
+                        <Building2 className="h-4 w-4 text-brand-teal" />
+                      </div>
+
+                      {/* Person + Company */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-text-primary">{contact?.full_name || prospect.company_name}</span>
+                          {contact?.title && <span className="text-xs text-text-muted">· {contact.title}</span>}
                         </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div>
-                          <p className="text-sm text-text-secondary">{prospect.company_name}</p>
-                          {prospect.industry && <p className="text-xs text-text-muted">{prospect.industry}</p>}
+                        <p className="text-xs text-text-secondary">{prospect.company_name}{prospect.industry ? ` · ${prospect.industry}` : ""}</p>
+                      </div>
+
+                      {/* Location */}
+                      <div className="hidden sm:block text-xs text-text-muted">
+                        {[prospect.city, prospect.country].filter(Boolean).join(", ")}
+                      </div>
+
+                      {/* Status */}
+                      <Badge className={cn("text-[10px] flex-shrink-0", statusColor[prospect.status as CompanyStatus] || statusColor.prospect)}>
+                        {COMPANY_STATUSES[prospect.status as CompanyStatus]?.label || prospect.status}
+                      </Badge>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-0.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <Link href={`/prospects/${prospect.id}/edit`}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-text-muted hover:text-brand-teal"><Pencil className="h-3 w-3" /></Button>
+                        </Link>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-text-muted hover:text-red-600" onClick={() => handleDelete(prospect.id, prospect.company_name)}><Trash2 className="h-3 w-3" /></Button>
+                      </div>
+                    </div>
+
+                    {/* Expanded contact card */}
+                    {isExpanded && (
+                      <div className="bg-cream-dark/40 border-t border-border-light px-4 py-3 ml-9">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                          {contact?.email && (
+                            <a href={`mailto:${contact.email}`} className="flex items-center gap-2 p-2 rounded-lg bg-white border border-border-light hover:border-brand-teal transition-colors group">
+                              <div className="h-8 w-8 rounded-md bg-brand-teal-light flex items-center justify-center flex-shrink-0"><Mail className="h-3.5 w-3.5 text-brand-teal" /></div>
+                              <div className="min-w-0"><p className="text-[11px] text-text-muted">Email</p><p className="text-xs font-medium text-text-primary truncate group-hover:text-brand-teal">{contact.email}</p></div>
+                            </a>
+                          )}
+                          {contact?.phone && (
+                            <a href={`tel:${contact.phone}`} className="flex items-center gap-2 p-2 rounded-lg bg-white border border-border-light hover:border-brand-teal transition-colors group">
+                              <div className="h-8 w-8 rounded-md bg-brand-teal-light flex items-center justify-center flex-shrink-0"><Phone className="h-3.5 w-3.5 text-brand-teal" /></div>
+                              <div className="min-w-0"><p className="text-[11px] text-text-muted">Phone</p><p className="text-xs font-medium text-text-primary truncate group-hover:text-brand-teal">{contact.phone}</p></div>
+                            </a>
+                          )}
+                          {contact?.whatsapp && (
+                            <a href={`https://wa.me/${contact.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-lg bg-white border border-border-light hover:border-green-400 transition-colors group">
+                              <div className="h-8 w-8 rounded-md bg-green-50 flex items-center justify-center flex-shrink-0"><MessageCircle className="h-3.5 w-3.5 text-green-600" /></div>
+                              <div className="min-w-0"><p className="text-[11px] text-text-muted">WhatsApp</p><p className="text-xs font-medium text-text-primary truncate group-hover:text-green-600">{contact.whatsapp}</p></div>
+                            </a>
+                          )}
+                          {contact?.linkedin_url && (
+                            <a href={contact.linkedin_url.startsWith("http") ? contact.linkedin_url : `https://${contact.linkedin_url}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-lg bg-white border border-border-light hover:border-blue-400 transition-colors group">
+                              <div className="h-8 w-8 rounded-md bg-blue-50 flex items-center justify-center flex-shrink-0"><ExternalLink className="h-3.5 w-3.5 text-blue-600" /></div>
+                              <div className="min-w-0"><p className="text-[11px] text-text-muted">LinkedIn</p><p className="text-xs font-medium text-text-primary truncate group-hover:text-blue-600">Profile</p></div>
+                            </a>
+                          )}
+                          {prospect.website && (
+                            <a href={prospect.website.startsWith("http") ? prospect.website : `https://${prospect.website}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-lg bg-white border border-border-light hover:border-brand-teal transition-colors group">
+                              <div className="h-8 w-8 rounded-md bg-brand-teal-light flex items-center justify-center flex-shrink-0"><ExternalLink className="h-3.5 w-3.5 text-brand-teal" /></div>
+                              <div className="min-w-0"><p className="text-[11px] text-text-muted">Website</p><p className="text-xs font-medium text-text-primary truncate group-hover:text-brand-teal">{prospect.website}</p></div>
+                            </a>
+                          )}
                         </div>
-                      </td>
-                      <td className="py-3 px-4 text-sm text-text-secondary">{prospect.industry || "—"}</td>
-                      <td className="py-3 px-4">
-                        <Badge className={statusColor[prospect.status as CompanyStatus] || statusColor.prospect}>
-                          {COMPANY_STATUSES[prospect.status as CompanyStatus]?.label || prospect.status}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4 text-sm text-text-secondary">
-                        {[prospect.city, prospect.country].filter(Boolean).join(", ") || "—"}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Link href={`/prospects/${prospect.id}/edit`}>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-text-muted hover:text-brand-teal">
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                          </Link>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-text-muted hover:text-red-600" onClick={() => handleDelete(prospect.id, prospect.company_name)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        {prospect.notes && (
+                          <p className="mt-2 text-xs text-text-muted italic">{prospect.notes}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>
