@@ -179,11 +179,31 @@ export function DailyOutreachTracker({ leads, templates, channel, onEntry }: {
 
     setEntries((prev) => [newEntry, ...prev]);
     onEntry?.(newEntry);
+
+    // Open respective channel app
+    const phone = (lead.phone || contact?.phone || "").replace(/\D/g, "");
+    const email = lead.email || contact?.email || "";
+    const encodedMessage = encodeURIComponent(messageText);
+
+    if (channel === "whatsapp" && phone) {
+      window.open(`https://wa.me/${phone}?text=${encodedMessage}`, "_blank");
+    } else if (channel === "linkedin" && lead.linkedin_url) {
+      const url = lead.linkedin_url.startsWith("http") ? lead.linkedin_url : `https://linkedin.com${lead.linkedin_url}`;
+      window.open(url, "_blank");
+    } else if (channel === "email" && email) {
+      const subject = encodeURIComponent(`Partnership Opportunity — Tadbeer Transformations`);
+      window.open(`mailto:${email}?subject=${subject}&body=${encodedMessage}`, "_blank");
+    } else if (channel === "call" && phone) {
+      window.open(`tel:${phone}`, "_blank");
+    } else if (channel === "meeting") {
+      window.open(`https://calendar.google.com/calendar/r/eventedit?text=${encodeURIComponent(`Meeting with ${newEntry.contact_name}`)}&details=${encodedMessage}`, "_blank");
+    }
+
     setSelectedLead("");
     setSelectedTemplate("");
     setMessageText("");
     setSendDialogOpen(false);
-    addToast("success", `Message sent to ${newEntry.contact_name} via ${rules.name}`);
+    addToast("success", `Opening ${rules.name} for ${newEntry.contact_name}`);
   };
 
   const handleLogResponse = (entryId: string) => {
