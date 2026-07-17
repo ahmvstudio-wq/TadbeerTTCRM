@@ -257,7 +257,7 @@ export default function ProspectsPage() {
                             <a href={`tel:${prospect.phone}`} className="text-text-muted hover:text-brand-teal"><Phone className="h-3.5 w-3.5" /></a>
                           )}
                           {prospect.website && (
-                            <a href={prospect.website} target="_blank" rel="noopener noreferrer" className="text-text-muted hover:text-brand-teal"><ExternalLink className="h-3.5 w-3.5" /></a>
+                            <a href={prospect.website.startsWith("http") ? prospect.website : `https://${prospect.website}`} target="_blank" rel="noopener noreferrer" className="text-text-muted hover:text-brand-teal"><ExternalLink className="h-3.5 w-3.5" /></a>
                           )}
                         </div>
                       </td>

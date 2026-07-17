@@ -213,7 +213,7 @@ export default function ProspectDetailPage() {
                       <div>
                         <p className="text-xs font-medium text-slate-500 uppercase">Website</p>
                         <a
-                          href={company.website}
+                          href={company.website.startsWith("http") ? company.website : `https://${company.website}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-sm text-teal-600 hover:underline mt-1 block"
