@@ -219,10 +219,10 @@ export default function ProspectsPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border">
+                    <th className="text-left py-3 px-4 text-xs font-medium text-text-secondary uppercase">Person</th>
                     <th className="text-left py-3 px-4 text-xs font-medium text-text-secondary uppercase">Company</th>
                     <th className="text-left py-3 px-4 text-xs font-medium text-text-secondary uppercase">Industry</th>
                     <th className="text-left py-3 px-4 text-xs font-medium text-text-secondary uppercase">Status</th>
-                    <th className="text-left py-3 px-4 text-xs font-medium text-text-secondary uppercase">Contact</th>
                     <th className="text-left py-3 px-4 text-xs font-medium text-text-secondary uppercase">Location</th>
                     <th className="text-right py-3 px-4 text-xs font-medium text-text-secondary uppercase">Actions</th>
                   </tr>
@@ -237,9 +237,18 @@ export default function ProspectsPage() {
                           </div>
                           <div>
                             <Link href={`/prospects/${prospect.id}`} className="text-sm font-medium text-text-primary hover:text-brand-teal">
-                              {prospect.company_name}
+                              {prospect.contacts?.[0]?.full_name || prospect.company_name}
                             </Link>
+                            {prospect.contacts?.[0]?.title && (
+                              <p className="text-xs text-text-muted">{prospect.contacts[0].title}</p>
+                            )}
                           </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div>
+                          <p className="text-sm text-text-secondary">{prospect.company_name}</p>
+                          {prospect.industry && <p className="text-xs text-text-muted">{prospect.industry}</p>}
                         </div>
                       </td>
                       <td className="py-3 px-4 text-sm text-text-secondary">{prospect.industry || "—"}</td>
@@ -247,19 +256,6 @@ export default function ProspectsPage() {
                         <Badge className={statusColor[prospect.status as CompanyStatus] || statusColor.prospect}>
                           {COMPANY_STATUSES[prospect.status as CompanyStatus]?.label || prospect.status}
                         </Badge>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          {prospect.email && (
-                            <a href={`mailto:${prospect.email}`} className="text-text-muted hover:text-brand-teal"><Mail className="h-3.5 w-3.5" /></a>
-                          )}
-                          {prospect.phone && (
-                            <a href={`tel:${prospect.phone}`} className="text-text-muted hover:text-brand-teal"><Phone className="h-3.5 w-3.5" /></a>
-                          )}
-                          {prospect.website && (
-                            <a href={prospect.website.startsWith("http") ? prospect.website : `https://${prospect.website}`} target="_blank" rel="noopener noreferrer" className="text-text-muted hover:text-brand-teal"><ExternalLink className="h-3.5 w-3.5" /></a>
-                          )}
-                        </div>
                       </td>
                       <td className="py-3 px-4 text-sm text-text-secondary">
                         {[prospect.city, prospect.country].filter(Boolean).join(", ") || "—"}

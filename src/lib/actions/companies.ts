@@ -13,7 +13,7 @@ export async function getCompanies(filters?: CompanyFilters) {
 
     let query = supabase
       .from('companies')
-      .select('*')
+      .select('*, contacts(*)')
       .order('created_at', { ascending: false })
 
     if (filters?.status) {
@@ -21,7 +21,7 @@ export async function getCompanies(filters?: CompanyFilters) {
     }
 
     if (filters?.search) {
-      query = query.or(`company_name.ilike.%${filters.search}%,industry.ilike.%${filters.search}%`)
+      query = query.or(`company_name.ilike.%${filters.search}%,industry.ilike.%${filters.search}%,contacts(full_name).ilike.%${filters.search}%`)
     }
 
     const { data, error } = await query
