@@ -19,6 +19,10 @@ import { Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter, DialogC
 import { ToastContainer, addToast } from "@/components/ui/toast";
 import { exportToCsv } from "@/lib/export-csv";
 import { getCompanies } from "@/lib/actions/companies";
+import { CHANNEL_RULES, DEFAULT_WHATSAPP_TEMPLATES, DEFAULT_LINKEDIN_TEMPLATES, DEFAULT_EMAIL_TEMPLATES, type MessageTemplate } from "@/lib/outreach-templates";
+import { DailyOutreachTracker } from "@/components/outreach/daily-tracker";
+import { LinkedInTracker } from "@/components/outreach/linkedin-tracker";
+import { TemplateManager } from "@/components/outreach/template-manager";
 
 // ─── Mini Bar Chart Component ──────────────────────────────────────
 function MiniBarChart({ data, maxVal }: { data: { label: string; value: number; color: string }[]; maxVal?: number }) {
@@ -148,6 +152,7 @@ const TABS = [
   { id: "pillars", label: "Pillar Targets", icon: Target },
   { id: "abtest", label: "A/B Testing", icon: FlaskConical },
   { id: "reports", label: "Weekly Reports", icon: BarChart3 },
+  { id: "templates", label: "Templates", icon: FileText },
 ];
 
 // ─── Main Page ──────────────────────────────────────────────────────
@@ -170,6 +175,7 @@ export default function OutreachPage() {
   const [leadTypeMap, setLeadTypeMap] = useState<Record<string, string>>({});
   const [leadCategoryMap, setLeadCategoryMap] = useState<Record<string, string[]>>({});
   const [outreachCatFilter, setOutreachCatFilter] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<MessageTemplate[]>([...DEFAULT_WHATSAPP_TEMPLATES, ...DEFAULT_LINKEDIN_TEMPLATES, ...DEFAULT_EMAIL_TEMPLATES]);
 
   useEffect(() => {
     // Load sample data for demo
@@ -292,8 +298,10 @@ export default function OutreachPage() {
         {activeTab === "leads" && <LeadsTab leads={filteredLeads} expandedLead={expandedLead} setExpandedLead={setExpandedLead} leadCategories={leadCategories} leadTypeMap={leadTypeMap} leadCategoryMap={leadCategoryMap} onAssignType={assignLeadType} onAssignCategory={assignLeadCategory} selectedLeadCategory={selectedLeadCategory} setSelectedLeadCategory={setSelectedLeadCategory} selectedLeadType={selectedLeadType} setSelectedLeadType={setSelectedLeadType} outreachCategories={outreachCategories} outreachCatFilter={outreachCatFilter} setOutreachCatFilter={setOutreachCatFilter} />}
         {activeTab === "activity" && <ActivityTab activities={activities} />}
         {activeTab === "pipeline" && <PipelineTab pipeline={pipeline} />}
-        {activeTab === "whatsapp" && <WhatsAppTab />}
-        {activeTab === "linkedin" && <LinkedInTab />}
+        {activeTab === "whatsapp" && <WhatsAppTab leads={leads} templates={templates} />}
+        {activeTab === "linkedin" && <LinkedInTab leads={leads} templates={templates} />}
+        {activeTab === "email" && <EmailTab leads={leads} templates={templates} />}
+        {activeTab === "templates" && <TemplatesTab templates={templates} setTemplates={setTemplates} />}
         {activeTab === "pillars" && <PillarsTab targets={pillarTargets} />}
         {activeTab === "abtest" && <AbTestTab tests={abTests} />}
         {activeTab === "reports" && <ReportsTab reports={weeklyReports} />}
@@ -586,55 +594,6 @@ function PipelineTab({ pipeline }: { pipeline: PipelineDeal[] }) {
   );
 }
 
-// ─── WHATSAPP TAB ───────────────────────────────────────────────────
-function WhatsAppTab() {
-  const steps = [1, 2, 3, 4, 5];
-  return (
-    <div className="space-y-4">
-      <Card><CardContent className="p-4">
-        <p className="text-xs text-text-muted mb-2">WhatsApp Flow — Max 40-50 new touches/day. 60% reply rate target.</p>
-        <div className="grid grid-cols-5 gap-2 stagger-children">
-          {steps.map((s) => (
-            <Card key={s} className="hover-lift"><CardContent className="p-3 text-center">
-              <p className="text-lg font-bold text-green-600">Step {s}</p>
-              <p className="text-[10px] text-text-muted">{["Intro", "Value Prop", "Case Study", "Follow-up", "Final"][s - 1]}</p>
-            </CardContent></Card>
-          ))}
-        </div>
-      </CardContent></Card>
-      <Card><CardContent className="p-6 text-center">
-        <MessageCircle className="h-10 w-10 text-green-500 mx-auto mb-3 opacity-40" />
-        <p className="text-sm text-text-secondary">Import WhatsApp tracker data to see activity here.</p>
-        <p className="text-xs text-text-muted mt-1">Supports CSV import with WA tracking columns.</p>
-      </CardContent></Card>
-    </div>
-  );
-}
-
-// ─── LINKEDIN TAB ───────────────────────────────────────────────────
-function LinkedInTab() {
-  const touches = ["T1: Connection", "T2: Welcome", "T3: Value", "T4: Case Study", "T5: Follow-up", "T6: Break-up", "T7: Final"];
-  return (
-    <div className="space-y-4">
-      <Card><CardContent className="p-4">
-        <p className="text-xs text-text-muted mb-3">7-Touch LinkedIn Sequence — Target: 15 connections + 10 DMs + 5 warm DMs daily.</p>
-        <div className="grid grid-cols-7 gap-1 stagger-children">
-          {touches.map((t, i) => (
-            <div key={i} className="text-center p-2 rounded-lg bg-blue-50 border border-blue-100">
-              <p className="text-xs font-bold text-blue-700">T{i + 1}</p>
-              <p className="text-[9px] text-text-muted mt-0.5">{t.split(": ")[1]}</p>
-            </div>
-          ))}
-        </div>
-      </CardContent></Card>
-      <Card><CardContent className="p-6 text-center">
-        <ExternalLink className="h-10 w-10 text-blue-500 mx-auto mb-3 opacity-40" />
-        <p className="text-sm text-text-secondary">Import LinkedIn sequence data to track touch progress.</p>
-      </CardContent></Card>
-    </div>
-  );
-}
-
 // ─── PILLARS TAB ────────────────────────────────────────────────────
 function PillarsTab({ targets }: { targets: PillarTarget[] }) {
   const totalTarget = targets.reduce((s, t) => s + t.target_revenue_omr, 0);
@@ -786,3 +745,35 @@ const samplePillarTargets: PillarTarget[] = [
   { id: "3", pillar_name: "Digital Marketing", target_revenue_omr: 12000, target_deals: 6, target_leads: 30, actual_revenue_omr: 0, actual_deals: 0, actual_leads: 10 },
   { id: "4", pillar_name: "Human Capital", target_revenue_omr: 8000, target_deals: 4, target_leads: 16, actual_revenue_omr: 0, actual_deals: 0, actual_leads: 5 },
 ];
+
+// ─── EMAIL TAB ──────────────────────────────────────────────────────
+function EmailTab({ leads, templates }: { leads: Lead[]; templates: MessageTemplate[] }) {
+  return (
+    <div className="space-y-4">
+      <DailyOutreachTracker leads={leads} templates={templates} channel="email" />
+    </div>
+  );
+}
+
+// ─── WHATSAPP TAB (Updated) ─────────────────────────────────────────
+function WhatsAppTab({ leads, templates }: { leads: Lead[]; templates: MessageTemplate[] }) {
+  return (
+    <div className="space-y-4">
+      <DailyOutreachTracker leads={leads} templates={templates} channel="whatsapp" />
+    </div>
+  );
+}
+
+// ─── LINKEDIN TAB (Updated) ─────────────────────────────────────────
+function LinkedInTab({ leads, templates }: { leads: Lead[]; templates: MessageTemplate[] }) {
+  return (
+    <div className="space-y-4">
+      <LinkedInTracker leads={leads} />
+    </div>
+  );
+}
+
+// ─── TEMPLATES TAB ──────────────────────────────────────────────────
+function TemplatesTab({ templates, setTemplates }: { templates: MessageTemplate[]; setTemplates: (t: MessageTemplate[]) => void }) {
+  return <TemplateManager templates={templates} onUpdate={setTemplates} />;
+}
