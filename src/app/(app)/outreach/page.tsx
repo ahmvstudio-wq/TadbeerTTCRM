@@ -113,7 +113,10 @@ export default function OutreachPage() {
 
           {campaigns.length > 0 && (
             <div className="space-y-2">
-              <p className="text-xs font-medium text-text-muted uppercase">Your Campaigns</p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-text-muted uppercase">Your Campaigns ({campaigns.length})</p>
+                <Button size="sm" variant="ghost" onClick={() => { setActiveCampaign({ id: "all", name: "All Campaigns", description: "", created_at: "", lead_ids: allLeads.map((l) => l.id), status: "active" }); setSelectedLeads(allLeads); setPhase("active"); }} className="text-[11px] text-brand-teal hover:underline">View All Campaigns</Button>
+              </div>
               {campaigns.map((camp) => {
                 const campTouches = touches.filter((t) => t.campaign_id === camp.id);
                 const campReached = camp.lead_ids.filter((id) => reachedLeads.has(id)).length;
@@ -248,6 +251,7 @@ export default function OutreachPage() {
   // ─── ACTIVE ───────────────────────────────────────────────────────
   const reachedCount = selectedLeads.filter((l) => reachedLeads.has(l.id)).length;
   const unreachedCount = selectedLeads.length - reachedCount;
+  const isAllView = activeCampaign?.id === "all";
 
   return (
     <div className="space-y-5 page-enter">
@@ -265,6 +269,41 @@ export default function OutreachPage() {
           <Button variant="outline" size="sm" onClick={handleExport} className="hover-lift press-effect"><Download className="h-3.5 w-3.5 mr-1" />CSV</Button>
         </div>
       </div>
+
+      {/* All Campaigns Overview */}
+      {isAllView && (
+        <Card className="hover-lift"><CardContent className="p-4">
+          <p className="text-sm font-medium text-text-primary mb-3">Campaign Overview</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead><tr className="border-b border-border">
+                <th className="text-left py-2 px-3 font-medium text-text-muted">Campaign</th>
+                <th className="text-center py-2 px-3 font-medium text-text-muted">Prospects</th>
+                <th className="text-center py-2 px-3 font-medium text-text-muted">Reached</th>
+                <th className="text-center py-2 px-3 font-medium text-text-muted">Touches</th>
+                <th className="text-center py-2 px-3 font-medium text-text-muted">Status</th>
+                <th className="text-left py-2 px-3 font-medium text-text-muted">Created</th>
+              </tr></thead>
+              <tbody>
+                {campaigns.map((camp) => {
+                  const campTouches = touches.filter((t) => t.campaign_id === camp.id);
+                  const campReached = camp.lead_ids.filter((id) => reachedLeads.has(id)).length;
+                  return (
+                    <tr key={camp.id} className="border-b border-border-light hover:bg-cream-dark/30 cursor-pointer" onClick={() => { setActiveCampaign(camp); setSelectedLeads(allLeads.filter((l) => camp.lead_ids.includes(l.id))); }}>
+                      <td className="py-2 px-3 font-medium text-text-primary">{camp.name}</td>
+                      <td className="py-2 px-3 text-center">{camp.lead_ids.length}</td>
+                      <td className="py-2 px-3 text-center"><span className="text-emerald-600 font-medium">{campReached}</span></td>
+                      <td className="py-2 px-3 text-center">{campTouches.length}</td>
+                      <td className="py-2 px-3 text-center"><Badge className={cn("text-[10px]", camp.status === "active" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600")}>{camp.status}</Badge></td>
+                      <td className="py-2 px-3 text-text-muted">{new Date(camp.created_at).toLocaleDateString()}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </CardContent></Card>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-5 gap-3 stagger-children">
