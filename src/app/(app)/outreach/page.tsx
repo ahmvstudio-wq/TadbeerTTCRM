@@ -18,6 +18,7 @@ import { ToastContainer, addToast } from "@/components/ui/toast";
 import { exportToCsv } from "@/lib/export-csv";
 import { generateDailyReport } from "@/lib/pdf-report";
 import { getCompanies } from "@/lib/actions/companies";
+import { saveTouch as saveTouchToDb, getTouches, updateTouch, deleteTouch as deleteTouchAction, saveCampaign, getCampaigns, markReached as markReachedAction, unmarkReached as unmarkReachedAction, getReachedLeads } from "@/lib/actions/outreach";
 import { CHANNEL_RULES, DEFAULT_WHATSAPP_TEMPLATES, DEFAULT_LINKEDIN_TEMPLATES, DEFAULT_EMAIL_TEMPLATES, type MessageTemplate, fillTemplate } from "@/lib/outreach-templates";
 
 interface Lead { id: string; company_name: string; contact_name: string; job_title: string; industry: string; city: string; phone: string; email: string; linkedin_url: string; est_deal_value: number; contacts?: any[]; reached?: boolean; }
@@ -58,14 +59,36 @@ export default function OutreachPage() {
 
   const loadAllLeads = async () => {
     setLoading(true);
-    const result = await getCompanies();
-    if (result.data) {
-      setAllLeads(result.data.map((c: any) => ({
+    const [companiesResult, touchesResult, campaignsResult, reachedResult] = await Promise.all([
+      getCompanies(),
+      getTouches(),
+      getCampaigns(),
+      getReachedLeads(),
+    ]);
+    if (companiesResult.data) {
+      setAllLeads(companiesResult.data.map((c: any) => ({
         id: c.id, company_name: c.company_name, contact_name: c.contacts?.[0]?.full_name || "",
         job_title: c.contacts?.[0]?.title || "", industry: c.industry || "", city: c.city || "",
         phone: c.contacts?.[0]?.phone || c.phone || "", email: c.contacts?.[0]?.email || c.email || "",
         linkedin_url: c.contacts?.[0]?.linkedin_url || "", est_deal_value: c.est_deal_value || 0, contacts: c.contacts || [],
       })));
+    }
+    if (touchesResult.data) {
+      setTouches(touchesResult.data.map((t: any) => ({
+        id: t.id, lead_id: t.lead_id, channel: t.channel, step: t.step_number,
+        message: t.message || "", status: t.status, sent_at: t.sent_at,
+        response: t.response, follow_up_date: t.follow_up_date, campaign_id: t.campaign_id,
+        is_call: t.is_call, call_duration: t.call_duration, call_outcome: t.call_outcome,
+      })));
+    }
+    if (campaignsResult.data) {
+      setCampaigns(campaignsResult.data.map((c: any) => ({
+        id: c.id, name: c.name, description: c.description || "",
+        created_at: c.created_at, lead_ids: c.lead_ids || [], status: c.status,
+      })));
+    }
+    if (reachedResult.data) {
+      setReachedLeads(new Set(reachedResult.data));
     }
     setLoading(false);
   };
@@ -80,12 +103,16 @@ export default function OutreachPage() {
   const todayCalls = touches.filter((t) => t.is_call && t.sent_at.startsWith(today));
 
   // Mark as reached
-  const markReached = (leadId: string) => {
+  const markReached = async (leadId: string) => {
+    const result = await markReachedAction(leadId);
+    if (result.error) { addToast("error", result.error); return; }
     setReachedLeads((prev) => new Set([...prev, leadId]));
     addToast("success", "Prospect marked as reached — updated everywhere");
   };
 
-  const unmarkReached = (leadId: string) => {
+  const unmarkReached = async (leadId: string) => {
+    const result = await unmarkReachedAction(leadId);
+    if (result.error) { addToast("error", result.error); return; }
     setReachedLeads((prev) => { const n = new Set(prev); n.delete(leadId); return n; });
     addToast("success", "Prospect unmarked");
   };
@@ -169,9 +196,11 @@ export default function OutreachPage() {
             </DialogContent>
             <DialogFooter>
               <Button variant="ghost" onClick={() => setNewCampaignOpen(false)}>Cancel</Button>
-              <Button onClick={() => {
+              <Button onClick={async () => {
                 if (!campaignForm.name || campaignLeads.size === 0) { addToast("error", "Name and prospects required"); return; }
-                const c: Campaign = { id: String(Date.now()), name: campaignForm.name, description: campaignForm.description, created_at: new Date().toISOString(), lead_ids: Array.from(campaignLeads), status: "active" };
+                const result = await saveCampaign({ name: campaignForm.name, description: campaignForm.description, lead_ids: Array.from(campaignLeads) });
+                if (result.error) { addToast("error", result.error); return; }
+                const c: Campaign = { id: result.data.id, name: campaignForm.name, description: campaignForm.description, created_at: result.data.created_at, lead_ids: Array.from(campaignLeads), status: "active" };
                 setCampaigns((p) => [...p, c]); setSelectedLeads(allLeads.filter((l) => campaignLeads.has(l.id))); setActiveCampaign(c);
                 setNewCampaignOpen(false); setCampaignForm({ name: "", description: "" }); setCampaignLeads(new Set()); setPhase("active");
                 addToast("success", `Campaign "${c.name}" created`);
@@ -201,13 +230,23 @@ export default function OutreachPage() {
     setTouchMessage(msg); setTouchDialog({ open: true, leadId, channel });
   };
 
-  const saveTouch = () => {
+  const saveTouch = async () => {
     const lead = selectedLeads.find((l) => l.id === touchDialog.leadId);
     if (!lead || !touchMessage.trim()) return;
     const existingSteps = touches.filter((t) => t.lead_id === touchDialog.leadId && t.channel === touchDialog.channel).length;
     const rules = CHANNEL_RULES[touchDialog.channel as keyof typeof CHANNEL_RULES];
-    const newTouch: TouchRecord = { id: String(Date.now()), lead_id: touchDialog.leadId, channel: touchDialog.channel, step: existingSteps + 1, message: touchMessage, status: "sent", sent_at: new Date().toISOString(), follow_up_date: new Date(Date.now() + (rules?.follow_up_interval_days || 3) * 86400000).toISOString().split("T")[0], campaign_id: activeCampaign?.id };
+    const followUpDate = new Date(Date.now() + (rules?.follow_up_interval_days || 3) * 86400000).toISOString().split("T")[0];
+
+    const result = await saveTouchToDb({
+      lead_id: touchDialog.leadId, channel: touchDialog.channel, step: existingSteps + 1,
+      message: touchMessage, campaign_id: activeCampaign?.id, follow_up_date: followUpDate,
+    });
+
+    if (result.error) { addToast("error", result.error); return; }
+
+    const newTouch: TouchRecord = { id: result.data.id, lead_id: touchDialog.leadId, channel: touchDialog.channel, step: existingSteps + 1, message: touchMessage, status: "sent", sent_at: new Date().toISOString(), follow_up_date: followUpDate, campaign_id: activeCampaign?.id };
     setTouches((p) => [newTouch, ...p]);
+
     const phone = (lead.phone || "").replace(/\D/g, "");
     const encoded = encodeURIComponent(touchMessage);
     if (touchDialog.channel === "whatsapp" && phone) window.open(`https://wa.me/${phone}?text=${encoded}`, "_blank");
@@ -218,22 +257,35 @@ export default function OutreachPage() {
     addToast("success", `${touchDialog.channel} touch logged`);
   };
 
-  const saveCall = () => {
+  const saveCall = async () => {
     const lead = selectedLeads.find((l) => l.id === callDialog.leadId);
     if (!lead) return;
-    const newTouch: TouchRecord = { id: String(Date.now()), lead_id: callDialog.leadId, channel: "call", step: touches.filter((t) => t.lead_id === callDialog.leadId && t.channel === "call").length + 1, message: callForm.notes || "Call completed", status: "sent", sent_at: new Date().toISOString(), is_call: true, call_duration: parseInt(callForm.duration) || 0, call_outcome: callForm.outcome, campaign_id: activeCampaign?.id };
+    const result = await saveTouchToDb({
+      lead_id: callDialog.leadId, channel: "call",
+      step: touches.filter((t) => t.lead_id === callDialog.leadId && t.channel === "call").length + 1,
+      message: callForm.notes || "Call completed", campaign_id: activeCampaign?.id,
+      is_call: true, call_duration: parseInt(callForm.duration) || 0, call_outcome: callForm.outcome,
+    });
+    if (result.error) { addToast("error", result.error); return; }
+    const newTouch: TouchRecord = { id: result.data.id, lead_id: callDialog.leadId, channel: "call", step: touches.filter((t) => t.lead_id === callDialog.leadId && t.channel === "call").length + 1, message: callForm.notes || "Call completed", status: "sent", sent_at: new Date().toISOString(), is_call: true, call_duration: parseInt(callForm.duration) || 0, call_outcome: callForm.outcome, campaign_id: activeCampaign?.id };
     setTouches((p) => [newTouch, ...p]);
     setCallDialog({ open: false, leadId: "" }); setCallForm({ duration: "", outcome: "connected", notes: "" });
     addToast("success", `Call logged — ${lead.contact_name || lead.company_name}`);
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editDialog.touch) return;
+    const result = await updateTouch(editDialog.touch.id, { response: touchResponse });
+    if (result.error) { addToast("error", result.error); return; }
     setTouches((p) => p.map((t) => t.id === editDialog.touch!.id ? { ...t, response: touchResponse } : t));
     setEditDialog({ open: false, touch: null }); setTouchResponse(""); addToast("success", "Updated");
   };
 
-  const deleteTouch = (id: string) => { setTouches((p) => p.filter((t) => t.id !== id)); addToast("success", "Deleted"); };
+  const deleteTouchFn = async (id: string) => {
+    const result = await deleteTouchAction(id);
+    if (result.error) { addToast("error", result.error); return; }
+    setTouches((p) => p.filter((t) => t.id !== id)); addToast("success", "Deleted");
+  };
 
   const handleExport = () => {
     exportToCsv(touches.map((t) => { const l = selectedLeads.find((x) => x.id === t.lead_id); return { date: t.sent_at.split("T")[0], company: l?.company_name || "", contact: l?.contact_name || "", channel: t.channel, step: t.step, message: t.message.substring(0, 200), response: t.response || "", follow_up: t.follow_up_date || "", reached: reachedLeads.has(t.lead_id) ? "Yes" : "No" }; }), `outreach-${today}.csv`);
@@ -399,7 +451,7 @@ export default function OutreachPage() {
                             {t.follow_up_date && <Badge className="text-[9px] bg-amber-100 text-amber-700">FU: {t.follow_up_date}</Badge>}
                             <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button onClick={(e) => { e.stopPropagation(); setEditDialog({ open: true, touch: t }); setTouchResponse(t.response || ""); }} className="p-1 rounded hover:bg-cream-dark"><Edit className="h-3 w-3 text-text-muted" /></button>
-                              <button onClick={(e) => { e.stopPropagation(); deleteTouch(t.id); }} className="p-1 rounded hover:bg-red-50"><Trash2 className="h-3 w-3 text-red-400" /></button>
+                              <button onClick={(e) => { e.stopPropagation(); deleteTouchFn(t.id); }} className="p-1 rounded hover:bg-red-50"><Trash2 className="h-3 w-3 text-red-400" /></button>
                             </div>
                           </div>
                         ); })}
