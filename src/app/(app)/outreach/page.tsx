@@ -6,6 +6,7 @@ import {
   Target, FlaskConical, FileText, Upload, Download, Plus, X, CheckCircle,
   ChevronRight, ChevronDown, Loader2, AlertTriangle, Send, Eye, Calendar,
   Clock, Building2, GitBranch, TestTube2, ClipboardList, ArrowUpRight,
+  Folder, FolderOpen, Tag, Filter, Flame, Sun, Snowflake, RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -98,6 +99,45 @@ interface PillarTarget {
   target_leads: number; actual_revenue_omr: number; actual_deals: number; actual_leads: number;
 }
 
+// ─── Category Types ─────────────────────────────────────────────────
+interface LeadCategory {
+  id: string; name: string; color: string; icon: string; sort_order: number;
+  subcategories?: LeadCategory[];
+}
+
+interface OutreachCategory {
+  id: string; name: string; color: string; icon: string; description: string; sort_order: number;
+}
+
+const DEFAULT_LEAD_CATEGORIES: LeadCategory[] = [
+  { id: "cat1", name: "Hot Leads", color: "#ef4444", icon: "flame", sort_order: 1 },
+  { id: "cat2", name: "Warm Leads", color: "#f59e0b", icon: "sun", sort_order: 2 },
+  { id: "cat3", name: "Cold Leads", color: "#3b82f6", icon: "snowflake", sort_order: 3 },
+  { id: "cat4", name: "Referrals", color: "#10b981", icon: "users", sort_order: 4 },
+  { id: "cat5", name: "Inbound", color: "#8b5cf6", icon: "arrow-down-left", sort_order: 5 },
+  { id: "cat6", name: "Outbound", color: "#0d9488", icon: "arrow-up-right", sort_order: 6 },
+  { id: "cat7", name: "Event Leads", color: "#ec4899", icon: "calendar", sort_order: 7 },
+  { id: "cat8", name: "Website Leads", color: "#6366f1", icon: "globe", sort_order: 8 },
+];
+
+const DEFAULT_OUTREACH_CATEGORIES: OutreachCategory[] = [
+  { id: "oc1", name: "Cold Outreach", color: "#3b82f6", icon: "snowflake", description: "First-time contact", sort_order: 1 },
+  { id: "oc2", name: "Warm Follow-up", color: "#f59e0b", icon: "sun", description: "Following up on previous interaction", sort_order: 2 },
+  { id: "oc3", name: "Re-engagement", color: "#8b5cf6", icon: "refresh-cw", description: "Re-activating dormant leads", sort_order: 3 },
+  { id: "oc4", name: "Upsell/Cross-sell", color: "#10b981", icon: "trending-up", description: "Existing clients — new services", sort_order: 4 },
+  { id: "oc5", name: "Referral Outreach", color: "#ec4899", icon: "users", description: "Contacts from referrals", sort_order: 5 },
+  { id: "oc6", name: "Event Follow-up", color: "#0d9488", icon: "calendar", description: "Post-event networking", sort_order: 6 },
+  { id: "oc7", name: "Demo/Presentation", color: "#6366f1", icon: "presentation", description: "Product demo or pitch meetings", sort_order: 7 },
+  { id: "oc8", name: "Contract Negotiation", color: "#ef4444", icon: "file-text", description: "Active deal discussions", sort_order: 8 },
+];
+
+const LEAD_TYPES = ["Cold", "Warm", "Hot", "Referral", "Inbound", "VIP", "Dormant"];
+
+const LEAD_TYPE_COLORS: Record<string, string> = {
+  Cold: "#3b82f6", Warm: "#f59e0b", Hot: "#ef4444", Referral: "#10b981",
+  Inbound: "#8b5cf6", VIP: "#C8A951", Dormant: "#94a3b8",
+};
+
 // ─── Tab Config ─────────────────────────────────────────────────────
 const TABS = [
   { id: "leads", label: "Leads Database", icon: Users },
@@ -122,6 +162,14 @@ export default function OutreachPage() {
   const [loading, setLoading] = useState(true);
   const [importOpen, setImportOpen] = useState(false);
   const [expandedLead, setExpandedLead] = useState<string | null>(null);
+  const [leadCategories] = useState<LeadCategory[]>(DEFAULT_LEAD_CATEGORIES);
+  const [outreachCategories] = useState<OutreachCategory[]>(DEFAULT_OUTREACH_CATEGORIES);
+  const [selectedLeadCategory, setSelectedLeadCategory] = useState<string | null>(null);
+  const [selectedLeadType, setSelectedLeadType] = useState<string | null>(null);
+  const [categoryDialog, setCategoryDialog] = useState<{ open: boolean; leadId: string | null }>({ open: false, leadId: null });
+  const [leadTypeMap, setLeadTypeMap] = useState<Record<string, string>>({});
+  const [leadCategoryMap, setLeadCategoryMap] = useState<Record<string, string[]>>({});
+  const [outreachCatFilter, setOutreachCatFilter] = useState<string | null>(null);
 
   useEffect(() => {
     // Load sample data for demo
@@ -148,10 +196,35 @@ export default function OutreachPage() {
       lead_id: l.lead_id, company_name: l.company_name, contact_name: l.contact_name,
       job_title: l.job_title, industry: l.industry, city: l.city, phone: l.phone,
       email: l.email, lead_source: l.lead_source, lead_status: l.lead_status,
+      lead_type: leadTypeMap[l.id] || "Cold", categories: (leadCategoryMap[l.id] || []).join("; "),
       est_deal_value: l.est_deal_value, notes: l.notes,
     })), `outreach-leads-${new Date().toISOString().split("T")[0]}.csv`);
     addToast("success", "Leads exported");
   };
+
+  const assignLeadType = (leadId: string, type: string) => {
+    setLeadTypeMap((prev) => ({ ...prev, [leadId]: type }));
+    addToast("success", `Lead type set to "${type}"`);
+  };
+
+  const assignLeadCategory = (leadId: string, categoryId: string) => {
+    setLeadCategoryMap((prev) => {
+      const current = prev[leadId] || [];
+      const updated = current.includes(categoryId) ? current.filter((c) => c !== categoryId) : [...current, categoryId];
+      return { ...prev, [leadId]: updated };
+    });
+  };
+
+  const filteredLeads = useMemo(() => {
+    let result = leads;
+    if (selectedLeadCategory) {
+      result = result.filter((l) => (leadCategoryMap[l.id] || []).includes(selectedLeadCategory));
+    }
+    if (selectedLeadType) {
+      result = result.filter((l) => (leadTypeMap[l.id] || "Cold") === selectedLeadType);
+    }
+    return result;
+  }, [leads, selectedLeadCategory, selectedLeadType, leadTypeMap, leadCategoryMap]);
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-[60vh]">
@@ -216,7 +289,7 @@ export default function OutreachPage() {
 
       {/* Tab Content */}
       <div className="animate-fade-in">
-        {activeTab === "leads" && <LeadsTab leads={leads} expandedLead={expandedLead} setExpandedLead={setExpandedLead} />}
+        {activeTab === "leads" && <LeadsTab leads={filteredLeads} expandedLead={expandedLead} setExpandedLead={setExpandedLead} leadCategories={leadCategories} leadTypeMap={leadTypeMap} leadCategoryMap={leadCategoryMap} onAssignType={assignLeadType} onAssignCategory={assignLeadCategory} selectedLeadCategory={selectedLeadCategory} setSelectedLeadCategory={setSelectedLeadCategory} selectedLeadType={selectedLeadType} setSelectedLeadType={setSelectedLeadType} outreachCategories={outreachCategories} outreachCatFilter={outreachCatFilter} setOutreachCatFilter={setOutreachCatFilter} />}
         {activeTab === "activity" && <ActivityTab activities={activities} />}
         {activeTab === "pipeline" && <PipelineTab pipeline={pipeline} />}
         {activeTab === "whatsapp" && <WhatsAppTab />}
@@ -230,12 +303,39 @@ export default function OutreachPage() {
 }
 
 // ─── LEADS TAB ──────────────────────────────────────────────────────
-function LeadsTab({ leads, expandedLead, setExpandedLead }: { leads: Lead[]; expandedLead: string | null; setExpandedLead: (id: string | null) => void }) {
+function LeadsTab({ leads, expandedLead, setExpandedLead, leadCategories, leadTypeMap, leadCategoryMap, onAssignType, onAssignCategory, selectedLeadCategory, setSelectedLeadCategory, selectedLeadType, setSelectedLeadType, outreachCategories, outreachCatFilter, setOutreachCatFilter }: {
+  leads: Lead[]; expandedLead: string | null; setExpandedLead: (id: string | null) => void;
+  leadCategories: LeadCategory[]; leadTypeMap: Record<string, string>; leadCategoryMap: Record<string, string[]>;
+  onAssignType: (id: string, type: string) => void; onAssignCategory: (id: string, catId: string) => void;
+  selectedLeadCategory: string | null; setSelectedLeadCategory: (id: string | null) => void;
+  selectedLeadType: string | null; setSelectedLeadType: (type: string | null) => void;
+  outreachCategories: OutreachCategory[]; outreachCatFilter: string | null; setOutreachCatFilter: (id: string | null) => void;
+}) {
+  const [catDialogLead, setCatDialogLead] = useState<string | null>(null);
+
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     leads.forEach((l) => { counts[l.lead_status] = (counts[l.lead_status] || 0) + 1; });
     return counts;
   }, [leads]);
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    leads.forEach((l) => {
+      const cats = leadCategoryMap[l.id] || [];
+      cats.forEach((c) => { counts[c] = (counts[c] || 0) + 1; });
+    });
+    return counts;
+  }, [leads, leadCategoryMap]);
+
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    leads.forEach((l) => {
+      const t = leadTypeMap[l.id] || "Cold";
+      counts[t] = (counts[t] || 0) + 1;
+    });
+    return counts;
+  }, [leads, leadTypeMap]);
 
   const statusColors: Record<string, string> = {
     New: "bg-slate-100 text-slate-700", Contacted: "bg-blue-100 text-blue-700",
@@ -244,53 +344,165 @@ function LeadsTab({ leads, expandedLead, setExpandedLead }: { leads: Lead[]; exp
     Won: "bg-emerald-100 text-emerald-700", Lost: "bg-red-100 text-red-700",
   };
 
+  const iconMap: Record<string, React.ElementType> = {
+    flame: Flame, sun: Sun, snowflake: Snowflake, users: Users, calendar: Calendar,
+    globe: ExternalLink, "arrow-down-left": ArrowUpRight, "arrow-up-right": ArrowUpRight,
+    "refresh-cw": RefreshCw, "trending-up": TrendingUp, "file-text": FileText,
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2 stagger-children">
-        {Object.entries(statusCounts).map(([status, count]) => (
-          <Badge key={status} className={cn("text-xs", statusColors[status] || "bg-slate-100 text-slate-700")}>{status}: {count}</Badge>
-        ))}
-        <Badge className="text-xs bg-brand-teal text-white">Total: {leads.length}</Badge>
+      {/* Outreach Type Filter */}
+      <Card className="hover-lift"><CardContent className="p-3">
+        <div className="flex items-center gap-2 mb-2">
+          <Filter className="h-3.5 w-3.5 text-text-muted" />
+          <span className="text-xs font-medium text-text-secondary">Outreach Type</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <button onClick={() => setOutreachCatFilter(null)} className={cn("px-2.5 py-1 rounded-full text-[11px] font-medium transition-all press-effect", !outreachCatFilter ? "bg-brand-teal text-white" : "bg-white border border-border text-text-secondary hover:bg-cream-dark")}>All</button>
+          {outreachCategories.map((cat) => (
+            <button key={cat.id} onClick={() => setOutreachCatFilter(outreachCatFilter === cat.id ? null : cat.id)} className={cn("px-2.5 py-1 rounded-full text-[11px] font-medium transition-all press-effect flex items-center gap-1", outreachCatFilter === cat.id ? "text-white" : "bg-white border border-border text-text-secondary hover:bg-cream-dark")} style={outreachCatFilter === cat.id ? { backgroundColor: cat.color } : {}}>
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: cat.color }} />
+              {cat.name}
+            </button>
+          ))}
+        </div>
+      </CardContent></Card>
+
+      {/* Lead Type + Category Filters */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Card className="hover-lift"><CardContent className="p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Tag className="h-3.5 w-3.5 text-text-muted" />
+            <span className="text-xs font-medium text-text-secondary">Lead Type</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <button onClick={() => setSelectedLeadType(null)} className={cn("px-2.5 py-1 rounded-full text-[11px] font-medium transition-all press-effect", !selectedLeadType ? "bg-brand-teal text-white" : "bg-white border border-border text-text-secondary hover:bg-cream-dark")}>All</button>
+            {LEAD_TYPES.map((type) => (
+              <button key={type} onClick={() => setSelectedLeadType(selectedLeadType === type ? null : type)} className={cn("px-2.5 py-1 rounded-full text-[11px] font-medium transition-all press-effect flex items-center gap-1", selectedLeadType === type ? "text-white" : "bg-white border border-border text-text-secondary hover:bg-cream-dark")} style={selectedLeadType === type ? { backgroundColor: LEAD_TYPE_COLORS[type] } : {}}>
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: LEAD_TYPE_COLORS[type] }} />
+                {type} <span className="opacity-60">{typeCounts[type] || 0}</span>
+              </button>
+            ))}
+          </div>
+        </CardContent></Card>
+
+        <Card className="hover-lift"><CardContent className="p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Folder className="h-3.5 w-3.5 text-text-muted" />
+            <span className="text-xs font-medium text-text-secondary">Lead Category</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <button onClick={() => setSelectedLeadCategory(null)} className={cn("px-2.5 py-1 rounded-full text-[11px] font-medium transition-all press-effect", !selectedLeadCategory ? "bg-brand-teal text-white" : "bg-white border border-border text-text-secondary hover:bg-cream-dark")}>All</button>
+            {leadCategories.map((cat) => {
+              const Icon = iconMap[cat.icon] || Folder;
+              return (
+                <button key={cat.id} onClick={() => setSelectedLeadCategory(selectedLeadCategory === cat.id ? null : cat.id)} className={cn("px-2.5 py-1 rounded-full text-[11px] font-medium transition-all press-effect flex items-center gap-1", selectedLeadCategory === cat.id ? "text-white" : "bg-white border border-border text-text-secondary hover:bg-cream-dark")} style={selectedLeadCategory === cat.id ? { backgroundColor: cat.color } : {}}>
+                  <Icon className="h-3 w-3" />
+                  {cat.name} <span className="opacity-60">{categoryCounts[cat.id] || 0}</span>
+                </button>
+              );
+            })}
+          </div>
+        </CardContent></Card>
       </div>
 
+      {/* Leads List */}
       <div className="divide-y divide-border-light stagger-children">
-        {leads.map((lead) => (
-          <div key={lead.id}>
-            <div className="flex items-center gap-3 py-3 px-4 hover:bg-cream-dark/30 cursor-pointer transition-all duration-200" onClick={() => setExpandedLead(expandedLead === lead.id ? null : lead.id)}>
-              <button className="flex-shrink-0 text-text-muted transition-transform duration-200">
-                {expandedLead === lead.id ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-              </button>
-              <div className="h-9 w-9 rounded-lg bg-brand-teal-light flex items-center justify-center flex-shrink-0">
-                <Users className="h-4 w-4 text-brand-teal" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-text-primary">{lead.contact_name}</span>
-                  <span className="text-xs text-text-muted">· {lead.job_title}</span>
+        {leads.map((lead) => {
+          const contact = lead.contacts?.[0];
+          const isExpanded = expandedLead === lead.id;
+          const leadType = leadTypeMap[lead.id] || "Cold";
+          const leadCats = leadCategoryMap[lead.id] || [];
+
+          return (
+            <div key={lead.id} className="animate-fade-in">
+              <div className="flex items-center gap-3 py-3 px-4 hover:bg-cream-dark/30 cursor-pointer transition-all duration-200" onClick={() => setExpandedLead(isExpanded ? null : lead.id)}>
+                <button className="flex-shrink-0 text-text-muted transition-transform duration-200">
+                  {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                </button>
+                <div className="h-9 w-9 rounded-lg bg-brand-teal-light flex items-center justify-center flex-shrink-0 transition-transform duration-200 hover:scale-110">
+                  <Users className="h-4 w-4 text-brand-teal" />
                 </div>
-                <p className="text-xs text-text-secondary">{lead.company_name} · {lead.industry} · {lead.city}</p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-text-primary">{lead.contact_name}</span>
+                    <span className="text-xs text-text-muted">· {lead.job_title}</span>
+                    <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: LEAD_TYPE_COLORS[leadType] }} title={leadType} />
+                  </div>
+                  <p className="text-xs text-text-secondary">{lead.company_name} · {lead.industry} · {lead.city}</p>
+                </div>
+                <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
+                  {leadCats.slice(0, 2).map((catId) => {
+                    const cat = leadCategories.find((c) => c.id === catId);
+                    return cat ? <Badge key={catId} className="text-[9px] px-1.5 py-0" style={{ backgroundColor: cat.color + "20", color: cat.color }}>{cat.name}</Badge> : null;
+                  })}
+                </div>
+                <Badge className={cn("text-[10px] flex-shrink-0", statusColors[lead.lead_status] || "bg-slate-100")}>{lead.lead_status}</Badge>
+                <span className="text-xs font-medium text-text-muted flex-shrink-0">OMR {lead.est_deal_value.toLocaleString()}</span>
               </div>
-              <Badge className={cn("text-[10px] flex-shrink-0", statusColors[lead.lead_status] || "bg-slate-100")}>{lead.lead_status}</Badge>
-              <span className="text-xs font-medium text-text-muted flex-shrink-0">OMR {lead.est_deal_value.toLocaleString()}</span>
+
+              {/* Expanded card */}
+              {isExpanded && (
+                <div className="bg-cream-dark/40 border-t border-border-light px-4 py-3 ml-9 animate-expand-down">
+                  {/* Type + Category Assignment */}
+                  <div className="flex flex-wrap items-center gap-2 mb-3 pb-3 border-b border-border-light">
+                    <span className="text-[10px] font-medium text-text-muted uppercase">Type:</span>
+                    <Select options={LEAD_TYPES.map((t) => ({ value: t, label: t }))} value={leadType} onChange={(e) => onAssignType(lead.id, e.target.value)} className="h-7 w-28 text-xs" />
+                    <span className="text-[10px] font-medium text-text-muted uppercase ml-2">Categories:</span>
+                    <button onClick={(e) => { e.stopPropagation(); setCatDialogLead(lead.id); }} className="h-7 px-2 rounded-lg border border-dashed border-border text-[11px] text-text-muted hover:border-brand-teal hover:text-brand-teal transition-colors flex items-center gap-1">
+                      <Plus className="h-3 w-3" />Assign
+                    </button>
+                    {leadCats.map((catId) => {
+                      const cat = leadCategories.find((c) => c.id === catId);
+                      return cat ? (
+                        <button key={catId} onClick={(e) => { e.stopPropagation(); onAssignCategory(lead.id, catId); }} className="h-6 px-2 rounded-full text-[10px] font-medium flex items-center gap-1 hover:opacity-70 transition-opacity" style={{ backgroundColor: cat.color + "20", color: cat.color }}>
+                          {cat.name} <X className="h-2.5 w-2.5" />
+                        </button>
+                      ) : null;
+                    })}
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs stagger-children">
+                    <div className="space-y-1"><span className="text-text-muted">Phone</span><p className="font-medium">{lead.phone || "—"}</p></div>
+                    <div className="space-y-1"><span className="text-text-muted">Email</span><p className="font-medium">{lead.email || "—"}</p></div>
+                    <div className="space-y-1"><span className="text-text-muted">LinkedIn</span><p className="font-medium">{lead.linkedin_url || "—"}</p></div>
+                    <div className="space-y-1"><span className="text-text-muted">Source</span><p className="font-medium">{lead.lead_source || "—"}</p></div>
+                    <div className="space-y-1"><span className="text-text-muted">BDM</span><p className="font-medium">{lead.assigned_bdm || "—"}</p></div>
+                    <div className="space-y-1"><span className="text-text-muted">ICP Match</span><p className="font-medium">{lead.icp_match || "—"}</p></div>
+                    <div className="space-y-1"><span className="text-text-muted">Fawtara</span><p className="font-medium">{lead.fawtara_flag || "—"}</p></div>
+                    <div className="space-y-1"><span className="text-text-muted">Deal Value</span><p className="font-medium">OMR {lead.est_deal_value.toLocaleString()}</p></div>
+                  </div>
+                  {lead.notes && <p className="mt-2 text-xs text-text-muted italic">{lead.notes}</p>}
+                </div>
+              )}
             </div>
-            {expandedLead === lead.id && (
-              <div className="bg-cream-dark/40 border-t border-border-light px-4 py-3 ml-9 animate-expand-down">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs stagger-children">
-                  <div className="space-y-1"><span className="text-text-muted">Phone</span><p className="font-medium">{lead.phone || "—"}</p></div>
-                  <div className="space-y-1"><span className="text-text-muted">Email</span><p className="font-medium">{lead.email || "—"}</p></div>
-                  <div className="space-y-1"><span className="text-text-muted">LinkedIn</span><p className="font-medium">{lead.linkedin_url || "—"}</p></div>
-                  <div className="space-y-1"><span className="text-text-muted">Source</span><p className="font-medium">{lead.lead_source || "—"}</p></div>
-                  <div className="space-y-1"><span className="text-text-muted">BDM</span><p className="font-medium">{lead.assigned_bdm || "—"}</p></div>
-                  <div className="space-y-1"><span className="text-text-muted">ICP Match</span><p className="font-medium">{lead.icp_match || "—"}</p></div>
-                  <div className="space-y-1"><span className="text-text-muted">Fawtara</span><p className="font-medium">{lead.fawtara_flag || "—"}</p></div>
-                  <div className="space-y-1"><span className="text-text-muted">Deal Value</span><p className="font-medium">OMR {lead.est_deal_value.toLocaleString()}</p></div>
-                </div>
-                {lead.notes && <p className="mt-2 text-xs text-text-muted italic">{lead.notes}</p>}
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
+
+      {/* Category Assignment Dialog */}
+      <Dialog open={!!catDialogLead} onClose={() => setCatDialogLead(null)}>
+        <DialogHeader><DialogTitle>Assign Categories</DialogTitle><DialogClose onClick={() => setCatDialogLead(null)} /></DialogHeader>
+        <DialogContent>
+          <div className="grid grid-cols-2 gap-2">
+            {leadCategories.map((cat) => {
+              const Icon = iconMap[cat.icon] || Folder;
+              const assigned = catDialogLead ? (leadCategoryMap[catDialogLead] || []).includes(cat.id) : false;
+              return (
+                <button key={cat.id} onClick={() => catDialogLead && onAssignCategory(catDialogLead, cat.id)} className={cn("flex items-center gap-2 p-3 rounded-xl border transition-all duration-200 press-effect text-left", assigned ? "border-brand-teal bg-brand-teal-light" : "border-border hover:border-brand-teal/30 hover:bg-cream-dark/50")}>
+                  <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: cat.color + "20" }}>
+                    <Icon className="h-4 w-4" style={{ color: cat.color }} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-text-primary">{cat.name}</p>
+                    {assigned && <p className="text-[10px] text-brand-teal">Assigned</p>}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
