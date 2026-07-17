@@ -67,8 +67,9 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 // ─── Main Component ─────────────────────────────────────────────────
-export function DailyOutreachTracker({ leads, templates, channel }: {
+export function DailyOutreachTracker({ leads, templates, channel, onEntry }: {
   leads: any[]; templates: MessageTemplate[]; channel: string;
+  onEntry?: (entry: OutreachEntry) => void;
 }) {
   const [entries, setEntries] = useState<OutreachEntry[]>([]);
   const [selectedLead, setSelectedLead] = useState<string>("");
@@ -177,6 +178,7 @@ export function DailyOutreachTracker({ leads, templates, channel }: {
     };
 
     setEntries((prev) => [newEntry, ...prev]);
+    onEntry?.(newEntry);
     setSelectedLead("");
     setSelectedTemplate("");
     setMessageText("");
