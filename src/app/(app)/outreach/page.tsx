@@ -60,6 +60,7 @@ export default function OutreachPage() {
   const [campaignLeads, setCampaignLeads] = useState<Set<string>>(new Set());
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
   const [expandedTouches, setExpandedTouches] = useState<Record<string, TouchRecord[]>>({});
+  const [showAllInDialog, setShowAllInDialog] = useState(false);
 
   // Lazy load touches for a specific lead
   const loadTouchesForLead = useCallback(async (leadId: string) => {
@@ -76,12 +77,20 @@ export default function OutreachPage() {
     }
   }, [expandedTouches]);
 
-  // Fast initial load - only campaigns and reached, no touches yet
+  // Fast initial load - campaigns, reached, AND leads for the dialog
   const loadInitial = async () => {
     setLoading(true);
-    const [campaignsResult, reachedResult] = await Promise.all([getCampaigns(), getReachedLeads()]);
+    const [campaignsResult, reachedResult, companiesResult] = await Promise.all([getCampaigns(), getReachedLeads(), getCompanies()]);
     if (campaignsResult.data) setCampaigns(campaignsResult.data.map((c: any) => ({ id: c.id, name: c.name, description: c.description || "", created_at: c.created_at, lead_ids: c.lead_ids || [], status: c.status })));
     if (reachedResult.data) setReachedLeads(new Set(reachedResult.data));
+    if (companiesResult.data) {
+      setAllLeads(companiesResult.data.map((c: any) => ({
+        id: c.id, company_name: c.company_name, contact_name: c.contacts?.[0]?.full_name || "",
+        job_title: c.contacts?.[0]?.title || "", industry: c.industry || "", city: c.city || "",
+        phone: c.contacts?.[0]?.phone || c.phone || "", email: c.contacts?.[0]?.email || c.email || "",
+        linkedin_url: c.contacts?.[0]?.linkedin_url || "", est_deal_value: c.est_deal_value || 0, contacts: c.contacts || [],
+      })));
+    }
     setLoading(false);
   };
 
@@ -188,13 +197,17 @@ export default function OutreachPage() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-[10px] font-medium text-text-muted uppercase">Select Prospects ({campaignLeads.size} selected)</label>
-                  <button onClick={() => setCampaignLeads(campaignLeads.size === untouchedList.length ? new Set() : new Set(untouchedList.map((l) => l.id)))} className="text-[10px] text-brand-teal hover:underline">{campaignLeads.size === untouchedList.length ? "Deselect All" : "Select All"}</button>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setShowAllInDialog(!showAllInDialog)} className={cn("text-[10px] px-2 py-0.5 rounded-full transition-colors", showAllInDialog ? "bg-brand-teal text-white" : "bg-cream-dark text-text-muted hover:bg-slate-200")}>{showAllInDialog ? "All" : "Untouched"}</button>
+                    <button onClick={() => { const list = showAllInDialog ? allLeads : untouchedList; setCampaignLeads(campaignLeads.size === list.length ? new Set() : new Set(list.map((l) => l.id))); }} className="text-[10px] text-brand-teal hover:underline">Select All</button>
+                  </div>
                 </div>
                 <div className="max-h-[300px] overflow-y-auto border border-border rounded-xl divide-y divide-border-light">
-                  {untouchedList.length === 0 ? <div className="p-6 text-center text-sm text-text-muted">All prospects reached.</div> : untouchedList.slice(0, 50).map((lead) => (
+                  {(showAllInDialog ? allLeads : untouchedList).length === 0 ? <div className="p-6 text-center text-sm text-text-muted">No prospects available.</div> : (showAllInDialog ? allLeads : untouchedList).slice(0, 50).map((lead) => (
                     <label key={lead.id} className="flex items-center gap-3 p-2.5 hover:bg-cream-dark/30 cursor-pointer transition-colors">
                       <input type="checkbox" checked={campaignLeads.has(lead.id)} onChange={() => { const n = new Set(campaignLeads); n.has(lead.id) ? n.delete(lead.id) : n.add(lead.id); setCampaignLeads(n); }} className="rounded" />
                       <div className="flex-1 min-w-0"><p className="text-xs font-medium text-text-primary">{lead.contact_name || lead.company_name}</p><p className="text-[10px] text-text-muted">{lead.company_name}</p></div>
+                      {reachedLeads.has(lead.id) && <Badge className="text-[9px] bg-emerald-100 text-emerald-700">Reached</Badge>}
                     </label>
                   ))}
                 </div>
