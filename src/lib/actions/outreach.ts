@@ -1,10 +1,23 @@
 'use server'
 
-import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const supabase = createClient(supabaseUrl, supabaseKey)
+async function getClient() {
+  const cookieStore = await cookies()
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll(cookiesToSet) {
+          try { cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) } catch {}
+        },
+      },
+    }
+  )
+}
 
 // ─── Outreach Touches ───────────────────────────────────────────────
 export async function saveTouch(data: {
@@ -13,19 +26,14 @@ export async function saveTouch(data: {
   call_duration?: number; call_outcome?: string;
 }) {
   try {
+    const supabase = await getClient()
     const { data: touch, error } = await supabase
       .from('outreach_touches')
       .insert({
-        lead_id: data.lead_id,
-        channel: data.channel,
-        step_number: data.step,
-        message: data.message,
-        status: 'sent',
-        campaign_id: data.campaign_id,
-        follow_up_date: data.follow_up_date,
-        is_call: data.is_call || false,
-        call_duration: data.call_duration,
-        call_outcome: data.call_outcome,
+        lead_id: data.lead_id, channel: data.channel, step_number: data.step,
+        message: data.message, status: 'sent', campaign_id: data.campaign_id,
+        follow_up_date: data.follow_up_date, is_call: data.is_call || false,
+        call_duration: data.call_duration, call_outcome: data.call_outcome,
         sent_at: new Date().toISOString(),
       })
       .select()
@@ -40,15 +48,9 @@ export async function saveTouch(data: {
 
 export async function getTouches(campaignId?: string) {
   try {
-    let query = supabase
-      .from('outreach_touches')
-      .select('*')
-      .order('sent_at', { ascending: false })
-
-    if (campaignId && campaignId !== 'all') {
-      query = query.eq('campaign_id', campaignId)
-    }
-
+    const supabase = await getClient()
+    let query = supabase.from('outreach_touches').select('*').order('sent_at', { ascending: false })
+    if (campaignId && campaignId !== 'all') query = query.eq('campaign_id', campaignId)
     const { data, error } = await query
     if (error) return { data: null, error: error.message }
     return { data, error: null }
@@ -59,11 +61,8 @@ export async function getTouches(campaignId?: string) {
 
 export async function updateTouch(id: string, data: { response?: string }) {
   try {
-    const { error } = await supabase
-      .from('outreach_touches')
-      .update({ response: data.response })
-      .eq('id', id)
-
+    const supabase = await getClient()
+    const { error } = await supabase.from('outreach_touches').update({ response: data.response }).eq('id', id)
     if (error) return { error: error.message }
     return { error: null }
   } catch (error) {
@@ -73,11 +72,8 @@ export async function updateTouch(id: string, data: { response?: string }) {
 
 export async function deleteTouch(id: string) {
   try {
-    const { error } = await supabase
-      .from('outreach_touches')
-      .delete()
-      .eq('id', id)
-
+    const supabase = await getClient()
+    const { error } = await supabase.from('outreach_touches').delete().eq('id', id)
     if (error) return { error: error.message }
     return { error: null }
   } catch (error) {
@@ -86,21 +82,13 @@ export async function deleteTouch(id: string) {
 }
 
 // ─── Campaigns ──────────────────────────────────────────────────────
-export async function saveCampaign(data: {
-  name: string; description: string; lead_ids: string[];
-}) {
+export async function saveCampaign(data: { name: string; description: string; lead_ids: string[] }) {
   try {
+    const supabase = await getClient()
     const { data: campaign, error } = await supabase
       .from('outreach_campaigns')
-      .insert({
-        name: data.name,
-        description: data.description,
-        lead_ids: data.lead_ids,
-        status: 'active',
-      })
-      .select()
-      .single()
-
+      .insert({ name: data.name, description: data.description, lead_ids: data.lead_ids, status: 'active' })
+      .select().single()
     if (error) return { data: null, error: error.message }
     return { data: campaign, error: null }
   } catch (error) {
@@ -110,11 +98,8 @@ export async function saveCampaign(data: {
 
 export async function getCampaigns() {
   try {
-    const { data, error } = await supabase
-      .from('outreach_campaigns')
-      .select('*')
-      .order('created_at', { ascending: false })
-
+    const supabase = await getClient()
+    const { data, error } = await supabase.from('outreach_campaigns').select('*').order('created_at', { ascending: false })
     if (error) return { data: null, error: error.message }
     return { data, error: null }
   } catch (error) {
@@ -125,10 +110,8 @@ export async function getCampaigns() {
 // ─── Reached Status ─────────────────────────────────────────────────
 export async function markReached(leadId: string) {
   try {
-    const { error } = await supabase
-      .from('outreach_reached')
-      .upsert({ lead_id: leadId, reached_at: new Date().toISOString() })
-
+    const supabase = await getClient()
+    const { error } = await supabase.from('outreach_reached').upsert({ lead_id: leadId, reached_at: new Date().toISOString() })
     if (error) return { error: error.message }
     return { error: null }
   } catch (error) {
@@ -138,11 +121,8 @@ export async function markReached(leadId: string) {
 
 export async function unmarkReached(leadId: string) {
   try {
-    const { error } = await supabase
-      .from('outreach_reached')
-      .delete()
-      .eq('lead_id', leadId)
-
+    const supabase = await getClient()
+    const { error } = await supabase.from('outreach_reached').delete().eq('lead_id', leadId)
     if (error) return { error: error.message }
     return { error: null }
   } catch (error) {
@@ -152,10 +132,8 @@ export async function unmarkReached(leadId: string) {
 
 export async function getReachedLeads() {
   try {
-    const { data, error } = await supabase
-      .from('outreach_reached')
-      .select('lead_id')
-
+    const supabase = await getClient()
+    const { data, error } = await supabase.from('outreach_reached').select('lead_id')
     if (error) return { data: null, error: error.message }
     return { data: data?.map((r) => r.lead_id) || [], error: null }
   } catch (error) {
