@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import {
   Users, MessageCircle, Mail, Phone, ExternalLink, Calendar, Send, Plus, X,
-  CheckCircle, ChevronDown, ChevronRight, Download, FileText,
+  CheckCircle, Clock, ChevronDown, ChevronRight, Download, FileText,
   Edit, Trash2, ArrowRight, Bell, Search, Rocket, Flag, PhoneCall, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -34,24 +34,6 @@ const CHANNELS = [
 const ALL_TEMPLATES = [...DEFAULT_WHATSAPP_TEMPLATES, ...DEFAULT_LINKEDIN_TEMPLATES, ...DEFAULT_EMAIL_TEMPLATES];
 const PAGE_SIZE = 20;
 
-function mapLead(c: any): Lead {
-  return {
-    id: c.id, company_name: c.company_name, contact_name: c.contacts?.[0]?.full_name || "",
-    job_title: c.contacts?.[0]?.title || "", industry: c.industry || "", city: c.city || "",
-    phone: c.contacts?.[0]?.phone || c.phone || "", email: c.contacts?.[0]?.email || c.email || "",
-    linkedin_url: c.contacts?.[0]?.linkedin_url || "", est_deal_value: c.est_deal_value || 0, contacts: c.contacts || [],
-  };
-}
-
-function mapTouch(t: any): TouchRecord {
-  return {
-    id: t.id, lead_id: t.lead_id, channel: t.channel, step: t.step_number,
-    message: t.message || "", status: t.status, sent_at: t.sent_at,
-    response: t.response, follow_up_date: t.follow_up_date, campaign_id: t.campaign_id,
-    is_call: t.is_call, call_duration: t.call_duration, call_outcome: t.call_outcome,
-  };
-}
-
 export default function OutreachPage() {
   const [phase, setPhase] = useState<"gate" | "active">("gate");
   const [allLeads, setAllLeads] = useState<Lead[]>([]);
@@ -59,6 +41,7 @@ export default function OutreachPage() {
   const [touches, setTouches] = useState<TouchRecord[]>([]);
   const [reachedLeads, setReachedLeads] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [expandedLead, setExpandedLead] = useState<string | null>(null);
@@ -79,61 +62,98 @@ export default function OutreachPage() {
   const [expandedTouches, setExpandedTouches] = useState<Record<string, TouchRecord[]>>({});
   const [showAllInDialog, setShowAllInDialog] = useState(false);
 
+  // Lazy load touches for a specific lead
+  const loadTouchesForLead = useCallback(async (leadId: string) => {
+    if (expandedTouches[leadId]) return;
+    try {
+      const result = await getTouches();
+      if (result.data) {
+        const leadTouches = result.data.filter((t: any) => t.lead_id === leadId).map((t: any) => ({
+          id: t.id, lead_id: t.lead_id, channel: t.channel, step: t.step_number,
+          message: t.message || "", status: t.status, sent_at: t.sent_at,
+          response: t.response, follow_up_date: t.follow_up_date, campaign_id: t.campaign_id,
+          is_call: t.is_call, call_duration: t.call_duration, call_outcome: t.call_outcome,
+        }));
+        setExpandedTouches((prev) => ({ ...prev, [leadId]: leadTouches }));
+      }
+    } catch (err) {
+      console.error("Failed to load touches:", err);
+    }
+  }, [expandedTouches]);
+
+  // Fast initial load - campaigns, reached, AND leads for the dialog
   const loadInitial = async () => {
     setLoading(true);
     try {
-      const [cRes, rRes, lRes] = await Promise.all([
+      const [campaignsResult, reachedResult, companiesResult] = await Promise.all([
         getCampaigns().catch(() => ({ data: null })),
         getReachedLeads().catch(() => ({ data: null })),
         getCompanies().catch(() => ({ data: null })),
       ]);
-      if (cRes.data) setCampaigns(cRes.data.map((c: any) => ({ id: c.id, name: c.name, description: c.description || "", created_at: c.created_at, lead_ids: c.lead_ids || [], status: c.status })));
-      if (rRes.data) setReachedLeads(new Set(rRes.data));
-      if (lRes.data) setAllLeads(lRes.data.map(mapLead));
-    } catch (e) { console.error("loadInitial:", e); }
+      if (campaignsResult.data) setCampaigns(campaignsResult.data.map((c: any) => ({ id: c.id, name: c.name, description: c.description || "", created_at: c.created_at, lead_ids: c.lead_ids || [], status: c.status })));
+      if (reachedResult.data) setReachedLeads(new Set(reachedResult.data));
+      if (companiesResult.data) {
+        setAllLeads(companiesResult.data.map((c: any) => ({
+          id: c.id, company_name: c.company_name, contact_name: c.contacts?.[0]?.full_name || "",
+          job_title: c.contacts?.[0]?.title || "", industry: c.industry || "", city: c.city || "",
+          phone: c.contacts?.[0]?.phone || c.phone || "", email: c.contacts?.[0]?.email || c.email || "",
+          linkedin_url: c.contacts?.[0]?.linkedin_url || "", est_deal_value: c.est_deal_value || 0, contacts: c.contacts || [],
+        })));
+      }
+    } catch (err) {
+      console.error("Failed to load initial data:", err);
+    }
     setLoading(false);
   };
 
-  const enterActive = async (leadIds?: string[], campaign?: Campaign) => {
+  // Load leads and touches only when entering active phase
+  const enterActive = async (leads?: Lead[], campaign?: Campaign) => {
     setLoading(true);
     try {
-      // Always load leads from DB
-      const lRes = await getCompanies().catch(() => ({ data: null }));
-      if (lRes.data) {
-        const all = lRes.data.map(mapLead);
-        setAllLeads(all);
-        if (leadIds && leadIds.length > 0) {
-          setSelectedLeads(all.filter((l) => leadIds.includes(l.id)));
-        } else {
-          setSelectedLeads(all);
-        }
-      } else if (leadIds && leadIds.length > 0) {
-        // Fallback: use already loaded leads
-        setSelectedLeads(allLeads.filter((l) => leadIds.includes(l.id)));
-      } else {
-        setSelectedLeads(allLeads);
+      const [companiesResult, touchesResult] = await Promise.all([
+        getCompanies().catch(() => ({ data: null })),
+        getTouches().catch(() => ({ data: null })),
+      ]);
+      if (companiesResult.data) {
+        const mapped = companiesResult.data.map((c: any) => ({
+          id: c.id, company_name: c.company_name, contact_name: c.contacts?.[0]?.full_name || "",
+          job_title: c.contacts?.[0]?.title || "", industry: c.industry || "", city: c.city || "",
+          phone: c.contacts?.[0]?.phone || c.phone || "", email: c.contacts?.[0]?.email || c.email || "",
+          linkedin_url: c.contacts?.[0]?.linkedin_url || "", est_deal_value: c.est_deal_value || 0, contacts: c.contacts || [],
+        }));
+        setAllLeads(mapped);
+        setSelectedLeads(leads || mapped);
       }
-      // Load touches
-      const tRes = await getTouches().catch(() => ({ data: null }));
-      if (tRes.data) setTouches(tRes.data.map(mapTouch));
+      if (touchesResult.data) {
+        setTouches(touchesResult.data.map((t: any) => ({
+          id: t.id, lead_id: t.lead_id, channel: t.channel, step: t.step_number,
+          message: t.message || "", status: t.status, sent_at: t.sent_at,
+          response: t.response, follow_up_date: t.follow_up_date, campaign_id: t.campaign_id,
+          is_call: t.is_call, call_duration: t.call_duration, call_outcome: t.call_outcome,
+        })));
+      }
       if (campaign) setActiveCampaign(campaign);
-    } catch (e) { console.error("enterActive:", e); }
+    } catch (err) {
+      console.error("Failed to load active data:", err);
+    }
     setPhase("active");
     setLoading(false);
   };
 
   useEffect(() => { loadInitial(); }, []);
 
+  // Hooks before conditional return
   const getTouchesForLead = useCallback((leadId: string) => touches.filter((t) => t.lead_id === leadId), [touches]);
   const getTouchesByDate = useCallback((date: string) => touches.filter((t) => t.sent_at.startsWith(date)), [touches]);
   const allDates = useMemo(() => [...new Set(touches.map((t) => t.sent_at.split("T")[0]))].sort().reverse(), [touches]);
   const today = new Date().toISOString().split("T")[0];
   const todayTouches = touches.filter((t) => t.sent_at.startsWith(today));
   const pendingFollowUps = touches.filter((t) => t.follow_up_date && t.follow_up_date <= today && !reachedLeads.has(t.lead_id));
+  const todayCalls = touches.filter((t) => t.is_call && t.sent_at.startsWith(today));
 
   // ─── GATE ─────────────────────────────────────────────────────────
   if (phase === "gate") {
-    const untouchedList = allLeads.filter((l) => !reachedLeads.has(l.id) && !touches.some((t) => t.lead_id === l.id));
+    const untouchedList = allLeads.length > 0 ? allLeads.filter((l) => !reachedLeads.has(l.id) && !touches.some((t) => t.lead_id === l.id)) : [];
 
     return (
       <div className="min-h-[70vh] page-enter">
@@ -145,10 +165,10 @@ export default function OutreachPage() {
             <p className="text-text-secondary mt-2">Create a campaign or continue an existing one.</p>
           </div>
 
-          <Card className="hover-lift press-effect cursor-pointer border-2 border-dashed border-brand-teal/40 hover:border-brand-teal transition-all" onClick={() => setNewCampaignOpen(true)}>
+          <Card className="hover-lift press-effect cursor-pointer border-2 border-dashed border-brand-teal/40 hover:border-brand-teal transition-all" onClick={() => { setNewCampaignOpen(true); loadInitial(); }}>
             <CardContent className="p-6 flex items-center gap-4">
               <div className="h-12 w-12 rounded-xl bg-brand-teal flex items-center justify-center flex-shrink-0"><Plus className="h-6 w-6 text-white" /></div>
-              <div><h3 className="text-lg font-semibold text-text-primary">Create New Campaign</h3><p className="text-sm text-text-secondary">{untouchedList.length} untouched prospects available</p></div>
+              <div><h3 className="text-lg font-semibold text-text-primary">Create New Campaign</h3><p className="text-sm text-text-secondary">Select untouched prospects</p></div>
             </CardContent>
           </Card>
 
@@ -156,12 +176,13 @@ export default function OutreachPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-medium text-text-muted uppercase">Your Campaigns ({campaigns.length})</p>
-                <Button size="sm" variant="ghost" onClick={() => enterActive()} className="text-[11px] text-brand-teal hover:underline">View All</Button>
+                <Button size="sm" variant="ghost" onClick={() => enterActive(allLeads)} className="text-[11px] text-brand-teal hover:underline">View All</Button>
               </div>
               {campaigns.map((camp) => {
+                const campTouches = touches.filter((t) => t.campaign_id === camp.id);
                 const campReached = camp.lead_ids.filter((id) => reachedLeads.has(id)).length;
                 return (
-                  <Card key={camp.id} className="hover-lift press-effect cursor-pointer" onClick={() => enterActive(camp.lead_ids, camp)}>
+                  <Card key={camp.id} className="hover-lift press-effect cursor-pointer" onClick={() => enterActive(allLeads.filter((l) => camp.lead_ids.includes(l.id)), camp)}>
                     <CardContent className="p-4 flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-lg bg-brand-teal-light flex items-center justify-center"><Send className="h-5 w-5 text-brand-teal" /></div>
@@ -181,7 +202,7 @@ export default function OutreachPage() {
           <Card className="hover-lift press-effect cursor-pointer border-2 border-transparent hover:border-brand-gold transition-all" onClick={() => enterActive()}>
             <CardContent className="p-4 flex items-center gap-4">
               <div className="h-12 w-12 rounded-xl bg-brand-gold-light flex items-center justify-center flex-shrink-0"><Users className="h-6 w-6 text-brand-gold" /></div>
-              <div><h3 className="text-base font-semibold text-text-primary">Quick Start — All Prospects</h3><p className="text-sm text-text-secondary">Jump in with all {allLeads.length} prospects</p></div>
+              <div><h3 className="text-base font-semibold text-text-primary">Quick Start — All Prospects</h3><p className="text-sm text-text-secondary">Jump in with all prospects</p></div>
             </CardContent>
           </Card>
 
@@ -231,12 +252,11 @@ export default function OutreachPage() {
   // ─── Actions ──────────────────────────────────────────────────────
   const openTouchDialog = (leadId: string, channel: string) => {
     const lead = selectedLeads.find((l) => l.id === leadId);
-    if (!lead) return;
-    const contact = lead.contacts?.[0];
+    const contact = lead?.contacts?.[0];
     const existingSteps = touches.filter((t) => t.lead_id === leadId && t.channel === channel).length;
     const template = ALL_TEMPLATES.find((t) => t.channel === channel && t.touch_number === existingSteps + 1);
     let msg = "";
-    if (template) {
+    if (template && lead) {
       msg = fillTemplate(template.body, {
         "{name}": contact?.full_name || lead.contact_name || "", "{first_name}": (contact?.full_name || lead.contact_name || "").split(" ")[0],
         "{company}": lead.company_name, "{title}": contact?.title || lead.job_title || "", "{industry}": lead.industry || "",
@@ -277,7 +297,7 @@ export default function OutreachPage() {
     setTouches((p) => [newTouch, ...p]);
     setExpandedTouches((prev) => ({ ...prev, [callDialog.leadId]: [newTouch, ...(prev[callDialog.leadId] || [])] }));
     setCallDialog({ open: false, leadId: "" }); setCallForm({ duration: "", outcome: "connected", notes: "" });
-    addToast("success", "Call logged");
+    addToast("success", `Call logged`);
   };
 
   const saveEdit = async () => {
@@ -325,21 +345,11 @@ export default function OutreachPage() {
     return filtered.slice(0, displayCount);
   }, [selectedLeads, search, displayCount]);
 
-  const totalFiltered = selectedLeads.filter((l) => !search || l.company_name.toLowerCase().includes(search.toLowerCase()) || l.contact_name.toLowerCase().includes(search.toLowerCase())).length;
-  const hasMore = totalFiltered > displayCount;
-  const chCfg = (ch: string) => CHANNELS.find((c) => c.id === ch) || CHANNELS[0];
-  const reachedCount = selectedLeads.filter((l) => reachedLeads.has(l.id)).length;
+  const hasMore = selectedLeads.filter((l) => !search || l.company_name.toLowerCase().includes(search.toLowerCase()) || l.contact_name.toLowerCase().includes(search.toLowerCase())).length > displayCount;
 
-  const loadTouchesForLead = async (leadId: string) => {
-    if (expandedTouches[leadId]) return;
-    try {
-      const result = await getTouches();
-      if (result.data) {
-        const leadTouches = result.data.filter((t: any) => t.lead_id === leadId).map(mapTouch);
-        setExpandedTouches((prev) => ({ ...prev, [leadId]: leadTouches }));
-      }
-    } catch (e) { console.error("loadTouchesForLead:", e); }
-  };
+  const chCfg = (ch: string) => CHANNELS.find((c) => c.id === ch) || CHANNELS[0];
+
+  const reachedCount = selectedLeads.filter((l) => reachedLeads.has(l.id)).length;
 
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="animate-spin h-8 w-8 text-brand-teal" /></div>;
 
@@ -376,7 +386,7 @@ export default function OutreachPage() {
 
       {pendingFollowUps.length > 0 && (
         <Card className="hover-lift border-amber-200 bg-amber-50/30"><CardContent className="p-3">
-          <div className="flex items-center gap-2"><Bell className="h-4 w-4 text-amber-500" /><span className="text-sm font-medium text-amber-700">{pendingFollowUps.length} Follow-ups Due</span></div>
+          <div className="flex items-center gap-2 mb-2"><Bell className="h-4 w-4 text-amber-500" /><span className="text-sm font-medium text-amber-700">{pendingFollowUps.length} Follow-ups Due</span></div>
         </CardContent></Card>
       )}
 
@@ -390,7 +400,7 @@ export default function OutreachPage() {
           return (
             <Card key={lead.id} className={cn("hover-lift transition-all", isReached && "bg-emerald-50/30 border-emerald-200")}>
               <CardContent className="p-0">
-                <div className="flex items-center gap-3 py-3 px-4 cursor-pointer hover:bg-cream-dark/30 transition-colors" onClick={() => { setExpandedLead(isExpanded ? null : lead.id); if (!isExpanded) loadTouchesForLead(lead.id); }}>
+                <div className="flex items-center gap-3 py-3 px-4 cursor-pointer hover:bg-cream-dark/30 transition-colors" onClick={() => { setExpandedLead(isExpanded ? null : lead.id); if (!isExpanded && !expandedTouches[lead.id]) loadTouchesForLead(lead.id); }}>
                   <button className="flex-shrink-0 text-text-muted">{isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</button>
                   <div className={cn("h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0", isReached ? "bg-emerald-100" : "bg-brand-teal-light")}>
                     {isReached ? <CheckCircle className="h-4 w-4 text-emerald-600" /> : <Users className="h-4 w-4 text-brand-teal" />}
@@ -448,7 +458,7 @@ export default function OutreachPage() {
 
       {hasMore && (
         <div className="text-center">
-          <Button variant="outline" size="sm" onClick={() => setDisplayCount((p) => p + PAGE_SIZE)} className="hover-lift press-effect">Load More ({totalFiltered - displayCount} remaining)</Button>
+          <Button variant="outline" size="sm" onClick={() => setDisplayCount((p) => p + PAGE_SIZE)} className="hover-lift press-effect">Load More ({selectedLeads.length - displayCount} remaining)</Button>
         </div>
       )}
 
