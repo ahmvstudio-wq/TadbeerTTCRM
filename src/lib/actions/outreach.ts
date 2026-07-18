@@ -1,6 +1,10 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const supabase = createClient(supabaseUrl, supabaseKey)
 
 // ─── Outreach Touches ───────────────────────────────────────────────
 export async function saveTouch(data: {
@@ -9,7 +13,6 @@ export async function saveTouch(data: {
   call_duration?: number; call_outcome?: string;
 }) {
   try {
-    const supabase = await createClient()
     const { data: touch, error } = await supabase
       .from('outreach_touches')
       .insert({
@@ -37,7 +40,6 @@ export async function saveTouch(data: {
 
 export async function getTouches(campaignId?: string) {
   try {
-    const supabase = await createClient()
     let query = supabase
       .from('outreach_touches')
       .select('*')
@@ -57,7 +59,6 @@ export async function getTouches(campaignId?: string) {
 
 export async function updateTouch(id: string, data: { response?: string }) {
   try {
-    const supabase = await createClient()
     const { error } = await supabase
       .from('outreach_touches')
       .update({ response: data.response })
@@ -72,7 +73,6 @@ export async function updateTouch(id: string, data: { response?: string }) {
 
 export async function deleteTouch(id: string) {
   try {
-    const supabase = await createClient()
     const { error } = await supabase
       .from('outreach_touches')
       .delete()
@@ -90,7 +90,6 @@ export async function saveCampaign(data: {
   name: string; description: string; lead_ids: string[];
 }) {
   try {
-    const supabase = await createClient()
     const { data: campaign, error } = await supabase
       .from('outreach_campaigns')
       .insert({
@@ -111,7 +110,6 @@ export async function saveCampaign(data: {
 
 export async function getCampaigns() {
   try {
-    const supabase = await createClient()
     const { data, error } = await supabase
       .from('outreach_campaigns')
       .select('*')
@@ -127,7 +125,6 @@ export async function getCampaigns() {
 // ─── Reached Status ─────────────────────────────────────────────────
 export async function markReached(leadId: string) {
   try {
-    const supabase = await createClient()
     const { error } = await supabase
       .from('outreach_reached')
       .upsert({ lead_id: leadId, reached_at: new Date().toISOString() })
@@ -141,7 +138,6 @@ export async function markReached(leadId: string) {
 
 export async function unmarkReached(leadId: string) {
   try {
-    const supabase = await createClient()
     const { error } = await supabase
       .from('outreach_reached')
       .delete()
@@ -156,7 +152,6 @@ export async function unmarkReached(leadId: string) {
 
 export async function getReachedLeads() {
   try {
-    const supabase = await createClient()
     const { data, error } = await supabase
       .from('outreach_reached')
       .select('lead_id')
