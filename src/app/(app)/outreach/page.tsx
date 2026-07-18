@@ -65,31 +65,43 @@ export default function OutreachPage() {
   // Lazy load touches for a specific lead
   const loadTouchesForLead = useCallback(async (leadId: string) => {
     if (expandedTouches[leadId]) return;
-    const result = await getTouches();
-    if (result.data) {
-      const leadTouches = result.data.filter((t: any) => t.lead_id === leadId).map((t: any) => ({
-        id: t.id, lead_id: t.lead_id, channel: t.channel, step: t.step_number,
-        message: t.message || "", status: t.status, sent_at: t.sent_at,
-        response: t.response, follow_up_date: t.follow_up_date, campaign_id: t.campaign_id,
-        is_call: t.is_call, call_duration: t.call_duration, call_outcome: t.call_outcome,
-      }));
-      setExpandedTouches((prev) => ({ ...prev, [leadId]: leadTouches }));
+    try {
+      const result = await getTouches();
+      if (result.data) {
+        const leadTouches = result.data.filter((t: any) => t.lead_id === leadId).map((t: any) => ({
+          id: t.id, lead_id: t.lead_id, channel: t.channel, step: t.step_number,
+          message: t.message || "", status: t.status, sent_at: t.sent_at,
+          response: t.response, follow_up_date: t.follow_up_date, campaign_id: t.campaign_id,
+          is_call: t.is_call, call_duration: t.call_duration, call_outcome: t.call_outcome,
+        }));
+        setExpandedTouches((prev) => ({ ...prev, [leadId]: leadTouches }));
+      }
+    } catch (err) {
+      console.error("Failed to load touches:", err);
     }
   }, [expandedTouches]);
 
   // Fast initial load - campaigns, reached, AND leads for the dialog
   const loadInitial = async () => {
     setLoading(true);
-    const [campaignsResult, reachedResult, companiesResult] = await Promise.all([getCampaigns(), getReachedLeads(), getCompanies()]);
-    if (campaignsResult.data) setCampaigns(campaignsResult.data.map((c: any) => ({ id: c.id, name: c.name, description: c.description || "", created_at: c.created_at, lead_ids: c.lead_ids || [], status: c.status })));
-    if (reachedResult.data) setReachedLeads(new Set(reachedResult.data));
-    if (companiesResult.data) {
-      setAllLeads(companiesResult.data.map((c: any) => ({
-        id: c.id, company_name: c.company_name, contact_name: c.contacts?.[0]?.full_name || "",
-        job_title: c.contacts?.[0]?.title || "", industry: c.industry || "", city: c.city || "",
-        phone: c.contacts?.[0]?.phone || c.phone || "", email: c.contacts?.[0]?.email || c.email || "",
-        linkedin_url: c.contacts?.[0]?.linkedin_url || "", est_deal_value: c.est_deal_value || 0, contacts: c.contacts || [],
-      })));
+    try {
+      const [campaignsResult, reachedResult, companiesResult] = await Promise.all([
+        getCampaigns().catch(() => ({ data: null })),
+        getReachedLeads().catch(() => ({ data: null })),
+        getCompanies().catch(() => ({ data: null })),
+      ]);
+      if (campaignsResult.data) setCampaigns(campaignsResult.data.map((c: any) => ({ id: c.id, name: c.name, description: c.description || "", created_at: c.created_at, lead_ids: c.lead_ids || [], status: c.status })));
+      if (reachedResult.data) setReachedLeads(new Set(reachedResult.data));
+      if (companiesResult.data) {
+        setAllLeads(companiesResult.data.map((c: any) => ({
+          id: c.id, company_name: c.company_name, contact_name: c.contacts?.[0]?.full_name || "",
+          job_title: c.contacts?.[0]?.title || "", industry: c.industry || "", city: c.city || "",
+          phone: c.contacts?.[0]?.phone || c.phone || "", email: c.contacts?.[0]?.email || c.email || "",
+          linkedin_url: c.contacts?.[0]?.linkedin_url || "", est_deal_value: c.est_deal_value || 0, contacts: c.contacts || [],
+        })));
+      }
+    } catch (err) {
+      console.error("Failed to load initial data:", err);
     }
     setLoading(false);
   };
@@ -97,26 +109,33 @@ export default function OutreachPage() {
   // Load leads and touches only when entering active phase
   const enterActive = async (leads?: Lead[], campaign?: Campaign) => {
     setLoading(true);
-    const [companiesResult, touchesResult] = await Promise.all([getCompanies(), getTouches()]);
-    if (companiesResult.data) {
-      const mapped = companiesResult.data.map((c: any) => ({
-        id: c.id, company_name: c.company_name, contact_name: c.contacts?.[0]?.full_name || "",
-        job_title: c.contacts?.[0]?.title || "", industry: c.industry || "", city: c.city || "",
-        phone: c.contacts?.[0]?.phone || c.phone || "", email: c.contacts?.[0]?.email || c.email || "",
-        linkedin_url: c.contacts?.[0]?.linkedin_url || "", est_deal_value: c.est_deal_value || 0, contacts: c.contacts || [],
-      }));
-      setAllLeads(mapped);
-      setSelectedLeads(leads || mapped);
+    try {
+      const [companiesResult, touchesResult] = await Promise.all([
+        getCompanies().catch(() => ({ data: null })),
+        getTouches().catch(() => ({ data: null })),
+      ]);
+      if (companiesResult.data) {
+        const mapped = companiesResult.data.map((c: any) => ({
+          id: c.id, company_name: c.company_name, contact_name: c.contacts?.[0]?.full_name || "",
+          job_title: c.contacts?.[0]?.title || "", industry: c.industry || "", city: c.city || "",
+          phone: c.contacts?.[0]?.phone || c.phone || "", email: c.contacts?.[0]?.email || c.email || "",
+          linkedin_url: c.contacts?.[0]?.linkedin_url || "", est_deal_value: c.est_deal_value || 0, contacts: c.contacts || [],
+        }));
+        setAllLeads(mapped);
+        setSelectedLeads(leads || mapped);
+      }
+      if (touchesResult.data) {
+        setTouches(touchesResult.data.map((t: any) => ({
+          id: t.id, lead_id: t.lead_id, channel: t.channel, step: t.step_number,
+          message: t.message || "", status: t.status, sent_at: t.sent_at,
+          response: t.response, follow_up_date: t.follow_up_date, campaign_id: t.campaign_id,
+          is_call: t.is_call, call_duration: t.call_duration, call_outcome: t.call_outcome,
+        })));
+      }
+      if (campaign) setActiveCampaign(campaign);
+    } catch (err) {
+      console.error("Failed to load active data:", err);
     }
-    if (touchesResult.data) {
-      setTouches(touchesResult.data.map((t: any) => ({
-        id: t.id, lead_id: t.lead_id, channel: t.channel, step: t.step_number,
-        message: t.message || "", status: t.status, sent_at: t.sent_at,
-        response: t.response, follow_up_date: t.follow_up_date, campaign_id: t.campaign_id,
-        is_call: t.is_call, call_duration: t.call_duration, call_outcome: t.call_outcome,
-      })));
-    }
-    if (campaign) setActiveCampaign(campaign);
     setPhase("active");
     setLoading(false);
   };
