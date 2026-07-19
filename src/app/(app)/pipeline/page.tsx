@@ -164,7 +164,7 @@ export default function PipelinePage() {
             <div><label className="text-sm font-medium text-slate-700 mb-1 block">Company *</label><Select options={companies.map((c) => ({ value: c.id, label: c.company_name }))} value={newForm.company_id} onChange={(e) => setNewForm({ ...newForm, company_id: e.target.value })} placeholder="Select company" /></div>
             <div><label className="text-sm font-medium text-slate-700 mb-1 block">Title *</label><Input placeholder="Deal title" value={newForm.title} onChange={(e) => setNewForm({ ...newForm, title: e.target.value })} /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="text-sm font-medium text-slate-700 mb-1 block">Value (SAR) *</label><Input type="number" placeholder="e.g. 100000" value={newForm.estimated_value} onChange={(e) => setNewForm({ ...newForm, estimated_value: e.target.value })} /></div>
+              <div><label className="text-sm font-medium text-slate-700 mb-1 block">Value (OMR) *</label><Input type="number" placeholder="e.g. 100000" value={newForm.estimated_value} onChange={(e) => setNewForm({ ...newForm, estimated_value: e.target.value })} /></div>
               <div><label className="text-sm font-medium text-slate-700 mb-1 block">Stage</label><Select options={Object.entries(OPPORTUNITY_STAGES).map(([k, v]) => ({ value: k, label: v.label }))} value={newForm.stage} onChange={(e) => setNewForm({ ...newForm, stage: e.target.value })} /></div>
             </div>
             <div><label className="text-sm font-medium text-slate-700 mb-1 block">Description</label><Textarea placeholder="Deal details..." value={newForm.description} onChange={(e) => setNewForm({ ...newForm, description: e.target.value })} /></div>

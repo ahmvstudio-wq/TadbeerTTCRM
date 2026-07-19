@@ -132,7 +132,7 @@ export default function DashboardPage() {
     { label: "Overdue", value: overdueFollowUps, sub: "action needed", icon: AlertTriangle, color: "text-red-500", bg: "bg-red-50" },
     { label: "Upcoming Meetings", value: upcomingMeetings, sub: "scheduled", icon: Calendar, color: "text-indigo-500", bg: "bg-indigo-50" },
     { label: "Active Opportunities", value: openOpportunities, sub: "in pipeline", icon: TrendingUp, color: "text-emerald-500", bg: "bg-emerald-50" },
-    { label: "Pipeline Value", value: `SAR ${(pipelineValue / 1000).toFixed(0)}K`, sub: "total", icon: Building2, color: "text-amber-600", bg: "bg-amber-50" },
+    { label: "Pipeline Value", value: `OMR ${(pipelineValue / 1000).toFixed(0)}K`, sub: "total", icon: Building2, color: "text-amber-600", bg: "bg-amber-50" },
   ];
 
   const renderDetails = () => {
@@ -236,7 +236,7 @@ export default function DashboardPage() {
                 <p className="font-bold text-slate-800">{o.title} ({o.companies?.company_name})</p>
                 <p className="text-[10px] text-slate-400">Stage: {o.stage} · Win Prob: {o.probability}%</p>
               </div>
-              <span className="font-bold text-emerald-600 text-xs">SAR {(o.estimated_value || 0).toLocaleString()}</span>
+              <span className="font-bold text-emerald-600 text-xs">OMR {(o.estimated_value || 0).toLocaleString()}</span>
             </div>
           ))
         );
@@ -372,7 +372,7 @@ export default function DashboardPage() {
           ) : (
             <div className="text-center py-6">
               <p className="text-sm text-slate-500">{openOpportunities} active opportunit{openOpportunities !== 1 ? "ies" : "y"} in pipeline</p>
-              <p className="text-2xl font-bold text-slate-900 mt-1">SAR {pipelineValue.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-slate-900 mt-1">OMR {pipelineValue.toLocaleString()}</p>
               <Link href="/pipeline">
                 <Button size="sm" className="mt-3 bg-teal-600 hover:bg-teal-700 text-white">View Pipeline</Button>
               </Link>

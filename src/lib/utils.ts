@@ -1,4 +1,4 @@
-﻿import { type ClassValue, clsx } from "clsx";
+import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
@@ -51,7 +51,7 @@ export function isDueToday(dueDate: string | Date): boolean {
   return due.getTime() === today.getTime();
 }
 
-export function formatCurrency(amount: number, currency = "SAR"): string {
+export function formatCurrency(amount: number, currency = "OMR"): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency,
