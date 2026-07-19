@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard,
   Users,
-  Send,
+  Zap,
   Phone,
   Clock,
   Calendar,
@@ -21,8 +21,7 @@ import Image from "next/image";
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Prospects", href: "/prospects", icon: Users },
-  { name: "Campaigns", href: "/campaigns", icon: Send },
-  { name: "Outreach", href: "/outreach", icon: Send },
+  { name: "Daily Cadence", href: "/daily-cadence", icon: Zap },
   { name: "Calls", href: "/calls", icon: Phone },
   { name: "Follow-ups", href: "/follow-ups", icon: Clock },
   { name: "Meetings", href: "/meetings", icon: Calendar },

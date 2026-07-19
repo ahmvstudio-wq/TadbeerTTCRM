@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Users,
-  Send,
+  Zap,
   Phone,
   Clock,
   Calendar,
@@ -19,7 +19,7 @@ import {
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Prospects", href: "/prospects", icon: Users },
-  { name: "Outreach", href: "/outreach", icon: Send },
+  { name: "Daily Cadence", href: "/daily-cadence", icon: Zap },
   { name: "Calls", href: "/calls", icon: Phone },
   { name: "Follow-ups", href: "/follow-ups", icon: Clock },
   { name: "Meetings", href: "/meetings", icon: Calendar },
