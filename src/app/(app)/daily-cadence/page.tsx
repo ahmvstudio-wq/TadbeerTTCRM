@@ -285,34 +285,41 @@ export default function DailyCadencePage() {
           <div className="lg:col-span-2 space-y-6">
 
             {/* 1. TODAY'S PENDING OUTREACH */}
-            <Card className="border-border bg-white shadow-sm overflow-hidden">
+            <Card className="border-border bg-white shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
               <div 
-                className="flex items-center justify-between p-4 border-b border-border/60 cursor-pointer hover:bg-slate-50/50 transition-all select-none"
+                className="flex items-center justify-between px-5 py-4 border-b border-border/60 cursor-pointer bg-slate-50/70 hover:bg-slate-100/50 transition-all select-none"
                 onClick={() => setExpandOutreach(!expandOutreach)}
               >
-                <div className="flex items-center gap-2">
-                  <Play className="h-4 w-4 text-brand-teal" />
-                  <span className="text-sm font-bold text-text-primary">Today's Pending Outreach ({sessionItems.filter(item => item.status !== 'sent').length})</span>
+                <div className="flex items-center gap-2.5">
+                  <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-brand-teal-light text-brand-teal">
+                    <Play className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <span className="text-sm font-bold text-text-primary">Today's Pending Outreach</span>
+                    <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-brand-teal/15 text-brand-teal">
+                      {sessionItems.filter(item => item.status !== 'sent').length} target{sessionItems.filter(item => item.status !== 'sent').length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-4" onClick={(e) => e.stopPropagation()}>
                   <div className="flex gap-2">
                     <Link href="/daily-cadence/bulk-proposals">
-                      <Button size="sm" className="bg-brand-gold hover:bg-brand-gold/90 text-white text-xs hover-lift px-2.5 h-8">
-                        <FileText className="h-3.5 w-3.5 mr-1" />
+                      <Button size="sm" className="bg-brand-gold hover:bg-brand-gold/90 text-white text-xs hover-lift h-8 px-3 rounded-lg font-semibold press-effect">
+                        <FileText className="h-3.5 w-3.5 mr-1.5" />
                         Bulk Proposals
                       </Button>
                     </Link>
                     <Button
                       size="sm"
                       onClick={() => setAddProspectsOpen(true)}
-                      className="bg-brand-teal hover:bg-brand-teal-dark text-white text-xs hover-lift px-2.5 h-8"
+                      className="bg-brand-teal hover:bg-brand-teal-dark text-white text-xs hover-lift h-8 px-3 rounded-lg font-semibold press-effect"
                     >
-                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      <Plus className="h-3.5 w-3.5 mr-1.5" />
                       Add Prospects
                     </Button>
                   </div>
-                  <button onClick={() => setExpandOutreach(!expandOutreach)} className="text-text-muted hover:text-brand-teal">
-                    {expandOutreach ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  <button onClick={() => setExpandOutreach(!expandOutreach)} className="text-text-muted hover:text-brand-teal transition-all p-1">
+                    <ChevronRight className={`h-4 w-4 text-text-secondary transition-transform duration-200 ${expandOutreach ? 'rotate-90 text-brand-teal' : ''}`} />
                   </button>
                 </div>
               </div>
@@ -320,11 +327,11 @@ export default function DailyCadencePage() {
               {expandOutreach && (
                 <CardContent className="p-0">
                   {sessionItems.filter(item => item.status !== 'sent').length === 0 ? (
-                    <div className="p-10 text-center text-xs">
-                      <Users className="h-8 w-8 text-text-muted mx-auto mb-2 opacity-40" />
-                      <p className="text-text-secondary mb-2">No pending outreach targets.</p>
-                      <Button size="sm" onClick={() => setAddProspectsOpen(true)} className="bg-brand-teal text-white text-xs">
-                        <Plus className="h-3 w-3 mr-1" /> Add Prospects
+                    <div className="p-12 text-center text-xs">
+                      <Users className="h-10 w-10 text-text-muted mx-auto mb-3 opacity-40 animate-pulse-soft" />
+                      <p className="text-text-secondary mb-3 font-medium">No pending outreach targets remaining in your day queue.</p>
+                      <Button size="sm" onClick={() => setAddProspectsOpen(true)} className="bg-brand-teal text-white text-xs px-4 h-8 rounded-lg">
+                        <Plus className="h-3.5 w-3.5 mr-1" /> Add Prospects
                       </Button>
                     </div>
                   ) : (
@@ -335,16 +342,16 @@ export default function DailyCadencePage() {
                         return (
                           <div
                             key={item.id}
-                            className="flex items-center justify-between p-4 hover:bg-slate-50/50 cursor-pointer transition-colors"
+                            className="flex items-center justify-between p-4 hover:bg-slate-50/50 cursor-pointer transition-all hover:pl-5 group"
                             onClick={() => setSelectedItem(item)}
                           >
                             <div className="flex items-center gap-3">
-                              <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-brand-teal-light text-brand-teal">
+                              <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-brand-teal-light text-brand-teal group-hover:scale-105 transition-transform">
                                 <Play className="h-4 w-4" />
                               </div>
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-sm font-semibold text-text-primary">{item.companies?.company_name}</span>
+                                  <span className="text-sm font-semibold text-text-primary group-hover:text-brand-teal transition-colors">{item.companies?.company_name}</span>
                                   <span className="text-xs text-text-secondary">· {contact?.full_name || 'No Contact'}</span>
                                 </div>
                                 <div className="flex items-center gap-2 mt-0.5 text-[10px] text-text-muted">
@@ -354,7 +361,7 @@ export default function DailyCadencePage() {
                                   {proposal && (
                                     <>
                                       <span>·</span>
-                                      <span className="font-semibold text-brand-gold">Proposal: {proposal.status}</span>
+                                      <Badge className="text-[9px] py-0 px-1.5 font-bold uppercase tracking-wider bg-amber-100 text-amber-700">Proposal: {proposal.status}</Badge>
                                     </>
                                   )}
                                 </div>
@@ -365,7 +372,7 @@ export default function DailyCadencePage() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => setSelectedItem(item)}
-                                className="text-xs text-brand-teal hover:underline"
+                                className="text-xs text-brand-teal hover:underline px-2"
                               >
                                 Open Workspace <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
                               </Button>
@@ -373,9 +380,9 @@ export default function DailyCadencePage() {
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => handleRemoveProspect(item.company_id)}
-                                className="h-7 w-7 text-text-muted hover:text-red-500"
+                                className="h-8 w-8 text-text-muted hover:text-red-500 rounded-lg"
                               >
-                                <AlertTriangle className="h-3.5 w-3.5" />
+                                <AlertTriangle className="h-4 w-4" />
                               </Button>
                             </div>
                           </div>
@@ -388,24 +395,31 @@ export default function DailyCadencePage() {
             </Card>
 
             {/* 2. OUTREACH INITIATED TODAY */}
-            <Card className="border-border bg-white shadow-sm overflow-hidden">
+            <Card className="border-border bg-white shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
               <div 
-                className="flex items-center justify-between p-4 border-b border-border/60 cursor-pointer hover:bg-slate-50/50 transition-all select-none"
+                className="flex items-center justify-between px-5 py-4 border-b border-border/60 cursor-pointer bg-slate-50/70 hover:bg-slate-100/50 transition-all select-none"
                 onClick={() => setExpandInitiated(!expandInitiated)}
               >
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <span className="text-sm font-bold text-text-primary">Outreach Initiated Today ({sessionItems.filter(item => item.status === 'sent').length})</span>
+                <div className="flex items-center gap-2.5">
+                  <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-green-50 text-green-600">
+                    <CheckCircle className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <span className="text-sm font-bold text-text-primary">Outreach Initiated Today</span>
+                    <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-green-100 text-green-700">
+                      {sessionItems.filter(item => item.status === 'sent').length} completed
+                    </span>
+                  </div>
                 </div>
-                <button className="text-text-muted hover:text-brand-teal">
-                  {expandInitiated ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                <button className="text-text-muted hover:text-brand-teal p-1">
+                  <ChevronRight className={`h-4 w-4 text-text-secondary transition-transform duration-200 ${expandInitiated ? 'rotate-90 text-brand-teal' : ''}`} />
                 </button>
               </div>
 
               {expandInitiated && (
                 <CardContent className="p-0">
                   {sessionItems.filter(item => item.status === 'sent').length === 0 ? (
-                    <p className="p-8 text-center text-xs text-text-muted">No outreach initiated yet today.</p>
+                    <p className="p-10 text-center text-xs text-text-muted font-medium">No outreach tasks completed yet today. Begin sending messages!</p>
                   ) : (
                     <div className="divide-y divide-border-light">
                       {sessionItems.filter(item => item.status === 'sent').map(item => {
@@ -414,16 +428,16 @@ export default function DailyCadencePage() {
                         return (
                           <div
                             key={item.id}
-                            className="flex items-center justify-between p-4 hover:bg-slate-50/50 cursor-pointer transition-colors"
+                            className="flex items-center justify-between p-4 hover:bg-slate-50/50 cursor-pointer transition-all hover:pl-5 group"
                             onClick={() => setSelectedItem(item)}
                           >
                             <div className="flex items-center gap-3">
-                              <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-green-100 text-green-700">
+                              <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-green-50 text-green-700 group-hover:scale-105 transition-transform">
                                 <CheckCircle className="h-4 w-4" />
                               </div>
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-sm font-semibold text-text-primary">{item.companies?.company_name}</span>
+                                  <span className="text-sm font-semibold text-text-primary group-hover:text-brand-teal transition-colors">{item.companies?.company_name}</span>
                                   <span className="text-xs text-text-secondary">· {contact?.full_name || 'No Contact'}</span>
                                 </div>
                                 <div className="flex items-center gap-2 mt-0.5 text-[10px] text-text-muted">
@@ -433,7 +447,7 @@ export default function DailyCadencePage() {
                                   {proposal && (
                                     <>
                                       <span>·</span>
-                                      <span className="font-semibold text-brand-gold">Proposal: {proposal.status}</span>
+                                      <Badge className="text-[9px] py-0 px-1.5 font-bold uppercase bg-green-100 text-green-700">Proposal: {proposal.status}</Badge>
                                     </>
                                   )}
                                 </div>
@@ -444,7 +458,7 @@ export default function DailyCadencePage() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => setSelectedItem(item)}
-                                className="text-xs text-brand-teal hover:underline"
+                                className="text-xs text-brand-teal hover:underline px-2"
                               >
                                 Open Workspace <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
                               </Button>
@@ -459,33 +473,40 @@ export default function DailyCadencePage() {
             </Card>
 
             {/* 3. BDM CLOSER CALL QUEUE */}
-            <Card className="border-border bg-white shadow-sm overflow-hidden">
+            <Card className="border-border bg-white shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
               <div 
-                className="flex items-center justify-between p-4 border-b border-border/60 cursor-pointer hover:bg-slate-50/50 transition-all select-none"
+                className="flex items-center justify-between px-5 py-4 border-b border-border/60 cursor-pointer bg-slate-50/70 hover:bg-slate-100/50 transition-all select-none"
                 onClick={() => setExpandCalls(!expandCalls)}
               >
-                <div className="flex items-center gap-2">
-                  <PhoneCall className="h-4 w-4 text-amber-600" />
-                  <span className="text-sm font-bold text-text-primary">BDM Closer Call Queue ({filteredCalls.length})</span>
+                <div className="flex items-center gap-2.5">
+                  <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-amber-50 text-amber-600">
+                    <PhoneCall className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <span className="text-sm font-bold text-text-primary">BDM Closer Call Queue</span>
+                    <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-700">
+                      {filteredCalls.length} due
+                    </span>
+                  </div>
                 </div>
-                <button className="text-text-muted hover:text-brand-teal">
-                  {expandCalls ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                <button className="text-text-muted hover:text-brand-teal p-1">
+                  <ChevronRight className={`h-4 w-4 text-text-secondary transition-transform duration-200 ${expandCalls ? 'rotate-90 text-brand-teal' : ''}`} />
                 </button>
               </div>
 
               {expandCalls && (
                 <CardContent className="p-0">
                   {filteredCalls.length === 0 ? (
-                    <div className="p-10 text-center text-xs text-text-muted">Call queue is empty. Nice work!</div>
+                    <div className="p-10 text-center text-xs text-text-muted font-medium">Closer call queue is currently empty. Nice work!</div>
                   ) : (
                     <div className="divide-y divide-border-light">
                       {filteredCalls.map(call => {
                         const company = call.companies
                         const contact = call.contacts
                         return (
-                          <div key={call.id} className="p-4 flex items-center justify-between">
+                          <div key={call.id} className="p-4 flex items-center justify-between hover:bg-slate-50/30 transition-colors">
                             <div className="flex items-center gap-3">
-                              <div className="h-8 w-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
+                              <div className="h-8 w-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
                                 <PhoneCall className="h-4 w-4" />
                               </div>
                               <div className="min-w-0 text-xs">
@@ -493,14 +514,14 @@ export default function DailyCadencePage() {
                                   <span className="font-bold text-text-primary">{company?.company_name}</span>
                                   <span className="text-text-secondary">· {contact?.full_name}</span>
                                 </div>
-                                <p className="text-[10px] text-text-muted mt-0.5">Phone: {contact?.phone || 'No phone'} · Queued: {new Date(call.queued_at).toLocaleDateString()}</p>
+                                <p className="text-[10px] text-text-muted mt-0.5 font-medium">Phone: {contact?.phone || 'No phone'} · Queued: {new Date(call.queued_at).toLocaleDateString()}</p>
                               </div>
                             </div>
                             <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                               <Button
                                 size="sm"
                                 onClick={() => { setSelectedCallItem(call); setCallLogOpen(true); }}
-                                className="bg-brand-teal hover:bg-brand-teal-dark text-white text-xs hover-lift h-8 px-3"
+                                className="bg-brand-teal hover:bg-brand-teal-dark text-white text-xs hover-lift h-8 px-4 rounded-lg font-semibold press-effect"
                               >
                                 Log Outcome
                               </Button>
@@ -515,33 +536,40 @@ export default function DailyCadencePage() {
             </Card>
 
             {/* 4. TODAY'S CADENCE FOLLOW-UPS */}
-            <Card className="border-border bg-white shadow-sm overflow-hidden">
+            <Card className="border-border bg-white shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
               <div 
-                className="flex items-center justify-between p-4 border-b border-border/60 cursor-pointer hover:bg-slate-50/50 transition-all select-none"
+                className="flex items-center justify-between px-5 py-4 border-b border-border/60 cursor-pointer bg-slate-50/70 hover:bg-slate-100/50 transition-all select-none"
                 onClick={() => setExpandFollowUps(!expandFollowUps)}
               >
-                <div className="flex items-center gap-2">
-                  <CalendarCheck className="h-4 w-4 text-purple-600" />
-                  <span className="text-sm font-bold text-text-primary">Today's Cadence Follow-ups ({todayFollowUps.length})</span>
+                <div className="flex items-center gap-2.5">
+                  <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-purple-50 text-purple-600">
+                    <CalendarCheck className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <span className="text-sm font-bold text-text-primary">Today's Cadence Follow-ups</span>
+                    <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-700">
+                      {todayFollowUps.length} scheduled
+                    </span>
+                  </div>
                 </div>
-                <button className="text-text-muted hover:text-brand-teal">
-                  {expandFollowUps ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                <button className="text-text-muted hover:text-brand-teal p-1">
+                  <ChevronRight className={`h-4 w-4 text-text-secondary transition-transform duration-200 ${expandFollowUps ? 'rotate-90 text-brand-teal' : ''}`} />
                 </button>
               </div>
 
               {expandFollowUps && (
                 <CardContent className="p-0">
                   {todayFollowUps.length === 0 ? (
-                    <p className="p-8 text-center text-xs text-text-muted">No follow-ups due today.</p>
+                    <p className="p-10 text-center text-xs text-text-muted font-medium">No follow-ups due today.</p>
                   ) : (
                     <div className="divide-y divide-border-light text-xs">
                       {todayFollowUps.map(fu => (
-                        <div key={fu.id} className="p-3.5 flex items-center justify-between">
+                        <div key={fu.id} className="p-3.5 flex items-center justify-between hover:bg-slate-50/30 transition-colors">
                           <div>
                             <p className="font-bold text-text-primary">{fu.subject}</p>
-                            <p className="text-[10px] text-text-secondary mt-0.5">{fu.companies?.company_name} · {fu.contacts?.full_name}</p>
+                            <p className="text-[10px] text-text-secondary mt-0.5 font-medium">{fu.companies?.company_name} · {fu.contacts?.full_name}</p>
                           </div>
-                          <Badge className="bg-purple-100 text-purple-700 capitalize">{fu.channel}</Badge>
+                          <Badge className="bg-purple-100 text-purple-700 capitalize font-bold">{fu.channel}</Badge>
                         </div>
                       ))}
                     </div>
@@ -551,48 +579,54 @@ export default function DailyCadencePage() {
             </Card>
 
             {/* 5. TEAM OPERATIONAL CONVERSION METRICS */}
-            <Card className="border-border bg-white shadow-sm overflow-hidden">
+            <Card className="border-border bg-white shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
               <div 
-                className="flex items-center justify-between p-4 border-b border-border/60 cursor-pointer hover:bg-slate-50/50 transition-all select-none"
+                className="flex items-center justify-between px-5 py-4 border-b border-border/60 cursor-pointer bg-slate-50/70 hover:bg-slate-100/50 transition-all select-none"
                 onClick={() => setExpandMetrics(!expandMetrics)}
               >
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-[#0D4F4F]" />
-                  <span className="text-sm font-bold text-text-primary">Team Operational Conversion Metrics</span>
+                <div className="flex items-center gap-2.5">
+                  <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-teal-50 text-teal-800">
+                    <TrendingUp className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <span className="text-sm font-bold text-text-primary">Team Operational Conversion Metrics</span>
+                  </div>
                 </div>
-                <button className="text-text-muted hover:text-brand-teal">
-                  {expandMetrics ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                <button className="text-text-muted hover:text-brand-teal p-1">
+                  <ChevronRight className={`h-4 w-4 text-text-secondary transition-transform duration-200 ${expandMetrics ? 'rotate-90 text-brand-teal' : ''}`} />
                 </button>
               </div>
 
               {expandMetrics && (
-                <CardContent className="pt-4 pb-6 px-6 space-y-6">
+                <CardContent className="pt-5 pb-6 px-6 space-y-6">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
-                    <div className="p-3 bg-slate-50 border border-border-light rounded-xl">
+                    <div className="p-3.5 bg-slate-50 border border-border-light rounded-xl hover:bg-white hover:border-brand-teal/30 hover:shadow-sm transition-all duration-200">
                       <p className="text-lg font-bold text-brand-teal">{todayProspectsCount}</p>
-                      <p className="text-[10px] text-text-muted uppercase font-bold">Cadence Targets</p>
+                      <p className="text-[10px] text-text-muted uppercase font-bold tracking-wider mt-0.5">Cadence Targets</p>
                     </div>
-                    <div className="p-3 bg-slate-50 border border-border-light rounded-xl">
+                    <div className="p-3.5 bg-slate-50 border border-border-light rounded-xl hover:bg-white hover:border-brand-teal/30 hover:shadow-sm transition-all duration-200">
                       <p className="text-lg font-bold text-green-600">
                         {todayProspectsCount > 0 ? `${Math.round((outreachCompletedCount / todayProspectsCount) * 100)}%` : '0%'}
                       </p>
-                      <p className="text-[10px] text-text-muted uppercase font-bold">SDR Send Rate</p>
+                      <p className="text-[10px] text-text-muted uppercase font-bold tracking-wider mt-0.5">SDR Send Rate</p>
                     </div>
-                    <div className="p-3 bg-slate-50 border border-border-light rounded-xl">
+                    <div className="p-3.5 bg-slate-50 border border-border-light rounded-xl hover:bg-white hover:border-brand-teal/30 hover:shadow-sm transition-all duration-200">
                       <p className="text-lg font-bold text-amber-600">{completedCallsCount}</p>
-                      <p className="text-[10px] text-text-muted uppercase font-bold">BDM Calls Done</p>
+                      <p className="text-[10px] text-text-muted uppercase font-bold tracking-wider mt-0.5">BDM Calls Done</p>
                     </div>
-                    <div className="p-3 bg-slate-50 border border-border-light rounded-xl">
+                    <div className="p-3.5 bg-slate-50 border border-border-light rounded-xl hover:bg-white hover:border-brand-teal/30 hover:shadow-sm transition-all duration-200">
                       <p className="text-lg font-bold text-brand-gold">{sessionItems.filter(i => i.outreach_preparations?.status === 'sent').length}</p>
-                      <p className="text-[10px] text-text-muted uppercase font-bold">Proposals Sent</p>
+                      <p className="text-[10px] text-text-muted uppercase font-bold tracking-wider mt-0.5">Proposals Sent</p>
                     </div>
                   </div>
 
-                  <div className="border-t border-border-light pt-4 space-y-2">
-                    <h4 className="text-xs font-bold text-text-primary uppercase tracking-wider">Audit logs & History Archive</h4>
-                    <p className="text-xs text-text-secondary">Historical operational reports are saved automatically.</p>
+                  <div className="border-t border-border-light pt-4 space-y-2 flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-bold text-text-primary uppercase tracking-wider">Audit logs & History Archive</h4>
+                      <p className="text-xs text-text-secondary mt-0.5">Historical daily reports are saved automatically in database archives.</p>
+                    </div>
                     <Link href="/daily-cadence/history">
-                      <Button size="sm" variant="outline" className="border-border text-xs text-brand-teal bg-white hover:bg-slate-50">
+                      <Button size="sm" variant="outline" className="border-border text-xs text-brand-teal bg-white hover:bg-slate-50 hover-lift font-semibold">
                         Open Daily History Archives
                       </Button>
                     </Link>
