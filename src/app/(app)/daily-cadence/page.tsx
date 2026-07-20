@@ -754,7 +754,10 @@ export default function DailyCadencePage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCsvImportOpen(true)}
+              onClick={() => {
+                setAddProspectsOpen(false);
+                setCsvImportOpen(true);
+              }}
               className="bg-white hover:bg-slate-50 border-border text-brand-teal text-xs flex items-center gap-1.5 flex-shrink-0"
             >
               <Upload className="h-3.5 w-3.5" />
@@ -894,7 +897,10 @@ export default function DailyCadencePage() {
 
       <CsvImport
         open={csvImportOpen}
-        onClose={() => setCsvImportOpen(false)}
+        onClose={() => {
+          setCsvImportOpen(false);
+          setAddProspectsOpen(true);
+        }}
         onImport={handleCsvImport}
         fields={csvFields}
         title="Import and Add Prospects to Today's Cadence"
