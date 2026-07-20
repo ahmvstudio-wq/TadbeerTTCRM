@@ -351,7 +351,7 @@ export async function POST(req: Request) {
         solutionIntro: proposal.solutionIntro,
         phases: proposal.phases,
         proposalValidUntil: proposal.proposalValidUntil,
-        additionalSections: [],
+        additionalSections: [] as Array<{ title: string; content: string[] }>,
       }
 
       // Also store the WhatsApp message as a separate section for easy access
