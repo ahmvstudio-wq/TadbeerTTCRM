@@ -15,11 +15,13 @@ import { Select } from '@/components/ui/select'
 import { Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter, DialogClose } from '@/components/ui/dialog'
 import { ToastContainer, addToast } from '@/components/ui/toast'
 import { createClient } from '@/lib/supabase/client'
-import { getOrCreateSession, getSessionItems, addCompaniesToSession, removeCompanyFromSession, completeCallTask, logResponse } from '@/lib/actions/cadence'
+import { getOrCreateSession, getSessionItems, addCompaniesToSession, removeCompanyFromSession, completeCallTask, logResponse, importAndBindCompaniesToSession } from '@/lib/actions/cadence'
 import { getCompanies } from '@/lib/actions/companies'
 import { getCallQueue } from '@/lib/actions/calls'
 import { getFollowUps } from '@/lib/actions/followups'
 import { ProspectWorkspace } from '@/components/cadence/prospect-workspace'
+import { CsvImport } from '@/components/ui/csv-import'
+import { Upload } from 'lucide-react'
 
 export default function DailyCadencePage() {
   const [loading, setLoading] = useState(true)
@@ -44,6 +46,7 @@ export default function DailyCadencePage() {
   // Selection & Details panel
   const [selectedItem, setSelectedItem] = useState<any>(null)
   const [addProspectsOpen, setAddProspectsOpen] = useState(false)
+  const [csvImportOpen, setCsvImportOpen] = useState(false)
   const [selectedCompanyIds, setSelectedCompanyIds] = useState<Set<string>>(new Set())
   const [companySearch, setCompanySearch] = useState('')
 
@@ -144,6 +147,34 @@ export default function DailyCadencePage() {
       refreshData()
     }
   }
+
+  const csvFields = [
+    { key: "company_name", label: "Company Name", required: true },
+    { key: "industry", label: "Industry" },
+    { key: "website", label: "Website" },
+    { key: "phone", label: "Phone" },
+    { key: "email", label: "Email" },
+    { key: "country", label: "Country" },
+    { key: "city", label: "City" },
+    { key: "employee_count", label: "Employee Count" },
+    { key: "linkedin_url", label: "LinkedIn URL" },
+    { key: "notes", label: "Notes" },
+    { key: "contact_name", label: "Contact Name" },
+    { key: "contact_title", label: "Contact Title" }
+  ];
+
+  const handleCsvImport = async (data: Record<string, string>[]) => {
+    if (!session) return;
+    const res = await importAndBindCompaniesToSession(session.id, data);
+    if (res.error) {
+      addToast("error", res.error);
+    } else {
+      addToast("success", `Matched ${res.data?.matched} existing, created ${res.data?.imported} new, and added ${res.data?.bound} to today's cadence.`);
+      setCsvImportOpen(false);
+      setAddProspectsOpen(false);
+      refreshData();
+    }
+  };
 
   const handleRemoveProspect = async (companyId: string) => {
     if (!session) return
@@ -701,6 +732,21 @@ export default function DailyCadencePage() {
           <DialogClose onClick={() => setAddProspectsOpen(false)} />
         </DialogHeader>
         <DialogContent className="space-y-4">
+          <div className="flex justify-between items-center gap-4 bg-cream-dark/20 p-3 rounded-xl border border-border-light">
+            <div className="text-xs text-text-secondary leading-normal">
+              Select existing prospects from your CRM list, or import a CSV file directly to match & add them.
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCsvImportOpen(true)}
+              className="bg-white hover:bg-slate-50 border-border text-brand-teal text-xs flex items-center gap-1.5 flex-shrink-0"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              Import CSV Instead
+            </Button>
+          </div>
+
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
             <Input
@@ -830,6 +876,14 @@ export default function DailyCadencePage() {
           </Button>
         </DialogFooter>
       </Dialog>
+
+      <CsvImport
+        open={csvImportOpen}
+        onClose={() => setCsvImportOpen(false)}
+        onImport={handleCsvImport}
+        fields={csvFields}
+        title="Import and Add Prospects to Today's Cadence"
+      />
     </div>
   )
 }

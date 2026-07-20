@@ -95,6 +95,99 @@ export async function addCompaniesToSession(sessionId: string, companyIds: strin
   }
 }
 
+export async function importAndBindCompaniesToSession(sessionId: string, rows: Record<string, string>[]) {
+  try {
+    const boundIds: string[] = []
+    let imported = 0
+    let matched = 0
+
+    for (const row of rows) {
+      const compName = row.company_name?.trim()
+      if (!compName) continue
+
+      // Check if company already exists
+      const { data: existingComp } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('company_name', compName)
+        .maybeSingle()
+
+      let companyId: string
+
+      if (existingComp) {
+        companyId = existingComp.id
+        matched++
+      } else {
+        // Create new company
+        const { data: newComp, error: compErr } = await supabase
+          .from('companies')
+          .insert({
+            company_name: compName,
+            industry: row.industry || null,
+            website: row.website || null,
+            phone: row.phone || null,
+            email: row.email || null,
+            city: row.city || null,
+            country: row.country || null,
+            employee_count: row.employee_count ? parseInt(row.employee_count, 10) : null,
+            notes: row.notes || null,
+            status: 'prospect',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single()
+
+        if (compErr) {
+          console.error(`Failed to import company "${compName}":`, compErr.message)
+          continue
+        }
+        
+        companyId = newComp.id
+        imported++
+
+        // Create contact if contact_name / person_name is present
+        const contactName = row.contact_name || row.person_name
+        if (contactName) {
+          await supabase
+            .from('contacts')
+            .insert({
+              company_id: companyId,
+              full_name: contactName,
+              title: row.contact_title || row.person_title || null,
+              email: row.email || null,
+              phone: row.phone || null,
+              whatsapp: row.whatsapp || null,
+              linkedin_url: row.linkedin_url || row.linkedin || null,
+              is_primary: true,
+              created_at: new Date().toISOString()
+            })
+        }
+      }
+
+      // Check if company is already in this session to avoid duplicates
+      const { data: itemExists } = await supabase
+        .from('daily_outreach_items')
+        .select('id')
+        .eq('session_id', sessionId)
+        .eq('company_id', companyId)
+        .maybeSingle()
+
+      if (!itemExists) {
+        boundIds.push(companyId)
+      }
+    }
+
+    if (boundIds.length > 0) {
+      await addCompaniesToSession(sessionId, boundIds)
+    }
+
+    return { data: { imported, matched, bound: boundIds.length }, error: null }
+  } catch (error) {
+    return { data: null, error: error instanceof Error ? error.message : 'Import and bind failed' }
+  }
+}
+
 export async function removeCompanyFromSession(sessionId: string, companyId: string) {
   try {
     const { error } = await supabase
