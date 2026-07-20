@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { addToast } from '@/components/ui/toast'
 import { saveProposal, markOutreachSent, logResponse } from '@/lib/actions/cadence'
+import { updateCompany } from '@/lib/actions/companies'
 import {
   ProposalPdfPreview,
   type ProposalData,
@@ -53,6 +54,7 @@ interface Company {
   country?: string
   status: string
   notes?: string
+  employee_count?: number
   next_action?: string
   next_action_due_date?: string
 }
@@ -89,6 +91,15 @@ export function ProspectWorkspace({
 }: ProspectWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<'details' | 'research' | 'outreach' | 'proposal' | 'history'>('details')
   
+  // Research notes states
+  const [researchNotes, setResearchNotes] = useState(company.notes || '')
+  const [isSavingResearch, setIsSavingResearch] = useState(false)
+
+  // Sync research notes state when company changes
+  useEffect(() => {
+    setResearchNotes(company.notes || '')
+  }, [company.id, company.notes])
+
   // States for outreach
   const [outreachChannel, setOutreachChannel] = useState<'whatsapp' | 'linkedin' | 'email'>('whatsapp')
   const [outreachMessage, setOutreachMessage] = useState('')
@@ -365,6 +376,23 @@ export function ProspectWorkspace({
     }
   }
 
+  const handleSaveResearch = async () => {
+    setIsSavingResearch(true)
+    try {
+      const res = await updateCompany(company.id, { notes: researchNotes })
+      if (res.error) {
+        addToast('error', res.error)
+      } else {
+        addToast('success', 'Research notes saved successfully')
+        onUpdate()
+      }
+    } catch (err) {
+      addToast('error', 'Failed to save research notes')
+    } finally {
+      setIsSavingResearch(false)
+    }
+  }
+
   // ── Section label helper ───────────────────────────────────────────────
   const SectionLabel = ({ children }: { children: React.ReactNode }) => (
     <label className="text-[10px] font-extrabold text-text-muted uppercase mb-1 block tracking-wider">{children}</label>
@@ -533,21 +561,45 @@ export function ProspectWorkspace({
           {activeTab === 'research' && (
             <div className="space-y-4 text-xs">
               <div>
-                <h4 className="text-sm font-bold text-text-primary mb-2">Company Intelligence & ICP Fit</h4>
-                <p className="text-text-secondary">Analyze the target's business profiles before initiating personalized messaging.</p>
+                <h4 className="text-sm font-bold text-text-primary mb-2">Company Intelligence & Research Notes</h4>
+                <p className="text-text-secondary">Analyze the target's profile and record your custom research notes below.</p>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-slate-50 border border-border-light rounded-xl">
-                  <span className="text-[9px] uppercase tracking-wider font-extrabold text-brand-gold">Website & Bio</span>
-                  <p className="font-semibold text-text-primary mt-1">{company.website || 'No Website linked'}</p>
-                  <p className="text-[11px] text-text-secondary mt-1">Industry: {company.industry || 'N/A'} · City: {company.city || 'Muscat'}</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-1 p-4 bg-slate-50 border border-border-light rounded-xl space-y-3">
+                  <div>
+                    <span className="text-[9px] uppercase tracking-wider font-extrabold text-brand-gold font-bold">Website & Bio</span>
+                    <p className="font-semibold text-text-primary mt-1 truncate">{company.website || 'No Website linked'}</p>
+                    <p className="text-[11px] text-text-secondary mt-1">Industry: {company.industry || 'N/A'} · City: {company.city || 'Muscat'}</p>
+                  </div>
+                  <div>
+                    <span className="text-[9px] uppercase tracking-wider font-extrabold text-brand-teal font-bold block mb-1">Company Details</span>
+                    <p className="text-[11px] text-text-secondary">Size: {company.employee_count || 'N/A'} employees</p>
+                    <p className="text-[11px] text-text-secondary">Country: {company.country || 'Oman'}</p>
+                  </div>
                 </div>
-                <div className="p-4 bg-slate-50 border border-border-light rounded-xl">
-                  <span className="text-[9px] uppercase tracking-wider font-extrabold text-brand-teal">Outreach Strategy Suggestions</span>
-                  <ul className="list-disc pl-4 space-y-1 text-[11px] text-text-secondary mt-1">
-                    <li>Focus on operational audit and process centralization.</li>
-                    <li>Offer workflow automation case studies in {company.industry || 'Technology'}.</li>
-                  </ul>
+                
+                <div className="md:col-span-2 p-4 bg-slate-50 border border-border-light rounded-xl flex flex-col space-y-3">
+                  <div>
+                    <span className="text-[9px] uppercase tracking-wider font-extrabold text-brand-teal font-bold">Research Notes</span>
+                    <p className="text-[10px] text-text-secondary mt-0.5">Write down your findings, pain points, or custom pitch angles here.</p>
+                  </div>
+                  <Textarea
+                    rows={8}
+                    value={researchNotes}
+                    onChange={(e) => setResearchNotes(e.target.value)}
+                    placeholder="Enter your custom research findings here..."
+                    className="text-xs bg-white flex-1"
+                  />
+                  <div className="flex justify-end pt-1">
+                    <Button
+                      onClick={handleSaveResearch}
+                      disabled={isSavingResearch}
+                      className="bg-brand-teal hover:bg-brand-teal-dark text-white text-xs px-4 py-2 hover-lift flex items-center gap-1.5 font-bold"
+                    >
+                      <Save className="h-3.5 w-3.5" />
+                      {isSavingResearch ? 'Saving...' : 'Save Research Notes'}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>

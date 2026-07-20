@@ -47,6 +47,7 @@ export default function ProspectsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [prospects, setProspects] = useState<any[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [csvOpen, setCsvOpen] = useState(false);
@@ -58,7 +59,7 @@ export default function ProspectsPage() {
     try {
       const result = await getCompanies({ search: searchVal || undefined, status: statusVal || undefined });
       if (result.error) { setError(result.error); setProspects([]); }
-      else { setProspects(result.data || []); }
+      else { setProspects(result.data || []); setSelectedIds([]); }
     } catch { setError("Failed to load prospects"); setProspects([]); }
     finally { setLoading(false); }
   }, []);
@@ -84,7 +85,16 @@ export default function ProspectsPage() {
   };
 
   const handleExport = () => {
-    const exportData = prospects.map((p) => ({
+    const dataToExport = selectedIds.length > 0
+      ? prospects.filter((p) => selectedIds.includes(p.id))
+      : prospects;
+
+    if (dataToExport.length === 0) {
+      addToast("error", "No prospects to export");
+      return;
+    }
+
+    const exportData = dataToExport.map((p) => ({
       person_name: p.contacts?.[0]?.full_name || "",
       person_title: p.contacts?.[0]?.title || "",
       company_name: p.company_name,
@@ -114,7 +124,7 @@ export default function ProspectsPage() {
       { key: "status", label: "Status" },
       { key: "notes", label: "Notes" },
     ]);
-    addToast("success", `Exported ${prospects.length} prospects`);
+    addToast("success", `Exported ${dataToExport.length} prospects`);
   };
 
   return (
@@ -165,7 +175,26 @@ export default function ProspectsPage() {
 
       <Card className="animate-fade-in-up">
         <CardHeader className="flex flex-row items-center gap-4 space-y-0">
-          <div className="flex-1"><CardTitle>All Prospects</CardTitle></div>
+          <div className="flex-1 flex items-center gap-4">
+            <CardTitle>All Prospects</CardTitle>
+            {prospects.length > 0 && (
+              <div className="flex items-center gap-2 border-l border-border pl-4">
+                <input
+                  type="checkbox"
+                  checked={prospects.length > 0 && selectedIds.length === prospects.length}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedIds(prospects.map(p => p.id));
+                    } else {
+                      setSelectedIds([]);
+                    }
+                  }}
+                  className="h-4 w-4 rounded border-gray-300 text-brand-teal focus:ring-brand-teal cursor-pointer"
+                />
+                <span className="text-xs text-text-secondary select-none font-medium">Select All ({selectedIds.length} selected)</span>
+              </div>
+            )}
+          </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
             <Input placeholder="Search company or person..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 w-64" />
@@ -215,6 +244,19 @@ export default function ProspectsPage() {
                       className="flex items-center gap-4 py-3 px-4 hover:bg-cream-dark/30 cursor-pointer transition-all duration-200"
                       onClick={() => setExpandedId(isExpanded ? null : prospect.id)}
                     >
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(prospect.id)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          if (e.target.checked) {
+                            setSelectedIds([...selectedIds, prospect.id]);
+                          } else {
+                            setSelectedIds(selectedIds.filter(id => id !== prospect.id));
+                          }
+                        }}
+                        className="h-4 w-4 rounded border-gray-300 text-brand-teal focus:ring-brand-teal cursor-pointer"
+                      />
                       <button className="flex-shrink-0 text-text-muted transition-transform duration-200" style={{ transform: isExpanded ? "rotate(0)" : "rotate(0)" }}>
                         {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                       </button>
@@ -240,7 +282,7 @@ export default function ProspectsPage() {
                       </div>
                     </div>
                     {isExpanded && (
-                      <div className="bg-cream-dark/40 border-t border-border-light px-4 py-3 ml-9 animate-expand-down">
+                      <div className="bg-cream-dark/40 border-t border-border-light px-4 py-3 ml-14 animate-expand-down">
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 stagger-children">
                           {contact?.email && (
                             <a href={`mailto:${contact.email}`} className="flex items-center gap-2.5 p-2.5 rounded-xl bg-white border border-border-light hover:border-brand-teal hover:shadow-sm transition-all duration-200 group">
