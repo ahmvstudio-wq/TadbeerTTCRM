@@ -62,8 +62,20 @@ export default function DailyCadencePage() {
     try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
+      let profile = null
       if (user) {
-        const { data: profile } = await supabase.from('users').select('*').eq('id', user.id).single()
+        const { data: existing } = await supabase.from('users').select('*').eq('id', user.id).maybeSingle()
+        profile = existing
+        if (!profile) {
+          const { data: inserted } = await supabase.from('users').insert({
+            id: user.id,
+            full_name: user.email?.split('@')[0] || 'User',
+            email: user.email || 'user@tadbeer.com',
+            role: 'admin',
+            created_at: new Date().toISOString()
+          }).select().single()
+          profile = inserted
+        }
         setCurrentUser(profile)
         if (profile) {
           if (profile.role === 'admin') setCurrentRole('manager')
