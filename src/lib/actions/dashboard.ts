@@ -1,11 +1,13 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const supabase = createClient(supabaseUrl, supabaseKey)
 
 export async function getDashboardStats() {
   try {
-    const supabase = await createClient()
-
     const [
       companiesResult,
       contactsResult,
@@ -83,8 +85,6 @@ export async function getDashboardStats() {
 
 export async function getRecentActivity(limit: number = 20) {
   try {
-    const supabase = await createClient()
-
     const { data, error } = await supabase
       .from('activities')
       .select(`
