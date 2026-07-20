@@ -66,7 +66,9 @@ export default function DailyCadencePage() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       let profile = null
+      let userIdToUse = 'c3d4e5f6-a7b8-9012-cdef-123456789012'
       if (user) {
+        userIdToUse = user.id
         const { data: existing } = await supabase.from('users').select('*').eq('id', user.id).maybeSingle()
         profile = existing
         if (!profile) {
@@ -79,15 +81,28 @@ export default function DailyCadencePage() {
           }).select().single()
           profile = inserted
         }
-        setCurrentUser(profile)
-        if (profile) {
-          if (profile.role === 'admin') setCurrentRole('manager')
-          else if (profile.role === 'closer') setCurrentRole('bdm')
-          else setCurrentRole('sdr')
+      } else {
+        const { data: existing } = await supabase.from('users').select('*').eq('id', userIdToUse).maybeSingle()
+        profile = existing
+        if (!profile) {
+          const { data: inserted } = await supabase.from('users').insert({
+            id: userIdToUse,
+            full_name: 'Fatima Hassan',
+            email: 'fatima@tadbeer.com',
+            role: 'bd_rep',
+            created_at: new Date().toISOString()
+          }).select().single()
+          profile = inserted
         }
       }
+      setCurrentUser(profile)
+      if (profile) {
+        if (profile.role === 'admin') setCurrentRole('manager')
+        else if (profile.role === 'closer') setCurrentRole('bdm')
+        else setCurrentRole('sdr')
+      }
 
-      const sessRes = await getOrCreateSession(user?.id || 'c3d4e5f6-a7b8-9012-cdef-123456789012', selectedDate)
+      const sessRes = await getOrCreateSession(userIdToUse, selectedDate)
       if (sessRes.data) {
         setSession(sessRes.data)
         const itemsRes = await getSessionItems(sessRes.data.id)
