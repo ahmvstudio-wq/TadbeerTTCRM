@@ -71,30 +71,21 @@ export default function DailyCadencePage() {
         userIdToUse = user.id
         const { data: existing } = await supabase.from('users').select('*').eq('id', user.id).maybeSingle()
         profile = existing
-        if (!profile) {
-          const { data: inserted } = await supabase.from('users').insert({
-            id: user.id,
-            full_name: user.email?.split('@')[0] || 'User',
-            email: user.email || 'user@tadbeer.com',
-            role: 'admin',
-            created_at: new Date().toISOString()
-          }).select().single()
-          profile = inserted
-        }
       } else {
         const { data: existing } = await supabase.from('users').select('*').eq('id', userIdToUse).maybeSingle()
         profile = existing
-        if (!profile) {
-          const { data: inserted } = await supabase.from('users').insert({
-            id: userIdToUse,
-            full_name: 'Fatima Hassan',
-            email: 'fatima@tadbeer.com',
-            role: 'bd_rep',
-            created_at: new Date().toISOString()
-          }).select().single()
-          profile = inserted
+      }
+
+      if (!profile) {
+        // Fallback mockup profile state for UI if not created yet (server will create it during getOrCreateSession)
+        profile = {
+          id: userIdToUse,
+          full_name: userIdToUse === 'c3d4e5f6-a7b8-9012-cdef-123456789012' ? 'Fatima Hassan' : 'User',
+          email: userIdToUse === 'c3d4e5f6-a7b8-9012-cdef-123456789012' ? 'fatima@tadbeer.com' : 'user@tadbeer.com',
+          role: userIdToUse === 'c3d4e5f6-a7b8-9012-cdef-123456789012' ? 'bd_rep' : 'admin'
         }
       }
+
       setCurrentUser(profile)
       if (profile) {
         if (profile.role === 'admin') setCurrentRole('manager')

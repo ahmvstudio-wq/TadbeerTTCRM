@@ -10,6 +10,30 @@ const supabase = createClient(supabaseUrl, supabaseKey)
 
 export async function getOrCreateSession(userId: string, dateStr: string) {
   try {
+    // Auto-heal: Ensure user exists in users table first
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle()
+
+    if (!existingUser) {
+      const isFallback = userId === 'c3d4e5f6-a7b8-9012-cdef-123456789012'
+      const { error: insertUserErr } = await supabase
+        .from('users')
+        .insert({
+          id: userId,
+          full_name: isFallback ? 'Fatima Hassan' : 'User',
+          email: isFallback ? 'fatima@tadbeer.com' : 'user@tadbeer.com',
+          role: isFallback ? 'bd_rep' : 'admin',
+          created_at: new Date().toISOString()
+        })
+      
+      if (insertUserErr) {
+        return { data: null, error: `Failed to auto-heal user profile: ${insertUserErr.message}` }
+      }
+    }
+
     // Check if session exists
     let { data: session, error } = await supabase
       .from('daily_outreach_sessions')
