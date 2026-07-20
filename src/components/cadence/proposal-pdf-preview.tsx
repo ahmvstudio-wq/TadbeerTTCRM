@@ -579,7 +579,7 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
     </div>
   </div>
 
-  <!-- SLIDE 2: FORENSIC DIAGNOSIS -->
+  <!-- SLIDE 2: EXECUTIVE SUMMARY -->
   <div class="slide">
     <div class="top-bar-teal"></div>
     <div class="top-bar-gold"></div>
@@ -590,7 +590,40 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
     </div>
 
     <div class="content-body">
-      <div class="section-number">01 // FORENSIC DIAGNOSIS</div>
+      <div class="section-number">02 // EXECUTIVE SUMMARY</div>
+      <h1 class="section-heading">The Case for Operational Transformation</h1>
+      <p class="section-sub">A strategic audit of alignment between people, tools, and execution path.</p>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 20px;">
+        <div>
+          <h3 style="font-size: 14px; font-weight: 800; color: #0D4F4F; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">The Scale Challenge</h3>
+          <p style="font-size: 11px; line-height: 1.6; color: #4B5563;">As business operations grow, complexity scales quadratically while administrative overhead accumulates. Tadbeer Transformations operates on a single principle: relevance before relationship, and diagnosis before proposal. This strategic intelligence report outlines the exact workflow bottlenecks and system leaks limiting scale velocity.</p>
+        </div>
+        <div>
+          <h3 style="font-size: 14px; font-weight: 800; color: #0D4F4F; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">Systematic Alignment</h3>
+          <p style="font-size: 11px; line-height: 1.6; color: #4B5563;">Our goal is to replace manual dependencies and fragmented coordination channels (such as spreadsheet logs, emails, and WhatsApp threads) with deterministic, centralized systems. By introducing unified digital dashboards, we restore clarity, capture leaked hours, and enable smooth execution across departments.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <span>Tadbeer TT</span>
+      <span>PROPRIETARY OPERATIONAL INTELLIGENCE</span>
+    </div>
+  </div>
+
+  <!-- SLIDE 3: FORENSIC DIAGNOSIS -->
+  <div class="slide">
+    <div class="top-bar-teal"></div>
+    <div class="top-bar-gold"></div>
+
+    <div class="slide-header-bar">
+      <span class="slide-header-title">STRATEGIC OPERATIONAL INTELLIGENCE</span>
+      <img src="/logo/tadbeer-logo.png" class="slide-header-logo" alt="Tadbeer Logo" />
+    </div>
+
+    <div class="content-body">
+      <div class="section-number">03 // FORENSIC DIAGNOSIS</div>
       <h1 class="section-heading">Where ${company.company_name} is Bleeding</h1>
       <p class="section-sub">${d.diagnosisIntro}</p>
       <div class="diag-cards">${diagCardsHtml}</div>
@@ -602,7 +635,7 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
     </div>
   </div>
 
-  <!-- SLIDE 3: SOLUTION -->
+  <!-- SLIDE 4: SOLUTION -->
   <div class="slide">
     <div class="top-bar-teal"></div>
     <div class="top-bar-gold"></div>
@@ -613,12 +646,12 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
     </div>
 
     <div class="content-body">
-      <div class="section-number">02 // THE SOLUTION</div>
+      <div class="section-number">04 // THE SOLUTION</div>
       <h1 class="section-heading">90-Day Operational Overhaul</h1>
       <p class="section-sub">${d.solutionIntro}</p>
       
       <!-- Visual Connector Timeline Infographic -->
-      <div class="connector-timeline">
+      <div class="connector-timeline" style="margin-bottom: 25px;">
         <div class="connector-timeline-line"></div>
         ${d.phases.map((p, i) => `
           <div class="connector-timeline-step ${i === 0 ? 'active' : ''}">0${p.phaseNum}</div>
@@ -626,6 +659,46 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
       </div>
 
       <div class="phase-cards">${phaseCardsHtml}</div>
+    </div>
+
+    <div class="slide-footer">
+      <span>Tadbeer TT</span>
+      <span>PROPRIETARY OPERATIONAL INTELLIGENCE</span>
+    </div>
+  </div>
+
+  <!-- SLIDE 5: BUSINESS CASE & ROI -->
+  <div class="slide">
+    <div class="top-bar-teal"></div>
+    <div class="top-bar-gold"></div>
+
+    <div class="slide-header-bar">
+      <span class="slide-header-title">STRATEGIC OPERATIONAL INTELLIGENCE</span>
+      <img src="/logo/tadbeer-logo.png" class="slide-header-logo" alt="Tadbeer Logo" />
+    </div>
+
+    <div class="content-body">
+      <div class="section-number">05 // BUSINESS CASE & ROI</div>
+      <h1 class="section-heading">Operational Efficiency & Value Recovery</h1>
+      <p class="section-sub">Estimated impact models based on automation and system standardization.</p>
+      
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 20px;">
+        <div style="background: white; border: 1px solid #E6E1D8; border-top: 4px solid #C8A951; border-radius: 12px; padding: 18px; text-align: center;">
+          <div style="font-size: 26px; font-weight: 900; color: #0D4F4F;">12+ <span style="font-size: 12px; font-weight: 700; color: #C8A951;">Hours</span></div>
+          <h4 style="font-size: 11px; font-weight: 800; color: #0D4F4F; margin: 8px 0 4px; text-transform: uppercase; letter-spacing: 0.5px;">Leaked Hours Recovery</h4>
+          <p style="font-size: 9.5px; line-height: 1.5; color: #4B5563;">Replacing manual spreadsheets and back-and-forth status updates with automated dashboard logging saves significant overhead each week.</p>
+        </div>
+        <div style="background: white; border: 1px solid #E6E1D8; border-top: 4px solid #C8A951; border-radius: 12px; padding: 18px; text-align: center;">
+          <div style="font-size: 26px; font-weight: 900; color: #0D4F4F;">28% <span style="font-size: 12px; font-weight: 700; color: #C8A951;">Boost</span></div>
+          <h4 style="font-size: 11px; font-weight: 800; color: #0D4F4F; margin: 8px 0 4px; text-transform: uppercase; letter-spacing: 0.5px;">Sales Velocity Sync</h4>
+          <p style="font-size: 9.5px; line-height: 1.5; color: #4B5563;">Routing high-intent leads to sales coordinators immediately reduces response latency from hours to seconds, maximizing conversions.</p>
+        </div>
+        <div style="background: white; border: 1px solid #E6E1D8; border-top: 4px solid #C8A951; border-radius: 12px; padding: 18px; text-align: center;">
+          <div style="font-size: 26px; font-weight: 900; color: #0D4F4F;">100% <span style="font-size: 12px; font-weight: 700; color: #C8A951;">Audit</span></div>
+          <h4 style="font-size: 11px; font-weight: 800; color: #0D4F4F; margin: 8px 0 4px; text-transform: uppercase; letter-spacing: 0.5px;">System Auditability</h4>
+          <p style="font-size: 9.5px; line-height: 1.5; color: #4B5563;">Consolidating logs and tasks prevents double-entry, eliminates spreadsheet tracking loss, and provides managers with total compliance views.</p>
+        </div>
+      </div>
     </div>
 
     <div class="slide-footer">
@@ -677,7 +750,7 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
             <FileText className="h-5 w-5 text-brand-teal" />
             <div>
               <h3 className="font-bold text-brand-teal text-xs uppercase tracking-wider">SIQR Premium Proposal Deck Preview</h3>
-              <p className="text-[11px] text-text-secondary">{company.company_name} · {d.phases.length + d.additionalSections.length + 3} Slides</p>
+              <p className="text-[11px] text-text-secondary">{company.company_name} · {d.additionalSections.length + 6} Slides</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -737,7 +810,7 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
             </div>
           </div>
 
-          {/* ─── SLIDE 2: FORENSIC DIAGNOSIS ─── */}
+          {/* ─── SLIDE 2: EXECUTIVE SUMMARY ─── */}
           <div className={slideClass} style={{ padding: '50px 50px 30px' }}>
             <div className="absolute top-0 left-0 w-full h-[6px] bg-[#0D4F4F]" />
             <div className="absolute top-[6px] left-0 w-full h-[3px] bg-[#C8A951]" />
@@ -749,7 +822,41 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
             </div>
 
             <div className="flex-1">
-              <p className="text-[9px] font-extrabold tracking-[2px] uppercase text-[#C8A951] mb-0.5">01 // FORENSIC DIAGNOSIS</p>
+              <p className="text-[9px] font-extrabold tracking-[2px] uppercase text-[#C8A951] mb-0.5">02 // EXECUTIVE SUMMARY</p>
+              <h2 className="text-xl font-extrabold text-[#0D4F4F] mb-1 font-serif border-b-2 border-[#C8A951] inline-block pb-0.5">The Case for Operational Transformation</h2>
+              <p className="text-[11px] text-slate-500 leading-relaxed max-w-[650px] mb-4 mt-1">A strategic audit of alignment between people, tools, and execution path.</p>
+
+              <div className="grid grid-cols-2 gap-8 mt-2">
+                <div className="bg-[#0D4F4F]/5 rounded-xl p-4 border border-[#0D4F4F]/10">
+                  <h3 className="text-xs font-bold text-[#0D4F4F] uppercase tracking-wider mb-2">The Scale Challenge</h3>
+                  <p className="text-[10px] text-slate-600 leading-relaxed">As business operations grow, complexity scales quadratically while administrative overhead accumulates. Tadbeer Transformations operates on a single principle: relevance before relationship, and diagnosis before proposal. This strategic intelligence report outlines the exact workflow bottlenecks and system leaks limiting scale velocity.</p>
+                </div>
+                <div className="bg-[#0D4F4F]/5 rounded-xl p-4 border border-[#0D4F4F]/10">
+                  <h3 className="text-xs font-bold text-[#0D4F4F] uppercase tracking-wider mb-2">Systematic Alignment</h3>
+                  <p className="text-[10px] text-slate-600 leading-relaxed">Our goal is to replace manual dependencies and fragmented coordination channels (such as spreadsheet logs, emails, and WhatsApp threads) with deterministic, centralized systems. By introducing unified digital dashboards, we restore clarity, capture leaked hours, and enable smooth execution across departments.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-[#E6E1D8] pt-2 flex justify-between text-[8px] text-slate-400 uppercase tracking-wider font-semibold">
+              <span>Tadbeer TT</span>
+              <span>PROPRIETARY OPERATIONAL INTELLIGENCE</span>
+            </div>
+          </div>
+
+          {/* ─── SLIDE 3: FORENSIC DIAGNOSIS ─── */}
+          <div className={slideClass} style={{ padding: '50px 50px 30px' }}>
+            <div className="absolute top-0 left-0 w-full h-[6px] bg-[#0D4F4F]" />
+            <div className="absolute top-[6px] left-0 w-full h-[3px] bg-[#C8A951]" />
+
+            {/* Header with Logo */}
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-[9px] font-extrabold tracking-[2px] text-brand-teal">STRATEGIC OPERATIONAL INTELLIGENCE</span>
+              <img src="/logo/tadbeer-logo.png" className="h-6 object-contain" alt="Tadbeer Logo" />
+            </div>
+
+            <div className="flex-1">
+              <p className="text-[9px] font-extrabold tracking-[2px] uppercase text-[#C8A951] mb-0.5">03 // FORENSIC DIAGNOSIS</p>
               <h2 className="text-xl font-extrabold text-[#0D4F4F] mb-1 font-serif border-b-2 border-[#C8A951] inline-block pb-0.5">Where {company.company_name} is Bleeding</h2>
               <p className="text-[11px] text-slate-500 leading-relaxed max-w-[650px] mb-4 mt-1">{d.diagnosisIntro}</p>
 
@@ -791,7 +898,7 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
             </div>
           </div>
 
-          {/* ─── SLIDE 3: SOLUTION ─── */}
+          {/* ─── SLIDE 4: SOLUTION ─── */}
           <div className={slideClass} style={{ padding: '50px 50px 30px' }}>
             <div className="absolute top-0 left-0 w-full h-[6px] bg-[#0D4F4F]" />
             <div className="absolute top-[6px] left-0 w-full h-[3px] bg-[#C8A951]" />
@@ -803,7 +910,7 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
             </div>
 
             <div className="flex-1">
-              <p className="text-[9px] font-extrabold tracking-[2px] uppercase text-[#C8A951] mb-0.5">02 // THE SOLUTION</p>
+              <p className="text-[9px] font-extrabold tracking-[2px] uppercase text-[#C8A951] mb-0.5">04 // THE SOLUTION</p>
               <h2 className="text-xl font-extrabold text-[#0D4F4F] mb-1 font-serif border-b-2 border-[#C8A951] inline-block pb-0.5">90-Day Operational Overhaul</h2>
               <p className="text-[11px] text-slate-500 leading-relaxed max-w-[650px] mb-3 mt-1">{d.solutionIntro}</p>
 
@@ -828,6 +935,47 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
                     <p className="text-[9.5px] text-slate-600 leading-relaxed">{p.description}</p>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            <div className="border-t border-[#E6E1D8] pt-2 flex justify-between text-[8px] text-slate-400 uppercase tracking-wider font-semibold">
+              <span>Tadbeer TT</span>
+              <span>PROPRIETARY OPERATIONAL INTELLIGENCE</span>
+            </div>
+          </div>
+
+          {/* ─── SLIDE 5: BUSINESS CASE & ROI ─── */}
+          <div className={slideClass} style={{ padding: '50px 50px 30px' }}>
+            <div className="absolute top-0 left-0 w-full h-[6px] bg-[#0D4F4F]" />
+            <div className="absolute top-[6px] left-0 w-full h-[3px] bg-[#C8A951]" />
+
+            {/* Header with Logo */}
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-[9px] font-extrabold tracking-[2px] text-brand-teal">STRATEGIC OPERATIONAL INTELLIGENCE</span>
+              <img src="/logo/tadbeer-logo.png" className="h-6 object-contain" alt="Tadbeer Logo" />
+            </div>
+
+            <div className="flex-1">
+              <p className="text-[9px] font-extrabold tracking-[2px] uppercase text-[#C8A951] mb-0.5">05 // BUSINESS CASE & ROI</p>
+              <h2 className="text-xl font-extrabold text-[#0D4F4F] mb-1 font-serif border-b-2 border-[#C8A951] inline-block pb-0.5">Operational Efficiency & Value Recovery</h2>
+              <p className="text-[11px] text-slate-500 leading-relaxed max-w-[650px] mb-4 mt-1">Estimated impact models based on automation and system standardization.</p>
+
+              <div className="grid grid-cols-3 gap-4 mt-2">
+                <div className="bg-white border border-[#E6E1D8] border-t-4 border-t-[#C8A951] rounded-xl p-4 text-center shadow-sm">
+                  <div className="text-2xl font-black text-[#0D4F4F]">12+ <span className="text-xs font-bold text-[#C8A951]">Hours</span></div>
+                  <h4 className="text-[10px] font-bold text-[#0D4F4F] uppercase tracking-wide my-1.5">Leaked Hours Recovery</h4>
+                  <p className="text-[9px] text-slate-600 leading-relaxed">Replacing manual spreadsheets and back-and-forth status updates with automated dashboard logging saves significant overhead each week.</p>
+                </div>
+                <div className="bg-white border border-[#E6E1D8] border-t-4 border-t-[#C8A951] rounded-xl p-4 text-center shadow-sm">
+                  <div className="text-2xl font-black text-[#0D4F4F]">28% <span className="text-xs font-bold text-[#C8A951]">Boost</span></div>
+                  <h4 className="text-[10px] font-bold text-[#0D4F4F] uppercase tracking-wide my-1.5">Sales Velocity Sync</h4>
+                  <p className="text-[9px] text-slate-600 leading-relaxed">Routing high-intent leads to sales coordinators immediately reduces response latency from hours to seconds, maximizing conversions.</p>
+                </div>
+                <div className="bg-white border border-[#E6E1D8] border-t-4 border-t-[#C8A951] rounded-xl p-4 text-center shadow-sm">
+                  <div className="text-2xl font-black text-[#0D4F4F]">100% <span className="text-xs font-bold text-[#C8A951]">Audit</span></div>
+                  <h4 className="text-[10px] font-bold text-[#0D4F4F] uppercase tracking-wide my-1.5">System Auditability</h4>
+                  <p className="text-[9px] text-slate-600 leading-relaxed">Consolidating logs and tasks prevents double-entry, eliminates spreadsheet tracking loss, and provides managers with total compliance views.</p>
+                </div>
               </div>
             </div>
 
