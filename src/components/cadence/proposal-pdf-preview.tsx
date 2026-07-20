@@ -1,9 +1,9 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import { Card } from '@/components/ui/card'
-import { FileText, Download, X } from 'lucide-react'
+import { FileText, Download, X, ChevronLeft, ChevronRight, Layers, Presentation, Trash2 } from 'lucide-react'
 
 // ── Structured Proposal Data Model ──────────────────────────────────────────
 export interface HeroStat {
@@ -739,18 +739,327 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
     printWindow.document.close()
   }
 
-  const slideClass = "w-[960px] aspect-video bg-[#FAF9F6] border border-slate-200 shadow-xl relative box-border font-sans text-slate-800 flex-shrink-0 overflow-hidden flex flex-col"
+  const [activeSlide, setActiveSlide] = useState(0)
+  const [scale, setScale] = useState(1)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (containerRef.current) {
+        const width = containerRef.current.clientWidth
+        const height = containerRef.current.clientHeight
+        const wScale = width / 960
+        const hScale = height / 540
+        setScale(Math.min(1, Math.min(wScale, hScale) * 0.95))
+      }
+    }
+    // Tiny timeout to let the container mount and calculate dimensions correctly
+    const timer = setTimeout(handleResize, 100)
+    window.addEventListener('resize', handleResize)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [activeSlide])
+
+  const slides = [
+    // Slide 1: Cover
+    {
+      title: 'Cover Page',
+      subtitle: 'Strategic Intelligence',
+      render: () => (
+        <div className="flex-1 flex flex-col justify-between p-[50px] relative h-full">
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] font-black tracking-[3px] text-brand-teal">STRATEGIC OPERATIONAL INTELLIGENCE</span>
+            <img src="/logo/tadbeer-logo.png" className="h-7 object-contain" alt="Tadbeer Logo" />
+          </div>
+
+          <div className="flex-grow flex flex-col justify-center my-4">
+            <div className="grid grid-cols-4 gap-4 mb-6">
+              {d.heroStats.map((s, i) => (
+                <div key={i} className="bg-[#0D4F4F] border-b-4 border-[#C8A951] rounded-xl p-3 text-center shadow-md">
+                  <div className="text-2xl font-black text-white leading-none">{s.value}</div>
+                  <div className="text-[10px] font-semibold text-[#C8A951] mt-1">{s.unit}</div>
+                  <div className="text-[8px] font-bold uppercase tracking-wider text-white/70 mt-1.5">{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            <h1 className="text-center text-3xl font-extrabold text-[#0D4F4F] leading-tight max-w-[800px] mx-auto mb-3 font-serif">
+              {d.tagline}
+            </h1>
+            <p className="text-center text-[12px] text-slate-500 max-w-[620px] mx-auto leading-relaxed">
+              {d.subtitle}
+            </p>
+          </div>
+
+          <div className="border-t border-[#E6E1D8] pt-3 flex justify-between text-[8.5px] text-slate-400 uppercase tracking-widest font-semibold">
+            <span>Tadbeer Transformations</span>
+            <span>PROPRIETARY OPERATIONAL INTELLIGENCE · {new Date().getFullYear()}</span>
+          </div>
+        </div>
+      )
+    },
+    // Slide 2: Executive Summary
+    {
+      title: 'Executive Summary',
+      subtitle: 'The Strategic Case',
+      render: () => (
+        <div className="flex-1 flex flex-col justify-between p-[50px] relative h-full">
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] font-black tracking-[3px] text-brand-teal">STRATEGIC OPERATIONAL INTELLIGENCE</span>
+            <img src="/logo/tadbeer-logo.png" className="h-7 object-contain" alt="Tadbeer Logo" />
+          </div>
+
+          <div className="flex-grow flex flex-col justify-center my-4">
+            <p className="text-[10px] font-extrabold tracking-[2px] uppercase text-[#C8A951] mb-1">02 // EXECUTIVE SUMMARY</p>
+            <h2 className="text-2xl font-extrabold text-[#0D4F4F] mb-2 font-serif border-b-2 border-[#C8A951] inline-block pb-1">The Case for Operational Transformation</h2>
+            <p className="text-[12px] text-slate-500 leading-relaxed max-w-[680px] mb-5">A strategic audit of alignment between people, tools, and execution path.</p>
+
+            <div className="grid grid-cols-2 gap-8">
+              <div className="bg-[#0D4F4F]/5 rounded-xl p-5 border border-[#0D4F4F]/10">
+                <h3 className="text-xs font-bold text-[#0D4F4F] uppercase tracking-wider mb-2.5">The Scale Challenge</h3>
+                <p className="text-[10.5px] text-slate-600 leading-relaxed">As business operations grow, complexity scales quadratically while administrative overhead accumulates. Tadbeer Transformations operates on a single principle: relevance before relationship, and diagnosis before proposal. This strategic intelligence report outlines the exact workflow bottlenecks and system leaks limiting scale velocity.</p>
+              </div>
+              <div className="bg-[#0D4F4F]/5 rounded-xl p-5 border border-[#0D4F4F]/10">
+                <h3 className="text-xs font-bold text-[#0D4F4F] uppercase tracking-wider mb-2.5">Systematic Alignment</h3>
+                <p className="text-[10.5px] text-slate-600 leading-relaxed">Our goal is to replace manual dependencies and fragmented coordination channels (such as spreadsheet logs, emails, and WhatsApp threads) with deterministic, centralized systems. By introducing unified digital dashboards, we restore clarity, capture leaked hours, and enable smooth execution across departments.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-[#E6E1D8] pt-3 flex justify-between text-[8.5px] text-slate-400 uppercase tracking-widest font-semibold">
+            <span>Tadbeer Transformations</span>
+            <span>PROPRIETARY OPERATIONAL INTELLIGENCE</span>
+          </div>
+        </div>
+      )
+    },
+    // Slide 3: Forensic Diagnosis
+    {
+      title: 'Forensic Diagnosis',
+      subtitle: 'Where We Bleed',
+      render: () => (
+        <div className="flex-1 flex flex-col justify-between p-[50px] relative h-full">
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] font-black tracking-[3px] text-brand-teal">STRATEGIC OPERATIONAL INTELLIGENCE</span>
+            <img src="/logo/tadbeer-logo.png" className="h-7 object-contain" alt="Tadbeer Logo" />
+          </div>
+
+          <div className="flex-grow flex flex-col justify-center my-4">
+            <p className="text-[10px] font-extrabold tracking-[2px] uppercase text-[#C8A951] mb-1">03 // FORENSIC DIAGNOSIS</p>
+            <h2 className="text-2xl font-extrabold text-[#0D4F4F] mb-2 font-serif border-b-2 border-[#C8A951] inline-block pb-1">Where {company.company_name} is Bleeding</h2>
+            <p className="text-[12px] text-slate-500 leading-relaxed max-w-[680px] mb-5">{d.diagnosisIntro}</p>
+
+            <div className="flex gap-4">
+              {d.leaks.map((l, i) => {
+                const c = DIAG_COLORS[l.type] || DIAG_COLORS.LEAK
+                return (
+                  <div key={i} className="flex-1 rounded-xl p-5 flex flex-col justify-between min-h-[200px] border border-black/5" style={{ borderLeft: `4px solid ${c.border}`, background: c.bg }}>
+                    <div>
+                      <div className="flex justify-between items-center mb-2.5">
+                        <span className="inline-block px-2.5 py-0.5 rounded text-[8px] font-extrabold text-white uppercase tracking-wider" style={{ background: c.badge }}>
+                          {l.type}
+                        </span>
+                        <span className="text-[9px] font-bold text-slate-500 uppercase">{c.severity}</span>
+                      </div>
+                      <h4 className="text-[13px] font-extrabold mb-1.5" style={{ color: c.text }}>{l.title}</h4>
+                      <p className="text-[10px] text-slate-600 leading-relaxed">{l.description}</p>
+                    </div>
+
+                    <div className="mt-4 pt-2.5 border-t border-black/5">
+                      <div className="flex justify-between text-[8px] font-bold text-slate-500 mb-1">
+                        <span>IMPACT LEVEL</span>
+                        <span>{c.score}</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: c.score, background: c.border }} />
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="border-t border-[#E6E1D8] pt-3 flex justify-between text-[8.5px] text-slate-400 uppercase tracking-widest font-semibold">
+            <span>Tadbeer Transformations</span>
+            <span>PROPRIETARY OPERATIONAL INTELLIGENCE</span>
+          </div>
+        </div>
+      )
+    },
+    // Slide 4: Solution Roadmap
+    {
+      title: '90-Day Overhaul',
+      subtitle: 'Implementation Plan',
+      render: () => (
+        <div className="flex-1 flex flex-col justify-between p-[50px] relative h-full">
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] font-black tracking-[3px] text-brand-teal">STRATEGIC OPERATIONAL INTELLIGENCE</span>
+            <img src="/logo/tadbeer-logo.png" className="h-7 object-contain" alt="Tadbeer Logo" />
+          </div>
+
+          <div className="flex-grow flex flex-col justify-center my-4">
+            <p className="text-[10px] font-extrabold tracking-[2px] uppercase text-[#C8A951] mb-1">04 // THE SOLUTION</p>
+            <h2 className="text-2xl font-extrabold text-[#0D4F4F] mb-2 font-serif border-b-2 border-[#C8A951] inline-block pb-1">90-Day Operational Overhaul</h2>
+            <p className="text-[12px] text-slate-500 leading-relaxed max-w-[680px] mb-4">{d.solutionIntro}</p>
+
+            <div className="flex justify-between items-center relative mb-5 px-4">
+              <div className="absolute left-0 right-0 h-[2px] bg-slate-200 z-0" />
+              {d.phases.map((p, i) => (
+                <div key={i} className="flex items-center justify-center w-6 h-6 rounded-full bg-[#FAF9F6] border-2 border-brand-teal z-10 text-[9px] font-bold text-brand-teal shadow-sm">
+                  0{p.phaseNum}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-4">
+              {d.phases.map((p, i) => (
+                <div key={i} className="flex-1 bg-white border border-[#E6E1D8] border-t-4 border-t-brand-teal rounded-xl p-4 shadow-sm">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <p className="text-[8px] font-extrabold text-[#C8A951] tracking-widest uppercase">PHASE 0{p.phaseNum}</p>
+                    {p.timeline && <span className="bg-brand-gold/15 text-[#8c6e1c] text-[8px] font-extrabold px-1.5 py-0.5 rounded">{p.timeline}</span>}
+                  </div>
+                  <h4 className="text-[12px] font-extrabold text-[#0D4F4F] mb-1.5 truncate">{p.title}</h4>
+                  <p className="text-[10px] text-slate-600 leading-relaxed">{p.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="border-t border-[#E6E1D8] pt-3 flex justify-between text-[8.5px] text-slate-400 uppercase tracking-widest font-semibold">
+            <span>Tadbeer Transformations</span>
+            <span>PROPRIETARY OPERATIONAL INTELLIGENCE</span>
+          </div>
+        </div>
+      )
+    },
+    // Slide 5: Business Case & ROI
+    {
+      title: 'Business Case & ROI',
+      subtitle: 'Value Recovery',
+      render: () => (
+        <div className="flex-1 flex flex-col justify-between p-[50px] relative h-full">
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] font-black tracking-[3px] text-brand-teal">STRATEGIC OPERATIONAL INTELLIGENCE</span>
+            <img src="/logo/tadbeer-logo.png" className="h-7 object-contain" alt="Tadbeer Logo" />
+          </div>
+
+          <div className="flex-grow flex flex-col justify-center my-4">
+            <p className="text-[10px] font-extrabold tracking-[2px] uppercase text-[#C8A951] mb-1">05 // BUSINESS CASE & ROI</p>
+            <h2 className="text-2xl font-extrabold text-[#0D4F4F] mb-2 font-serif border-b-2 border-[#C8A951] inline-block pb-1">Operational Efficiency & Value Recovery</h2>
+            <p className="text-[12px] text-slate-500 leading-relaxed max-w-[680px] mb-5">Estimated impact models based on automation and system standardization.</p>
+
+            <div className="grid grid-cols-3 gap-5">
+              <div className="bg-white border border-[#E6E1D8] border-t-4 border-t-[#C8A951] rounded-xl p-4 text-center shadow-sm flex flex-col justify-between min-h-[160px]">
+                <div>
+                  <div className="text-2xl font-black text-[#0D4F4F]">12+ <span className="text-xs font-bold text-[#C8A951]">Hours</span></div>
+                  <h4 className="text-[10px] font-extrabold text-[#0D4F4F] uppercase tracking-wide my-2">Leaked Hours Recovery</h4>
+                  <p className="text-[9.5px] text-slate-500 leading-relaxed">Replacing manual spreadsheets and back-and-forth status updates with automated logging.</p>
+                </div>
+              </div>
+              <div className="bg-white border border-[#E6E1D8] border-t-4 border-t-[#C8A951] rounded-xl p-4 text-center shadow-sm flex flex-col justify-between min-h-[160px]">
+                <div>
+                  <div className="text-2xl font-black text-[#0D4F4F]">28% <span className="text-xs font-bold text-[#C8A951]">Boost</span></div>
+                  <h4 className="text-[10px] font-extrabold text-[#0D4F4F] uppercase tracking-wide my-2">Sales Velocity Sync</h4>
+                  <p className="text-[9.5px] text-slate-500 leading-relaxed">Routing high-intent leads to sales coordinators immediately reduces response latency from hours to seconds.</p>
+                </div>
+              </div>
+              <div className="bg-white border border-[#E6E1D8] border-t-4 border-t-[#C8A951] rounded-xl p-4 text-center shadow-sm flex flex-col justify-between min-h-[160px]">
+                <div>
+                  <div className="text-2xl font-black text-[#0D4F4F]">100% <span className="text-xs font-bold text-[#C8A951]">Audit</span></div>
+                  <h4 className="text-[10px] font-extrabold text-[#0D4F4F] uppercase tracking-wide my-2">System Auditability</h4>
+                  <p className="text-[9.5px] text-slate-500 leading-relaxed">Consolidating logs prevents double-entry, and provides managers with total compliance views.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-[#E6E1D8] pt-3 flex justify-between text-[8.5px] text-slate-400 uppercase tracking-widest font-semibold">
+            <span>Tadbeer Transformations</span>
+            <span>PROPRIETARY OPERATIONAL INTELLIGENCE</span>
+          </div>
+        </div>
+      )
+    },
+    // Additional Section Slides
+    ...d.additionalSections.map((sec, idx) => ({
+      title: sec.title,
+      subtitle: `Extra Page ${idx + 1}`,
+      render: () => (
+        <div className="flex-1 flex flex-col justify-between p-[50px] relative h-full">
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] font-black tracking-[3px] text-brand-teal">STRATEGIC OPERATIONAL INTELLIGENCE</span>
+            <img src="/logo/tadbeer-logo.png" className="h-7 object-contain" alt="Tadbeer Logo" />
+          </div>
+
+          <div className="flex-grow flex flex-col justify-center my-4">
+            <p className="text-[10px] font-extrabold tracking-[2px] uppercase text-[#C8A951] mb-1">{String(idx + 6).padStart(2, '0')} // {sec.title.toUpperCase()}</p>
+            <h2 className="text-2xl font-extrabold text-[#0D4F4F] mb-3 font-serif border-b-2 border-[#C8A951] inline-block pb-1">{sec.title}</h2>
+            <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-2 mt-2">
+              {sec.content.map((c, ci) => (
+                <p key={ci} className="text-[11px] text-slate-600 leading-relaxed">{c}</p>
+              ))}
+            </div>
+          </div>
+
+          <div className="border-t border-[#E6E1D8] pt-3 flex justify-between text-[8.5px] text-slate-400 uppercase tracking-widest font-semibold">
+            <span>Tadbeer Transformations</span>
+            <span>PROPRIETARY OPERATIONAL INTELLIGENCE</span>
+          </div>
+        </div>
+      )
+    })),
+    // Slide Last: CTA
+    {
+      title: 'Initiate Audit Call',
+      subtitle: 'Next Steps & CTA',
+      render: () => (
+        <div className="flex-1 flex flex-col justify-between p-[50px] relative h-full">
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] font-black tracking-[3px] text-brand-teal">STRATEGIC OPERATIONAL INTELLIGENCE</span>
+            <div></div>
+          </div>
+
+          <div className="flex-grow flex flex-col items-center justify-center text-center my-4">
+            <img src="/logo/tadbeer-logo.png" className="h-12 object-contain mb-5" alt="Tadbeer Logo" />
+            <p className="text-[10px] font-black tracking-[3px] text-[#C8A951] uppercase mb-2">NEXT STEP</p>
+            <h1 className="text-2xl font-extrabold text-[#0D4F4F] mb-2 font-serif">Initiate Forensic Audit Call</h1>
+            <p className="text-[12px] text-slate-500 mb-6 max-w-[500px]">Let's walk through the full data set and implementation timeline.</p>
+            <p className="text-[10px] font-bold text-[#0D4F4F] uppercase tracking-wider bg-white border border-brand-teal/15 px-5 py-2 rounded-full shadow-sm">
+              PROPOSAL VALID UNTIL: <span className="text-[#C8A951]">{d.proposalValidUntil}</span>
+            </p>
+          </div>
+
+          <div className="border-t border-[#E6E1D8] pt-3 flex justify-between text-[8.5px] text-slate-400 uppercase tracking-widest font-semibold">
+            <span>Tadbeer Transformations</span>
+            <span>CONTACT: Ismail Al-Balushi // Tadbeer Transformations</span>
+          </div>
+        </div>
+      )
+    }
+  ]
+
+  const handlePrev = () => {
+    setActiveSlide(prev => Math.max(0, prev - 1))
+  }
+
+  const handleNext = () => {
+    setActiveSlide(prev => Math.min(slides.length - 1, prev + 1))
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-fade-in backdrop-blur-sm">
-      <Card className="w-full max-w-[1020px] max-h-[95vh] overflow-hidden flex flex-col shadow-2xl bg-[#FAF9F6] border-0 animate-scale-in rounded-2xl">
+      <Card className="w-full max-w-[1240px] h-[90vh] overflow-hidden flex flex-col shadow-2xl bg-[#FAF9F6] border-0 animate-scale-in rounded-2xl">
+        
         {/* Header bar */}
-        <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-white rounded-t-2xl">
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-white rounded-t-2xl flex-shrink-0">
           <div className="flex items-center gap-2.5">
-            <FileText className="h-5 w-5 text-brand-teal" />
+            <Presentation className="h-5 w-5 text-brand-teal" />
             <div>
-              <h3 className="font-bold text-brand-teal text-xs uppercase tracking-wider">SIQR Premium Proposal Deck Preview</h3>
-              <p className="text-[11px] text-text-secondary">{company.company_name} · {d.additionalSections.length + 6} Slides</p>
+              <h3 className="font-bold text-brand-teal text-xs uppercase tracking-wider">SIQR Strategic Proposal Presentation</h3>
+              <p className="text-[11px] text-text-secondary">{company.company_name} · {slides.length} Slides Available</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -770,270 +1079,78 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
           </div>
         </div>
 
-        {/* Scrollable slide deck */}
-        <div className="flex-1 overflow-y-auto p-8 bg-slate-100/80 flex flex-col items-center gap-8">
-
-          {/* ─── SLIDE 1: COVER ─── */}
-          <div className={slideClass} style={{ padding: '50px 50px 30px' }}>
-            <div className="absolute top-0 left-0 w-full h-[6px] bg-[#0D4F4F]" />
-            <div className="absolute top-[6px] left-0 w-full h-[3px] bg-[#C8A951]" />
-
-            {/* Header with Logo */}
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-[9px] font-extrabold tracking-[2px] text-brand-teal">STRATEGIC OPERATIONAL INTELLIGENCE</span>
-              <img src="/logo/tadbeer-logo.png" className="h-6 object-contain" alt="Tadbeer Logo" />
-            </div>
-
-            <div className="flex-1 flex flex-col justify-center">
-              {/* Hero stat cards */}
-              <div className="grid grid-cols-4 gap-3 mb-5">
-                {d.heroStats.map((s, i) => (
-                  <div key={i} className="bg-[#0D4F4F] border-b-4 border-[#C8A951] rounded-xl p-3.5 text-center">
-                    <div className="text-2xl font-black text-white leading-none">{s.value}</div>
-                    <div className="text-[10px] font-semibold text-[#C8A951] mt-0.5">{s.unit}</div>
-                    <div className="text-[7.5px] font-bold uppercase tracking-wider text-white/65 mt-1">{s.label}</div>
-                  </div>
-                ))}
-              </div>
-
-              <h1 className="text-center text-2xl font-extrabold text-[#0D4F4F] leading-tight max-w-[700px] mx-auto mb-2 font-serif">
-                {d.tagline}
-              </h1>
-              <p className="text-center text-[11px] text-slate-500 max-w-[580px] mx-auto leading-relaxed">
-                {d.subtitle}
-              </p>
-            </div>
-
-            <div className="border-t border-[#E6E1D8] pt-2 flex justify-between text-[8px] text-slate-400 uppercase tracking-wider font-semibold">
-              <span>Tadbeer TT</span>
-              <span>PROPRIETARY OPERATIONAL INTELLIGENCE · {new Date().getFullYear()}</span>
-            </div>
+        {/* Sidebar + Presenter split panel */}
+        <div className="flex-1 flex overflow-hidden min-h-0 bg-slate-100">
+          
+          {/* Left Sidebar: Slide Nav Thumbnails */}
+          <div className="w-[260px] border-r border-slate-200 bg-white flex flex-col overflow-y-auto p-4 gap-2 flex-shrink-0">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Slides Outline</span>
+            {slides.map((s, idx) => (
+              <button
+                key={idx}
+                onClick={() => setActiveSlide(idx)}
+                className={`w-full text-left p-3 rounded-xl border transition-all text-xs flex flex-col gap-1 ${
+                  activeSlide === idx
+                    ? 'border-brand-teal bg-brand-teal/5 text-brand-teal font-extrabold shadow-sm'
+                    : 'border-slate-100 bg-slate-50 hover:bg-slate-100/70 text-slate-600 font-semibold'
+                }`}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-[9px] uppercase tracking-wider text-[#C8A951]">Slide 0{idx + 1}</span>
+                  <Layers className={`h-3 w-3 ${activeSlide === idx ? 'text-brand-teal' : 'text-slate-300'}`} />
+                </div>
+                <div className="truncate text-slate-800">{s.title}</div>
+                <div className="truncate text-[9.5px] text-slate-400 font-normal">{s.subtitle}</div>
+              </button>
+            ))}
           </div>
 
-          {/* ─── SLIDE 2: EXECUTIVE SUMMARY ─── */}
-          <div className={slideClass} style={{ padding: '50px 50px 30px' }}>
-            <div className="absolute top-0 left-0 w-full h-[6px] bg-[#0D4F4F]" />
-            <div className="absolute top-[6px] left-0 w-full h-[3px] bg-[#C8A951]" />
+          {/* Right Main Presenter Area */}
+          <div className="flex-1 flex flex-col overflow-hidden bg-slate-100/80 justify-between items-center p-6 relative">
+            
+            {/* Aspect Ratio Canvas Container with Dynamic Scale scaling */}
+            <div className="flex-1 w-full flex items-center justify-center min-h-0" ref={containerRef}>
+              <div
+                style={{
+                  transform: `scale(${scale})`,
+                  transformOrigin: 'center center',
+                  width: '960px',
+                  height: '540px'
+                }}
+                className="bg-[#FAF9F6] border border-slate-200 shadow-2xl relative box-border font-sans text-slate-800 flex-shrink-0 overflow-hidden flex flex-col rounded-xl transition-transform duration-100"
+              >
+                {/* Gold double header border bar */}
+                <div className="absolute top-0 left-0 w-full h-[6px] bg-[#0D4F4F]" />
+                <div className="absolute top-[6px] left-0 w-full h-[3px] bg-[#C8A951]" />
 
-            {/* Header with Logo */}
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-[9px] font-extrabold tracking-[2px] text-brand-teal">STRATEGIC OPERATIONAL INTELLIGENCE</span>
-              <img src="/logo/tadbeer-logo.png" className="h-6 object-contain" alt="Tadbeer Logo" />
-            </div>
-
-            <div className="flex-1">
-              <p className="text-[9px] font-extrabold tracking-[2px] uppercase text-[#C8A951] mb-0.5">02 // EXECUTIVE SUMMARY</p>
-              <h2 className="text-xl font-extrabold text-[#0D4F4F] mb-1 font-serif border-b-2 border-[#C8A951] inline-block pb-0.5">The Case for Operational Transformation</h2>
-              <p className="text-[11px] text-slate-500 leading-relaxed max-w-[650px] mb-4 mt-1">A strategic audit of alignment between people, tools, and execution path.</p>
-
-              <div className="grid grid-cols-2 gap-8 mt-2">
-                <div className="bg-[#0D4F4F]/5 rounded-xl p-4 border border-[#0D4F4F]/10">
-                  <h3 className="text-xs font-bold text-[#0D4F4F] uppercase tracking-wider mb-2">The Scale Challenge</h3>
-                  <p className="text-[10px] text-slate-600 leading-relaxed">As business operations grow, complexity scales quadratically while administrative overhead accumulates. Tadbeer Transformations operates on a single principle: relevance before relationship, and diagnosis before proposal. This strategic intelligence report outlines the exact workflow bottlenecks and system leaks limiting scale velocity.</p>
-                </div>
-                <div className="bg-[#0D4F4F]/5 rounded-xl p-4 border border-[#0D4F4F]/10">
-                  <h3 className="text-xs font-bold text-[#0D4F4F] uppercase tracking-wider mb-2">Systematic Alignment</h3>
-                  <p className="text-[10px] text-slate-600 leading-relaxed">Our goal is to replace manual dependencies and fragmented coordination channels (such as spreadsheet logs, emails, and WhatsApp threads) with deterministic, centralized systems. By introducing unified digital dashboards, we restore clarity, capture leaked hours, and enable smooth execution across departments.</p>
-                </div>
+                {/* Main slide layout content */}
+                {slides[activeSlide].render()}
               </div>
             </div>
 
-            <div className="border-t border-[#E6E1D8] pt-2 flex justify-between text-[8px] text-slate-400 uppercase tracking-wider font-semibold">
-              <span>Tadbeer TT</span>
-              <span>PROPRIETARY OPERATIONAL INTELLIGENCE</span>
-            </div>
-          </div>
+            {/* Presenter bottom controls */}
+            <div className="w-full max-w-[960px] flex items-center justify-between mt-4 bg-white border border-slate-200/80 px-4 py-2.5 rounded-xl shadow-sm flex-shrink-0">
+              <button
+                onClick={handlePrev}
+                disabled={activeSlide === 0}
+                className="flex items-center gap-1 text-xs font-bold text-slate-600 disabled:text-slate-300 transition-colors"
+              >
+                <ChevronLeft className="h-4 w-4" /> Prev Slide
+              </button>
 
-          {/* ─── SLIDE 3: FORENSIC DIAGNOSIS ─── */}
-          <div className={slideClass} style={{ padding: '50px 50px 30px' }}>
-            <div className="absolute top-0 left-0 w-full h-[6px] bg-[#0D4F4F]" />
-            <div className="absolute top-[6px] left-0 w-full h-[3px] bg-[#C8A951]" />
+              <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest">
+                SLIDE 0{activeSlide + 1} OF 0{slides.length}
+              </span>
 
-            {/* Header with Logo */}
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-[9px] font-extrabold tracking-[2px] text-brand-teal">STRATEGIC OPERATIONAL INTELLIGENCE</span>
-              <img src="/logo/tadbeer-logo.png" className="h-6 object-contain" alt="Tadbeer Logo" />
-            </div>
-
-            <div className="flex-1">
-              <p className="text-[9px] font-extrabold tracking-[2px] uppercase text-[#C8A951] mb-0.5">03 // FORENSIC DIAGNOSIS</p>
-              <h2 className="text-xl font-extrabold text-[#0D4F4F] mb-1 font-serif border-b-2 border-[#C8A951] inline-block pb-0.5">Where {company.company_name} is Bleeding</h2>
-              <p className="text-[11px] text-slate-500 leading-relaxed max-w-[650px] mb-4 mt-1">{d.diagnosisIntro}</p>
-
-              <div className="flex gap-3">
-                {d.leaks.map((l, i) => {
-                  const c = DIAG_COLORS[l.type] || DIAG_COLORS.LEAK
-                  return (
-                    <div key={i} className="flex-1 rounded-xl p-4 flex flex-col justify-between min-h-[190px] border border-black/5" style={{ borderLeft: `4px solid ${c.border}`, background: c.bg }}>
-                      <div>
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="inline-block px-2 py-0.5 rounded text-[8px] font-extrabold text-white uppercase tracking-wider" style={{ background: c.badge }}>
-                            {l.type}
-                          </span>
-                          <span className="text-[9px] font-bold text-slate-500 uppercase">{c.severity}</span>
-                        </div>
-                        <h4 className="text-[12px] font-extrabold mb-1" style={{ color: c.text }}>{l.title}</h4>
-                        <p className="text-[10px] text-slate-600 leading-relaxed">{l.description}</p>
-                      </div>
-
-                      {/* Visual Infographic bar */}
-                      <div className="mt-3 pt-2 border-t border-black/5">
-                        <div className="flex justify-between text-[8px] font-bold text-slate-500 mb-1">
-                          <span>IMPACT LEVEL</span>
-                          <span>{c.score}</span>
-                        </div>
-                        <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full" style={{ width: c.score, background: c.border }} />
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+              <button
+                onClick={handleNext}
+                disabled={activeSlide === slides.length - 1}
+                className="flex items-center gap-1 text-xs font-bold text-slate-600 disabled:text-slate-300 transition-colors"
+              >
+                Next Slide <ChevronRight className="h-4 w-4" />
+              </button>
             </div>
 
-            <div className="border-t border-[#E6E1D8] pt-2 flex justify-between text-[8px] text-slate-400 uppercase tracking-wider font-semibold">
-              <span>Tadbeer TT</span>
-              <span>PROPRIETARY OPERATIONAL INTELLIGENCE</span>
-            </div>
-          </div>
-
-          {/* ─── SLIDE 4: SOLUTION ─── */}
-          <div className={slideClass} style={{ padding: '50px 50px 30px' }}>
-            <div className="absolute top-0 left-0 w-full h-[6px] bg-[#0D4F4F]" />
-            <div className="absolute top-[6px] left-0 w-full h-[3px] bg-[#C8A951]" />
-
-            {/* Header with Logo */}
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-[9px] font-extrabold tracking-[2px] text-brand-teal">STRATEGIC OPERATIONAL INTELLIGENCE</span>
-              <img src="/logo/tadbeer-logo.png" className="h-6 object-contain" alt="Tadbeer Logo" />
-            </div>
-
-            <div className="flex-1">
-              <p className="text-[9px] font-extrabold tracking-[2px] uppercase text-[#C8A951] mb-0.5">04 // THE SOLUTION</p>
-              <h2 className="text-xl font-extrabold text-[#0D4F4F] mb-1 font-serif border-b-2 border-[#C8A951] inline-block pb-0.5">90-Day Operational Overhaul</h2>
-              <p className="text-[11px] text-slate-500 leading-relaxed max-w-[650px] mb-3 mt-1">{d.solutionIntro}</p>
-
-              {/* Visual Connector Timeline Infographic */}
-              <div className="flex justify-between items-center relative mb-4 px-2">
-                <div className="absolute left-0 right-0 h-[2px] bg-slate-200 z-0" />
-                {d.phases.map((p, i) => (
-                  <div key={i} className="flex items-center justify-center w-6 h-6 rounded-full bg-[#FAF9F6] border-2 border-brand-teal z-10 text-[9px] font-bold text-brand-teal">
-                    0{p.phaseNum}
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex gap-3">
-                {d.phases.map((p, i) => (
-                  <div key={i} className="flex-1 bg-white border border-[#E6E1D8] border-t-4 border-t-brand-teal rounded-xl p-3.5 shadow-sm">
-                    <div className="flex justify-between items-center mb-1">
-                      <p className="text-[8px] font-extrabold text-[#C8A951] tracking-widest uppercase">PHASE 0{p.phaseNum}</p>
-                      {p.timeline && <span className="bg-brand-gold/15 text-[#8c6e1c] text-[8px] font-extrabold px-1.5 py-0.5 rounded">{p.timeline}</span>}
-                    </div>
-                    <h4 className="text-[11.5px] font-extrabold text-[#0D4F4F] mb-1 truncate">{p.title}</h4>
-                    <p className="text-[9.5px] text-slate-600 leading-relaxed">{p.description}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="border-t border-[#E6E1D8] pt-2 flex justify-between text-[8px] text-slate-400 uppercase tracking-wider font-semibold">
-              <span>Tadbeer TT</span>
-              <span>PROPRIETARY OPERATIONAL INTELLIGENCE</span>
-            </div>
-          </div>
-
-          {/* ─── SLIDE 5: BUSINESS CASE & ROI ─── */}
-          <div className={slideClass} style={{ padding: '50px 50px 30px' }}>
-            <div className="absolute top-0 left-0 w-full h-[6px] bg-[#0D4F4F]" />
-            <div className="absolute top-[6px] left-0 w-full h-[3px] bg-[#C8A951]" />
-
-            {/* Header with Logo */}
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-[9px] font-extrabold tracking-[2px] text-brand-teal">STRATEGIC OPERATIONAL INTELLIGENCE</span>
-              <img src="/logo/tadbeer-logo.png" className="h-6 object-contain" alt="Tadbeer Logo" />
-            </div>
-
-            <div className="flex-1">
-              <p className="text-[9px] font-extrabold tracking-[2px] uppercase text-[#C8A951] mb-0.5">05 // BUSINESS CASE & ROI</p>
-              <h2 className="text-xl font-extrabold text-[#0D4F4F] mb-1 font-serif border-b-2 border-[#C8A951] inline-block pb-0.5">Operational Efficiency & Value Recovery</h2>
-              <p className="text-[11px] text-slate-500 leading-relaxed max-w-[650px] mb-4 mt-1">Estimated impact models based on automation and system standardization.</p>
-
-              <div className="grid grid-cols-3 gap-4 mt-2">
-                <div className="bg-white border border-[#E6E1D8] border-t-4 border-t-[#C8A951] rounded-xl p-4 text-center shadow-sm">
-                  <div className="text-2xl font-black text-[#0D4F4F]">12+ <span className="text-xs font-bold text-[#C8A951]">Hours</span></div>
-                  <h4 className="text-[10px] font-bold text-[#0D4F4F] uppercase tracking-wide my-1.5">Leaked Hours Recovery</h4>
-                  <p className="text-[9px] text-slate-600 leading-relaxed">Replacing manual spreadsheets and back-and-forth status updates with automated dashboard logging saves significant overhead each week.</p>
-                </div>
-                <div className="bg-white border border-[#E6E1D8] border-t-4 border-t-[#C8A951] rounded-xl p-4 text-center shadow-sm">
-                  <div className="text-2xl font-black text-[#0D4F4F]">28% <span className="text-xs font-bold text-[#C8A951]">Boost</span></div>
-                  <h4 className="text-[10px] font-bold text-[#0D4F4F] uppercase tracking-wide my-1.5">Sales Velocity Sync</h4>
-                  <p className="text-[9px] text-slate-600 leading-relaxed">Routing high-intent leads to sales coordinators immediately reduces response latency from hours to seconds, maximizing conversions.</p>
-                </div>
-                <div className="bg-white border border-[#E6E1D8] border-t-4 border-t-[#C8A951] rounded-xl p-4 text-center shadow-sm">
-                  <div className="text-2xl font-black text-[#0D4F4F]">100% <span className="text-xs font-bold text-[#C8A951]">Audit</span></div>
-                  <h4 className="text-[10px] font-bold text-[#0D4F4F] uppercase tracking-wide my-1.5">System Auditability</h4>
-                  <p className="text-[9px] text-slate-600 leading-relaxed">Consolidating logs and tasks prevents double-entry, eliminates spreadsheet tracking loss, and provides managers with total compliance views.</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="border-t border-[#E6E1D8] pt-2 flex justify-between text-[8px] text-slate-400 uppercase tracking-wider font-semibold">
-              <span>Tadbeer TT</span>
-              <span>PROPRIETARY OPERATIONAL INTELLIGENCE</span>
-            </div>
-          </div>
-
-          {/* ─── ADDITIONAL SECTION SLIDES ─── */}
-          {d.additionalSections.map((sec, idx) => (
-            <div key={`add-${idx}`} className={slideClass} style={{ padding: '50px 50px 30px' }}>
-              <div className="absolute top-0 left-0 w-full h-[6px] bg-[#0D4F4F]" />
-              <div className="absolute top-[6px] left-0 w-full h-[3px] bg-[#C8A951]" />
-
-              {/* Header with Logo */}
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-[9px] font-extrabold tracking-[2px] text-brand-teal">STRATEGIC OPERATIONAL INTELLIGENCE</span>
-                <img src="/logo/tadbeer-logo.png" className="h-6 object-contain" alt="Tadbeer Logo" />
-              </div>
-
-              <div className="flex-1">
-                <p className="text-[9px] font-extrabold tracking-[2px] uppercase text-[#C8A951] mb-0.5">{String(idx + 3).padStart(2, '0')} // {sec.title.toUpperCase()}</p>
-                <h2 className="text-xl font-extrabold text-[#0D4F4F] mb-3 font-serif border-b-2 border-[#C8A951] inline-block pb-0.5">{sec.title}</h2>
-                <div className="space-y-2 mt-2">
-                  {sec.content.map((c, ci) => (
-                    <p key={ci} className="text-[11px] text-slate-600 leading-relaxed">{c}</p>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t border-[#E6E1D8] pt-2 flex justify-between text-[8px] text-slate-400 uppercase tracking-wider font-semibold">
-                <span>Tadbeer TT</span>
-                <span>PROPRIETARY OPERATIONAL INTELLIGENCE</span>
-              </div>
-            </div>
-          ))}
-
-          {/* ─── FINAL SLIDE: CTA ─── */}
-          <div className={slideClass} style={{ padding: '50px 50px 30px' }}>
-            <div className="absolute top-0 left-0 w-full h-[6px] bg-[#0D4F4F]" />
-            <div className="absolute top-[6px] left-0 w-full h-[3px] bg-[#C8A951]" />
-
-            <div className="flex-1 flex flex-col items-center justify-center text-center">
-              <img src="/logo/tadbeer-logo.png" className="h-10 object-contain mb-4" alt="Tadbeer Logo" />
-              <p className="text-[9px] font-extrabold tracking-[3px] text-[#C8A951] uppercase mb-2">NEXT STEP</p>
-              <h1 className="text-2xl font-extrabold text-[#0D4F4F] mb-1 font-serif">Initiate Forensic Audit Call</h1>
-              <p className="text-[12px] text-slate-500 mb-5 max-w-[500px]">Let's walk through the full data set and implementation timeline.</p>
-              <p className="text-[10px] font-bold text-[#0D4F4F] uppercase tracking-wider bg-white border border-brand-teal/15 px-4 py-1.5 rounded-full">
-                PROPOSAL VALID UNTIL: <span className="text-[#C8A951]">{d.proposalValidUntil}</span>
-              </p>
-            </div>
-
-            <div className="border-t border-[#E6E1D8] pt-2 flex justify-between text-[8px] text-slate-400 uppercase tracking-wider font-semibold">
-              <span>Tadbeer TT</span>
-              <span>PROPRIETARY OPERATIONAL INTELLIGENCE · {new Date().getFullYear()}</span>
-              <span>CONTACT: Ismail Al-Balushi // Tadbeer TT</span>
-            </div>
           </div>
 
         </div>
