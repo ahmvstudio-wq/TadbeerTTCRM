@@ -194,7 +194,9 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
       </div>
     `).join('')
 
-    const additionalPagesHtml = d.additionalSections.map((sec, idx) => `
+    const additionalPagesHtml = d.additionalSections
+      .filter(sec => sec.title !== 'WhatsApp Message')
+      .map((sec, idx) => `
       <div class="slide">
         <div class="top-bar-teal"></div>
         <div class="top-bar-gold"></div>
@@ -205,7 +207,7 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
         </div>
 
         <div class="content-body">
-          <div class="section-number">${String(idx + 3).padStart(2, '0')} // ${sec.title.toUpperCase()}</div>
+          <div class="section-number">${String(idx + 6).padStart(2, '0')} // ${sec.title.toUpperCase()}</div>
           <h1 class="section-heading">${sec.title}</h1>
           <div class="additional-content">
             ${sec.content.map(c => `<p class="slide-text">${c}</p>`).join('')}
@@ -528,7 +530,7 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
   }
   .roi-card-title {
     font-size: 11px; font-weight: 800; color: #0D4F4F;
-    text-transform: uppercase; letter-spacing: 0.5px;
+    text-transform: uppercase letter-spacing: 0.5px;
     margin: 10px 0 6px;
   }
   .roi-card-desc {
@@ -836,7 +838,7 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
     <div class="slide-footer">
       <span>Tadbeer TT</span>
       <span>PROPRIETARY OPERATIONAL INTELLIGENCE · ${new Date().getFullYear()}</span>
-      <span>CONTACT: Ismail Al-Balushi // Tadbeer TT</span>
+      <span>CONTACT: +968 7630 7656 // operation@tadbeertt.com // www.tadbeertt.com</span>
     </div>
   </div>
 
@@ -1108,7 +1110,9 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
       )
     },
     // Additional Section Slides
-    ...d.additionalSections.map((sec, idx) => ({
+    ...d.additionalSections
+      .filter(sec => sec.title !== 'WhatsApp Message')
+      .map((sec, idx) => ({
       title: sec.title,
       subtitle: `Extra Page ${idx + 1}`,
       render: () => (
@@ -1160,7 +1164,7 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
 
           <div className="border-t border-[#E6E1D8] pt-3 flex justify-between text-[8.5px] text-slate-400 uppercase tracking-widest font-semibold z-20">
             <span>Tadbeer Transformations</span>
-            <span>CONTACT: Ismail Al-Balushi // Tadbeer Transformations</span>
+            <span>CONTACT: +968 7630 7656 // operation@tadbeertt.com // www.tadbeertt.com</span>
           </div>
         </div>
       )

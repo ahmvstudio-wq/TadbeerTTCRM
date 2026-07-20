@@ -482,6 +482,30 @@ export function ProspectWorkspace({
               </div>
             </div>
 
+            {/* ── WhatsApp Proposal Shortcut ── */}
+            {(() => {
+              const waSection = proposalData?.additionalSections?.find(s => s.title === 'WhatsApp Message')
+              const waMsg = waSection?.content?.join('\n') || ''
+              if (!waMsg || !contact.whatsapp) return null
+              const phone = contact.whatsapp.replace(/\D/g, '')
+              const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(waMsg)}`
+              return (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-xl">
+                  <p className="text-[9px] uppercase tracking-wider font-extrabold text-green-700 mb-2">📨 Proposal WhatsApp Shortcut</p>
+                  <a
+                    href={waUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full py-2 px-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-lg transition-all hover-lift shadow-sm"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    Send Proposal on WhatsApp
+                  </a>
+                  <p className="text-[9px] text-green-600 mt-1 text-center">Opens WhatsApp · Attach PDF after</p>
+                </div>
+              )
+            })()}
+
             <div>
               <p className="text-[10px] uppercase font-extrabold text-text-muted mb-1">CRM Notes</p>
               <div className="p-3 bg-slate-50 border border-border-light rounded-xl text-xs text-text-secondary max-h-[120px] overflow-y-auto italic">
@@ -903,44 +927,81 @@ export function ProspectWorkspace({
               </div>
 
               {/* ── Action Buttons ── */}
-              <div className="flex justify-between items-center pt-3 border-t border-border-light">
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowPdfPreview(true)}
-                    className="border-border text-xs flex items-center gap-1 bg-white hover:bg-slate-50 hover-lift text-text-primary"
-                  >
-                    <Eye className="h-3.5 w-3.5 text-brand-teal" />
-                    Preview Report
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleSaveProposal('draft')}
-                    disabled={isSavingProposal}
-                    className="border-border text-xs flex items-center gap-1 bg-white hover:bg-slate-50 hover-lift text-text-primary"
-                  >
-                    <Save className="h-3.5 w-3.5" />
-                    Save Draft
-                  </Button>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => handleSaveProposal('ready')}
-                    disabled={isSavingProposal}
-                    className="bg-brand-gold hover:bg-brand-gold/90 text-white text-xs px-4 py-2 hover-lift"
-                  >
-                    Mark Ready
-                  </Button>
-                  <Button
-                    onClick={() => handleSaveProposal('sent')}
-                    disabled={isSavingProposal}
-                    className="bg-brand-teal hover:bg-brand-teal-dark text-white text-xs px-4 py-2 hover-lift flex items-center gap-1.5"
-                  >
-                    <CheckCircle className="h-3.5 w-3.5" />
-                    Mark Sent (Log CRM)
-                  </Button>
+              <div className="space-y-3 pt-3 border-t border-border-light">
+                {/* Quick Send Shortcuts */}
+                {(() => {
+                  const waSection = proposalData?.additionalSections?.find(s => s.title === 'WhatsApp Message')
+                  const waMsg = waSection?.content?.join('\n') || ''
+                  const hasWa = !!waMsg && !!contact.whatsapp
+                  const hasEmail = !!contact.email
+                  if (!hasWa && !hasEmail) return null
+                  return (
+                    <div className="flex gap-2 p-3 bg-green-50 border border-green-200 rounded-xl">
+                      <span className="text-[9px] uppercase tracking-wider font-extrabold text-green-700 self-center whitespace-nowrap">📨 Quick Send:</span>
+                      {hasWa && (
+                        <a
+                          href={`https://wa.me/${contact.whatsapp!.replace(/\D/g, '')}?text=${encodeURIComponent(waMsg)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-lg transition-all hover-lift shadow-sm"
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          WhatsApp + PDF
+                        </a>
+                      )}
+                      {hasEmail && (
+                        <a
+                          href={`mailto:${contact.email}?subject=AI Transformation Proposal — ${company.company_name}&body=${encodeURIComponent(waMsg)}`}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-all hover-lift shadow-sm"
+                        >
+                          <Mail className="h-3.5 w-3.5" />
+                          Email + PDF
+                        </a>
+                      )}
+                      <span className="text-[9px] text-green-600 self-center ml-auto">Attach exported PDF after opening</span>
+                    </div>
+                  )
+                })()}
+
+                <div className="flex justify-between items-center">
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowPdfPreview(true)}
+                      className="border-border text-xs flex items-center gap-1 bg-white hover:bg-slate-50 hover-lift text-text-primary"
+                    >
+                      <Eye className="h-3.5 w-3.5 text-brand-teal" />
+                      Preview Report
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleSaveProposal('draft')}
+                      disabled={isSavingProposal}
+                      className="border-border text-xs flex items-center gap-1 bg-white hover:bg-slate-50 hover-lift text-text-primary"
+                    >
+                      <Save className="h-3.5 w-3.5" />
+                      Save Draft
+                    </Button>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => handleSaveProposal('ready')}
+                      disabled={isSavingProposal}
+                      className="bg-brand-gold hover:bg-brand-gold/90 text-white text-xs px-4 py-2 hover-lift"
+                    >
+                      Mark Ready
+                    </Button>
+                    <Button
+                      onClick={() => handleSaveProposal('sent')}
+                      disabled={isSavingProposal}
+                      className="bg-brand-teal hover:bg-brand-teal-dark text-white text-xs px-4 py-2 hover-lift flex items-center gap-1.5"
+                    >
+                      <CheckCircle className="h-3.5 w-3.5" />
+                      Mark Sent (Log CRM)
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>

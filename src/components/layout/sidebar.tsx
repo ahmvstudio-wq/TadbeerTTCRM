@@ -14,12 +14,14 @@ import {
   Settings,
   Building2,
   LogOut,
+  Globe2,
 } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Prospects", href: "/prospects", icon: Users },
   { name: "Daily Cadence", href: "/daily-cadence", icon: Zap },
+  { name: "LinkedIn", href: "/linkedin", icon: Globe2 },
   { name: "Calls", href: "/calls", icon: Phone },
   { name: "Follow-ups", href: "/follow-ups", icon: Clock },
   { name: "Meetings", href: "/meetings", icon: Calendar },

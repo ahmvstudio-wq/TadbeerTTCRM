@@ -76,7 +76,8 @@ export default function BulkProposalsPage() {
 
   const selectActiveItem = (item: any) => {
     setActiveItem(item)
-    const proposal = item.outreach_preparations
+    const proposals = item.companies?.outreach_preparations || []
+    const proposal = proposals.find((p: any) => p.use_case_summary === 'PROPOSAL') || proposals[0]
     const companyName = item.companies?.company_name || ''
     const industry = item.companies?.industry || ''
     const contactName = item.companies?.contacts?.[0]?.full_name || ''
@@ -134,7 +135,9 @@ export default function BulkProposalsPage() {
           if (item.id === activeItem?.id && proposalData) {
             content = JSON.stringify(proposalData)
           } else {
-            const existing = item.outreach_preparations?.message_body || ''
+            const proposals = item.companies?.outreach_preparations || []
+            const existingProposal = proposals.find((p: any) => p.use_case_summary === 'PROPOSAL') || proposals[0]
+            const existing = existingProposal?.message_body || ''
             if (existing.trim()) {
               content = existing
             } else {
@@ -168,8 +171,14 @@ export default function BulkProposalsPage() {
     let data: ProposalData
     if (item.id === activeItem?.id && proposalData) {
       data = proposalData
-    } else if (item.outreach_preparations?.message_body) {
-      data = migrateFromLegacy(item.outreach_preparations.message_body, companyName, industry, contactName)
+    } else if (item.companies?.outreach_preparations?.length > 0) {
+      const proposals = item.companies.outreach_preparations
+      const pr = proposals.find((p: any) => p.use_case_summary === 'PROPOSAL') || proposals[0]
+      if (pr?.message_body) {
+        data = migrateFromLegacy(pr.message_body, companyName, industry, contactName)
+      } else {
+        data = createDefaultProposalData(companyName, industry, contactName)
+      }
     } else {
       data = createDefaultProposalData(companyName, industry, contactName)
     }
@@ -388,7 +397,8 @@ export default function BulkProposalsPage() {
                   {items.map(item => {
                     const isSelected = selectedItems.has(item.id)
                     const isActive = activeItem?.id === item.id
-                    const proposal = item.outreach_preparations
+                    const proposals = item.companies?.outreach_preparations || []
+                    const proposal = proposals.find((p: any) => p.use_case_summary === 'PROPOSAL') || proposals[0]
                     return (
                       <div
                         key={item.id}

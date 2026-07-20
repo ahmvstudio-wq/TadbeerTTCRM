@@ -74,9 +74,9 @@ export async function getSessionItems(sessionId: string) {
         *,
         companies (
           *,
-          contacts (*)
-        ),
-        outreach_preparations (*)
+          contacts (*),
+          outreach_preparations (*)
+        )
       `)
       .eq('session_id', sessionId)
       .order('position', { ascending: true })

@@ -320,7 +320,7 @@ export default function DailyCadencePage() {
           <ProspectWorkspace
             company={selectedItem.companies}
             contact={selectedItem.companies?.contacts?.[0] || {}}
-            preparations={selectedItem.outreach_preparations ? [selectedItem.outreach_preparations] : []}
+            preparations={selectedItem.companies?.outreach_preparations || []}
             activities={selectedItem.companies?.activities || []}
             sessionId={session?.id}
             currentUserRole={currentRole}
@@ -387,7 +387,7 @@ export default function DailyCadencePage() {
                     <div className="divide-y divide-border-light">
                       {sessionItems.filter(item => item.status !== 'sent').map(item => {
                         const contact = item.companies?.contacts?.[0]
-                        const proposal = item.outreach_preparations
+                        const proposal = item.companies?.outreach_preparations?.find((p: any) => p.use_case_summary === 'PROPOSAL') || item.companies?.outreach_preparations?.[0]
                         return (
                           <div
                             key={item.id}
@@ -473,7 +473,7 @@ export default function DailyCadencePage() {
                     <div className="divide-y divide-border-light">
                       {sessionItems.filter(item => item.status === 'sent').map(item => {
                         const contact = item.companies?.contacts?.[0]
-                        const proposal = item.outreach_preparations
+                        const proposal = item.companies?.outreach_preparations?.find((p: any) => p.use_case_summary === 'PROPOSAL') || item.companies?.outreach_preparations?.[0]
                         return (
                           <div
                             key={item.id}
@@ -664,7 +664,7 @@ export default function DailyCadencePage() {
                       <p className="text-[10px] text-text-muted uppercase font-bold tracking-wider mt-0.5">BDM Calls Done</p>
                     </div>
                     <div className="p-3.5 bg-slate-50 border border-border-light rounded-xl hover:bg-white hover:border-brand-teal/30 hover:shadow-sm transition-all duration-200">
-                      <p className="text-lg font-bold text-brand-gold">{sessionItems.filter(i => i.outreach_preparations?.status === 'sent').length}</p>
+                      <p className="text-lg font-bold text-brand-gold">{sessionItems.filter(i => i.companies?.outreach_preparations?.some((p: any) => p.status === 'sent')).length}</p>
                       <p className="text-[10px] text-text-muted uppercase font-bold tracking-wider mt-0.5">Proposals Sent</p>
                     </div>
                   </div>
