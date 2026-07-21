@@ -227,7 +227,7 @@ export function ProspectWorkspace({
 
     // Append the strategic intelligence proposal to the message body
     if (proposalData) {
-      text += `\n\n---\n📋 STRATEGIC PROPOSAL PACKAGE\nReport: ${proposalData.tagline}\nValid Until: ${proposalData.proposalValidUntil}\nPreview Link: ${window.location.origin}/daily-cadence/bulk-proposals?preview=${company.id}`
+      text += `\n\n---\n📋 STRATEGIC PROPOSAL PACKAGE\nReport: ${proposalData.tagline}\nValid Until: ${proposalData.proposalValidUntil}`
     }
 
     setOutreachMessage(text)
