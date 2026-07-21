@@ -14,6 +14,7 @@ const PROPOSALS: Record<string, {
   heroStats: { value: string; unit: string; label: string }[]
   industry: string
   specificObservation?: string
+  researchNotes?: string
   diagnosisIntro: string
   leaks: { type: 'LEAK' | 'RISK' | 'GAP'; title: string; description: string; impact?: string }[]
   solutionIntro: string
@@ -53,6 +54,7 @@ const PROPOSALS: Record<string, {
   'Muna Noor International LLC': {
     industry: 'Construction/Engineering',
     specificObservation: 'your $100M+ project scale, 50+ year legacy, 6 manufacturing sites, and execution of the Al-Misfah waste transfer station alongside 5 concurrent Haya Water projects',
+    researchNotes: 'Muna Noor International LLC: $100M+ revenue engineering & pipe manufacturing powerhouse with 50+ years history and 300+ major projects delivered. Operates 6 manufacturing factories in Oman. Currently executing the landmark Al-Misfah waste transfer station alongside 5 concurrent Haya Water pipeline projects. Key Contact: Athar Qureshi.',
     tagline: 'Tadbeer Multi-Site System & Schedule Control for Muna Noor',
     subtitle: 'Predictive Project Scheduling & Resource Allocation for $100M+ Engineering Operations',
     heroStats: [
@@ -431,6 +433,14 @@ export async function POST(request: Request) {
       if (dryRun) {
         results.push({ company: rawName, status: 'dry_run', proposal: proposalData })
         continue
+      }
+
+      // Update research notes on the company record if provided
+      if (proposal.researchNotes) {
+        await supabase
+          .from('companies')
+          .update({ notes: proposal.researchNotes })
+          .eq('id', company.id)
       }
 
       // Upsert into outreach_preparations
