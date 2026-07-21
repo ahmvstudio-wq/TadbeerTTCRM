@@ -8,76 +8,108 @@ export async function bulkImportCompanies(data: Record<string, string>[]) {
     let imported = 0
     let failed = 0
 
-    for (const row of data) {
-      const companyData: Record<string, any> = {
-        status: 'prospect',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+    const now = new Date().toISOString()
+    const CHUNK_SIZE = 100
+
+    // Process rows in chunks of 100
+    for (let i = 0; i < data.length; i += CHUNK_SIZE) {
+      const chunk = data.slice(i, i + CHUNK_SIZE)
+      
+      const companiesToInsert: any[] = []
+      const contactInfoMap: any[] = []
+
+      for (const row of chunk) {
+        const companyName = row.company_name || row.companyName || row.company || row.name
+        if (!companyName || !companyName.trim()) {
+          failed++
+          continue
+        }
+
+        const companyObj: Record<string, any> = {
+          company_name: companyName.trim(),
+          status: 'prospect',
+          created_at: now,
+          updated_at: now
+        }
+
+        if (row.industry) companyObj.industry = row.industry
+        if (row.website) companyObj.website = row.website
+        if (row.phone) companyObj.phone = row.phone
+        if (row.email) companyObj.email = row.email
+        if (row.country) companyObj.country = row.country
+        if (row.city) companyObj.city = row.city
+        if (row.employee_count || row.employees) {
+          companyObj.employee_count = parseInt(row.employee_count || row.employees) || null
+        }
+        if (row.notes) companyObj.notes = row.notes
+        if (row.linkedin_url || row.linkedin) companyObj.linkedin_url = row.linkedin_url || row.linkedin
+
+        companiesToInsert.push(companyObj)
+
+        // Extract contact info for matching after insertion
+        const personName = row.person_name || row.contact_name || row.full_name || row.contact || row.person
+        const personTitle = row.person_title || row.title || row.job_title || row.contact_title
+        const contactEmail = row.contact_email || row.person_email || row.email
+        const contactPhone = row.contact_phone || row.person_phone || row.phone
+        const whatsapp = row.whatsapp || row.whatsapp_number || row.wa_number
+        const contactLinkedin = row.contact_linkedin || row.person_linkedin || row.linkedin
+
+        contactInfoMap.push({
+          personName,
+          personTitle,
+          contactEmail,
+          contactPhone,
+          whatsapp,
+          contactLinkedin,
+          companyName: companyName.trim()
+        })
       }
 
-      const companyName = row.company_name || row.companyName || row.company || row.name
-      if (companyName) {
-        companyData.company_name = companyName
-      }
+      if (companiesToInsert.length === 0) continue
 
-      if (row.industry) companyData.industry = row.industry
-      if (row.website) companyData.website = row.website
-      if (row.phone) companyData.phone = row.phone
-      if (row.email) companyData.email = row.email
-      if (row.country) companyData.country = row.country
-      if (row.city) companyData.city = row.city
-      if (row.employee_count || row.employees) {
-        companyData.employee_count = parseInt(row.employee_count || row.employees) || null
-      }
-      if (row.notes) companyData.notes = row.notes
-      if (row.linkedin_url || row.linkedin) companyData.linkedin_url = row.linkedin_url || row.linkedin
-
-      if (!companyData.company_name) {
-        failed++
-        continue
-      }
-
-      // Insert company
-      const { data: insertedCompany, error: companyErr } = await supabase
+      // Batch Insert Companies in 1 single HTTP request per chunk
+      const { data: insertedCompanies, error: companyErr } = await supabase
         .from('companies')
-        .insert(companyData)
-        .select()
-        .single()
+        .insert(companiesToInsert)
+        .select('id, company_name')
 
-      if (companyErr) {
-        failed++
-        console.error('Failed to import company row:', companyErr.message)
+      if (companyErr || !insertedCompanies) {
+        console.error('Batch company insert failed:', companyErr?.message)
+        failed += companiesToInsert.length
         continue
       }
 
-      // Extract Contact Information
-      const personName = row.person_name || row.contact_name || row.full_name || row.contact || row.person
-      const personTitle = row.person_title || row.title || row.job_title || row.contact_title
-      const contactEmail = row.contact_email || row.person_email || row.email
-      const contactPhone = row.contact_phone || row.person_phone || row.phone
-      const whatsapp = row.whatsapp || row.whatsapp_number || row.wa_number
-      const contactLinkedin = row.contact_linkedin || row.person_linkedin || row.linkedin
+      // Map contacts to inserted company IDs
+      const contactsToInsert: any[] = []
+      insertedCompanies.forEach((insertedComp, idx) => {
+        const info = contactInfoMap[idx] || {}
+        const finalContactName = info.personName || `${insertedComp.company_name} Representative`
 
-      // If we have contact details, or even just a fallback name from the company, create contact
-      const finalContactName = personName || `${companyData.company_name} Representative`
-
-      const { error: contactErr } = await supabase.from('contacts').insert({
-        company_id: insertedCompany.id,
-        full_name: finalContactName,
-        title: personTitle || 'Decision Maker',
-        email: contactEmail || null,
-        phone: contactPhone || null,
-        whatsapp: whatsapp || contactPhone || null,
-        linkedin_url: contactLinkedin || null,
-        is_primary: true,
-        created_at: new Date().toISOString()
+        contactsToInsert.push({
+          company_id: insertedComp.id,
+          full_name: finalContactName,
+          title: info.personTitle || 'Decision Maker',
+          email: info.contactEmail || null,
+          phone: info.contactPhone || null,
+          whatsapp: info.whatsapp || info.contactPhone || null,
+          linkedin_url: info.contactLinkedin || null,
+          is_primary: true,
+          created_at: now
+        })
       })
 
-      if (contactErr) {
-        console.error('Failed to import contact for company:', insertedCompany.id, contactErr.message)
+      // Batch Insert Contacts in 1 single HTTP request per chunk
+      if (contactsToInsert.length > 0) {
+        const { error: contactErr } = await supabase
+          .from('contacts')
+          .insert(contactsToInsert)
+
+        if (contactErr) {
+          console.error('Batch contact insert warning:', contactErr.message)
+        }
       }
 
-      imported++
+      imported += insertedCompanies.length
     }
 
     return { imported, failed, total: data.length }
