@@ -208,13 +208,22 @@ export function ProspectWorkspace({
     if (!selected) return
     let text = selected.body
     
-    // Replace both types of placeholders: [Placeholder] and {placeholder}
+    // Get specific observation if available from proposalData or default fallback
+    const specificObs = (proposalData as any)?.specificObservation || 
+      `your team's work in ${company.industry || 'the sector'} and overall operational scale`
+
+    // Replace all placeholders including [specific observation] and {specific_observation}
     text = text.replace(/\[Name\]/gi, contact.full_name || 'there')
     text = text.replace(/\{name\}/gi, contact.full_name || 'there')
     text = text.replace(/\[Company\]/gi, company.company_name || 'your company')
     text = text.replace(/\{company\}/gi, company.company_name || 'your company')
     text = text.replace(/\[sector\]/gi, company.industry || 'your sector')
     text = text.replace(/\{sector\}/gi, company.industry || 'your sector')
+    text = text.replace(/\[specific observation\]/gi, specificObs)
+    text = text.replace(/\{specific_observation\}/gi, specificObs)
+    text = text.replace(/\[specific process\]/gi, specificObs)
+    text = text.replace(/\[relevant operational area\]/gi, specificObs)
+    text = text.replace(/\[topic\]/gi, company.industry || 'operational scale')
 
     // Append the strategic intelligence proposal to the message body
     if (proposalData) {

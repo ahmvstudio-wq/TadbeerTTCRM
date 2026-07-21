@@ -13,6 +13,7 @@ const PROPOSALS: Record<string, {
   subtitle: string
   heroStats: { value: string; unit: string; label: string }[]
   industry: string
+  specificObservation?: string
   diagnosisIntro: string
   leaks: { type: 'LEAK' | 'RISK' | 'GAP'; title: string; description: string; impact?: string }[]
   solutionIntro: string
@@ -23,6 +24,7 @@ const PROPOSALS: Record<string, {
 }> = {
   'Oman Flour Mills SAOG': {
     industry: 'Manufacturing',
+    specificObservation: 'your RO 128.82M revenue scale, 850 MT/day flour milling capacity, and 51% revenue contribution from feed milling operations',
     tagline: 'Tadbeer System & Scale Engine for Oman Flour Mills',
     subtitle: 'Process Automation, IoT Quality Prediction & Margin Leak Recovery for 850 MT/Day Operations',
     heroStats: [
@@ -50,6 +52,7 @@ const PROPOSALS: Record<string, {
 
   'Muna Noor International LLC': {
     industry: 'Construction/Engineering',
+    specificObservation: 'your $100M+ project scale, 50+ year legacy, 6 manufacturing sites, and execution of the Al-Misfah waste transfer station alongside 5 concurrent Haya Water projects',
     tagline: 'Tadbeer Multi-Site System & Schedule Control for Muna Noor',
     subtitle: 'Predictive Project Scheduling & Resource Allocation for $100M+ Engineering Operations',
     heroStats: [
@@ -77,6 +80,7 @@ const PROPOSALS: Record<string, {
 
   'Al Jassar Group': {
     industry: 'Trading/Distribution',
+    specificObservation: 'your 30-year market dominance, 1,000+ SKU line across HVAC, MEP, and waterproofing, and VTS Group membership since 2007',
     tagline: 'Tadbeer Supply Chain & Demand Intelligence for Al Jassar Group',
     subtitle: 'Automated Demand Forecasting & Working Capital Release for 30-Year Market Leader',
     heroStats: [
@@ -104,6 +108,7 @@ const PROPOSALS: Record<string, {
 
   'Vertex+ Interior Design': {
     industry: 'Interior Design',
+    specificObservation: 'your luxury interior fit-out portfolio, direct owner leadership by Abdullatif, and strong design positioning across Muscat',
     tagline: 'Tadbeer AI Visualization & Operations Engine for Vertex+',
     subtitle: 'Accelerate Client Decisions, Eliminate Rework & Scale Luxury Fit-Out Operations',
     heroStats: [
@@ -131,6 +136,7 @@ const PROPOSALS: Record<string, {
 
   'Stay Development': {
     industry: 'Real Estate',
+    specificObservation: 'your master-planned coastal communities, luxury villa developments in Al Khoud, MSQ, and Qurm, and sustainable living projects',
     tagline: 'Tadbeer AI Property Matching & Lead Acceleration for Stay Development',
     subtitle: 'Instant Buyer Engagement & Automated Pipeline Nurturing for Coastal Master Communities',
     heroStats: [
@@ -158,6 +164,7 @@ const PROPOSALS: Record<string, {
 
   'Arak Medical Clinics': {
     industry: 'Healthcare',
+    specificObservation: 'your 3 Muscat clinic locations (Al Azaiba, Al Khoud, Bousher), 15-hour daily operating window (7 AM - 10 PM), and upcoming Sharjah expansion',
     tagline: 'Tadbeer AI Patient Engagement & Multi-Clinic Automation for Arak Clinics',
     subtitle: 'Zero No-Shows, 24/7 Scheduling & Automated Care Protocols Across 3 Muscat Branches',
     heroStats: [
@@ -185,6 +192,7 @@ const PROPOSALS: Record<string, {
 
   'National Finance': {
     industry: 'Finance/Microfinance',
+    specificObservation: 'your 39-year legacy since 1987, pan-Oman network of 23 branches, and pioneering EV & solar green equipment financing',
     tagline: 'Tadbeer AI Loan Origination & Credit Scoring for National Finance',
     subtitle: 'Instant Underwriting & Alternative Credit Intelligence for 39-Year Lending Leader',
     heroStats: [
@@ -212,6 +220,7 @@ const PROPOSALS: Record<string, {
 
   'Mwasalat': {
     industry: 'Public Transportation',
+    specificObservation: 'your 400+ bus fleet serving 9.2M annual passengers, your RO 22M fuel cost base (69% of operating expenses), and Intelligent Transport System (ITS) platform initiatives',
     tagline: 'Tadbeer AI Transit Optimization & Fleet Intelligence for Mwasalat',
     subtitle: 'Dynamic Dispatch, IoT Telematics & Fuel Reduction for 400+ Bus Fleet',
     heroStats: [
@@ -239,6 +248,7 @@ const PROPOSALS: Record<string, {
 
   'Premium Motors Volkswagen Oman': {
     industry: 'Automotive',
+    specificObservation: 'your flagship 10,000 sqm Wattayah facility launch, Alfardan Group subsidiary backing, and Sohar stockyard expansions',
     tagline: 'Tadbeer AI Showroom Conversion & After-Sales Engine for Premium Motors VW',
     subtitle: 'Instant Lead Conversion & Predictive Service Retention for 10,000 sqm Flagship Facility',
     heroStats: [
@@ -266,6 +276,7 @@ const PROPOSALS: Record<string, {
 
   'Kenz Hypermarket': {
     industry: 'Retail/Hypermarket',
+    specificObservation: 'your 24/7 hypermarket operations in Al Khoud and Ma’belah near Sultan Qaboos University (SQU), managing 15,000+ SKUs across high-density student hubs',
     tagline: 'Tadbeer AI Retail Merchandising & Fresh Food Waste Engine for Kenz Hypermarket',
     subtitle: 'Dynamic Markdown Pricing & WhatsApp Loyalty Personalization for 24/7 Retail Operations',
     heroStats: [
@@ -378,9 +389,10 @@ export async function POST(request: Request) {
         coverTitleFormat: `Tadbeer × ${company.company_name}`,
         tagline: proposal.tagline,
         subtitle: proposal.subtitle,
+        specificObservation: proposal.specificObservation,
         preparedDate: 'July 2026',
         
-        aboutTadbeerContext: `Based on the operational complexity across ${company.company_name}'s environment, Tadbeer's capabilities in process engineering, AI automation, and system integration offer a deterministic path to operational excellence.`,
+        aboutTadbeerContext: `Tadbeer Transformation (Tadbeer TT) is Oman's premier system architecture and operational scaling partner based in Madinat Qaboos, Muscat. We empower GCC enterprises to eliminate operational bottlenecks and scale seamlessly by deploying custom software solutions, AI technology & machine learning workflows, data-driven digital marketing, and human capital transformation frameworks. Based on our pre-contact audit of ${company.company_name}'s operational footprint, Tadbeer TT has structured a deterministic path to system excellence and revenue optimization.`,
         
         selectedCaseStudies: recommendedStudies,
         selectedClientLogos: recommendedLogos,

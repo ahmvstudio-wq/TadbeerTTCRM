@@ -53,6 +53,7 @@ export interface ProposalData {
   coverTitleFormat?: string // e.g. "Tadbeer × {company}"
   tagline: string
   subtitle: string
+  specificObservation?: string
   prospectLogoUrl?: string
   preparedDate?: string
 
@@ -567,70 +568,78 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
     </div>
 
     <div class="slide-footer">
-      <span>Tadbeer Transformations</span>
-      <span>PROPRIETARY STRATEGIC COLLABORATION REPORT</span>
+      <span>Tadbeer TT Transformations</span>
+      <span>PROPRIETARY STRATEGIC REPORT</span>
     </div>
   </div>
 
-  <!-- SLIDE 2: ABOUT TADBEER / CONTEXT -->
+  <!-- SLIDE 2: DETAILS AND EXECUTIVE OVERVIEW OF TADBEER TT -->
   <div class="slide">
     <div class="top-bar-teal"></div>
     <div class="top-bar-gold"></div>
 
     <div class="slide-header-bar">
-      <span class="slide-header-title">STRATEGIC OPERATIONAL INTELLIGENCE</span>
-      <img src="/logo/tadbeer-logo.png" class="slide-header-logo" alt="Tadbeer Logo" />
+      <span class="slide-header-title">ORGANIZATIONAL OVERVIEW & CAPABILITIES</span>
+      <img src="/logo/tadbeer-logo.png" class="slide-header-logo" alt="Tadbeer TT Logo" />
     </div>
 
     <div class="content-body">
-      <div class="section-number">02 // ABOUT TADBEER & PURPOSE OF CONVERSATION</div>
-      <h1 class="section-heading">Why We Reached Out to ${company.company_name}</h1>
-      <p class="section-sub">${d.aboutTadbeerContext}</p>
+      <div class="section-number">02 // ABOUT TADBEER TT & EXECUTIVE OVERVIEW</div>
+      <h1 class="section-heading">Oman’s System & Scale Transformation Partner</h1>
+      <p class="section-sub">${d.aboutTadbeerContext || `Tadbeer Transformation (Tadbeer TT) is Oman's premier system architecture and operational scaling partner based in Madinat Qaboos, Muscat. We empower GCC enterprises to eliminate operational bottlenecks and scale seamlessly.`}</p>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
-        <div style="background: white; border: 1px solid #E6E1D8; border-left: 4px solid #0D4F4F; border-radius: 12px; padding: 20px;">
-          <h4 style="font-size: 12px; font-weight: 900; color: #0D4F4F; text-transform: uppercase; margin-bottom: 8px;">Deterministic Transformation</h4>
-          <p style="font-size: 10px; color: #555; line-height: 1.6;">We replace ad-hoc manual execution, unorganized spreadsheets, and email dependencies with deterministic software systems, automated coordinator routing, and real-time oversight dashboards.</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 10px;">
+        <div style="background: white; border: 1px solid #E6E1D8; border-left: 4px solid #0D4F4F; border-radius: 10px; padding: 14px;">
+          <h4 style="font-size: 11px; font-weight: 900; color: #0D4F4F; text-transform: uppercase; margin-bottom: 4px;">Software Solutions</h4>
+          <p style="font-size: 9px; color: #555; line-height: 1.5;">Enterprise ERP Next, Odoo & custom core application development tailored to Omani regulatory & workflow standards.</p>
         </div>
-        <div style="background: white; border: 1px solid #E6E1D8; border-left: 4px solid #C8A951; border-radius: 12px; padding: 20px;">
-          <h4 style="font-size: 12px; font-weight: 900; color: #0D4F4F; text-transform: uppercase; margin-bottom: 8px;">Relevance Before Relationship</h4>
-          <p style="font-size: 10px; color: #555; line-height: 1.6;">Rather than pitching generic software packages, we conduct pre-contact operational analysis to identify the exact friction points and revenue leaks unique to your industry model.</p>
+        <div style="background: white; border: 1px solid #E6E1D8; border-left: 4px solid #C8A951; border-radius: 10px; padding: 14px;">
+          <h4 style="font-size: 11px; font-weight: 900; color: #0D4F4F; text-transform: uppercase; margin-bottom: 4px;">AI & Technology</h4>
+          <p style="font-size: 9px; color: #555; line-height: 1.5;">Machine learning predictive models, OCR document intelligence, dynamic pricing engines, and automated routing bots.</p>
+        </div>
+        <div style="background: white; border: 1px solid #E6E1D8; border-left: 4px solid #C8A951; border-radius: 10px; padding: 14px;">
+          <h4 style="font-size: 11px; font-weight: 900; color: #0D4F4F; text-transform: uppercase; margin-bottom: 4px;">Digital Marketing</h4>
+          <p style="font-size: 9px; color: #555; line-height: 1.5;">Performance-focused lead acquisition, personalized WhatsApp engagement engines, and conversion rate optimization.</p>
+        </div>
+        <div style="background: white; border: 1px solid #E6E1D8; border-left: 4px solid #0D4F4F; border-radius: 10px; padding: 14px;">
+          <h4 style="font-size: 11px; font-weight: 900; color: #0D4F4F; text-transform: uppercase; margin-bottom: 4px;">Human Capital</h4>
+          <p style="font-size: 9px; color: #555; line-height: 1.5;">Operational restructuring, workflow change management, staff enablement, and high-impact Omanization programs.</p>
         </div>
       </div>
     </div>
 
     <div class="slide-footer">
-      <span>Tadbeer Transformations</span>
-      <span>PROPRIETARY OPERATIONAL INTELLIGENCE</span>
+      <span>Tadbeer TT Transformations</span>
+      <span>ORGANIZATIONAL OVERVIEW & CAPABILITIES</span>
     </div>
   </div>
 
-  <!-- SLIDE 3: RELEVANT CASE STUDIES & CREDIBILITY -->
+  <!-- SLIDE 3: TADBEER TT WEBSITE CASE STUDIES & CLIENT CREDIBILITY -->
   <div class="slide">
     <div class="top-bar-teal"></div>
     <div class="top-bar-gold"></div>
 
     <div class="slide-header-bar">
-      <span class="slide-header-title">STRATEGIC OPERATIONAL INTELLIGENCE</span>
-      <img src="/logo/tadbeer-logo.png" class="slide-header-logo" alt="Tadbeer Logo" />
+      <span class="slide-header-title">VERIFIED CASE STUDIES & CREDIBILITY</span>
+      <img src="/logo/tadbeer-logo.png" class="slide-header-logo" alt="Tadbeer TT Logo" />
     </div>
 
     <div class="content-body">
-      <div class="section-number">03 // RELEVANT CASE STUDIES & CREDIBILITY</div>
-      <h1 class="section-heading">Proven Impact in ${company.industry || 'Your Sector'}</h1>
-      <p class="section-sub">Verified transformation outcomes across peer organizations facing similar operational complexity.</p>
+      <div class="section-number">03 // TADBEER TT VERIFIED CASE STUDIES</div>
+      <h1 class="section-heading">Proven Transformation Case Studies</h1>
+      <p class="section-sub">Real-world transformation benchmarks delivered by Tadbeer TT across major GCC commercial sectors.</p>
       
       <div class="cs-grid">${caseStudiesHtml}</div>
       
-      <div style="margin-top: 10px;">
-        <span style="font-size: 8.5px; font-weight: 850; color: #C8A951; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 6px;">Selected Approved Enterprise Partners</span>
+      <div style="margin-top: 6px;">
+        <span style="font-size: 8.5px; font-weight: 850; color: #C8A951; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 4px;">Tadbeer TT Client Ecosystem</span>
         <div class="logos-strip">${clientLogosHtml}</div>
       </div>
     </div>
 
     <div class="slide-footer">
-      <span>Tadbeer Transformations</span>
-      <span>VERIFIED CLIENT CREDIBILITY</span>
+      <span>Tadbeer TT Transformations</span>
+      <span>VERIFIED CLIENT CASE STUDIES</span>
     </div>
   </div>
 
@@ -805,89 +814,105 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
           <div className="border-t border-[#E6E1D8] pt-3 flex justify-between text-[8.5px] text-slate-400 uppercase tracking-widest font-semibold z-20">
             <span>PREPARED FOR: <strong className="text-[#0D4F4F]">{contact.full_name}</strong> ({contact.title || 'Executive'})</span>
             <span>DATE: {d.preparedDate || 'July 2026'}</span>
-            <span>TADBEER TRANSFORMATIONS</span>
+            <span>TADBEER TT TRANSFORMATIONS</span>
           </div>
         </div>
       )
     },
-    // Slide 2: About Tadbeer Context
+    // Slide 2: About Tadbeer TT & Executive Overview
     {
-      title: 'About Tadbeer',
-      subtitle: 'Why This Conversation',
+      title: 'About Tadbeer TT',
+      subtitle: 'Executive Overview',
       render: () => (
         <div className="flex-1 flex flex-col justify-between p-[45px] relative h-full">
           <div className="absolute inset-4 border border-[#C8A951]/20 rounded-lg pointer-events-none z-10" />
           <div className="flex justify-between items-center z-20">
-            <span className="text-[10px] font-black tracking-[3px] text-brand-teal uppercase">ABOUT TADBEER TRANSFORMATIONS</span>
-            <img src="/logo/tadbeer-logo.png" className="h-7 object-contain" alt="Tadbeer Logo" />
+            <span className="text-[10px] font-black tracking-[3px] text-brand-teal uppercase">ABOUT TADBEER TT</span>
+            <img src="/logo/tadbeer-logo.png" className="h-7 object-contain" alt="Tadbeer TT Logo" />
           </div>
 
-          <div className="flex-grow flex flex-col justify-center my-3 z-20">
-            <p className="text-[10px] font-extrabold tracking-[2px] uppercase text-[#C8A951] mb-1">02 // ABOUT TADBEER & PURPOSE OF CONVERSATION</p>
-            <h2 className="text-2xl font-extrabold text-[#0D4F4F] mb-2 font-serif border-b border-[#C8A951] inline-block pb-1">Why We Reached Out to {company.company_name}</h2>
-            <p className="text-[11.5px] text-slate-600 leading-relaxed max-w-[720px] mb-4">{d.aboutTadbeerContext}</p>
+          <div className="flex-grow flex flex-col justify-center my-2 z-20">
+            <p className="text-[10px] font-extrabold tracking-[2px] uppercase text-[#C8A951] mb-1">02 // ABOUT TADBEER TT & EXECUTIVE OVERVIEW</p>
+            <h2 className="text-2xl font-extrabold text-[#0D4F4F] mb-1.5 font-serif border-b border-[#C8A951] inline-block pb-1">Oman’s System & Scale Transformation Partner</h2>
+            <p className="text-[11px] text-slate-600 leading-relaxed max-w-[720px] mb-3">{d.aboutTadbeerContext || `Tadbeer Transformation (Tadbeer TT) is Oman's premier system architecture and operational scaling partner based in Madinat Qaboos, Muscat. We empower GCC enterprises to eliminate operational bottlenecks and scale seamlessly.`}</p>
 
-            <div className="grid grid-cols-2 gap-5">
-              <div className="bg-white border border-[#E6E1D8] border-l-4 border-l-[#0D4F4F] rounded-xl p-4 shadow-sm">
-                <div className="flex items-center gap-2 mb-1.5">
+            <div className="grid grid-cols-2 gap-3.5">
+              <div className="bg-white border border-[#E6E1D8] border-l-4 border-l-[#0D4F4F] rounded-xl p-3 shadow-sm">
+                <div className="flex items-center gap-2 mb-1">
                   <ShieldCheck className="h-4 w-4 text-brand-teal" />
-                  <h4 className="text-[11px] font-extrabold text-[#0D4F4F] uppercase tracking-wider">Deterministic Systems</h4>
+                  <h4 className="text-[10.5px] font-extrabold text-[#0D4F4F] uppercase tracking-wider">Software Solutions</h4>
                 </div>
-                <p className="text-[9.5px] text-slate-500 leading-relaxed">We replace manual dependencies, unorganized spreadsheets, and email loops with structured workflow software, automated coordinator routing, and real-time management dashboards.</p>
+                <p className="text-[9px] text-slate-500 leading-relaxed">Enterprise ERP Next, Odoo & custom core application development tailored to Omani regulatory & workflow standards.</p>
               </div>
 
-              <div className="bg-white border border-[#E6E1D8] border-l-4 border-l-[#C8A951] rounded-xl p-4 shadow-sm">
-                <div className="flex items-center gap-2 mb-1.5">
+              <div className="bg-white border border-[#E6E1D8] border-l-4 border-l-[#C8A951] rounded-xl p-3 shadow-sm">
+                <div className="flex items-center gap-2 mb-1">
                   <Sparkles className="h-4 w-4 text-[#C8A951]" />
-                  <h4 className="text-[11px] font-extrabold text-[#0D4F4F] uppercase tracking-wider">Relevance Before Pitch</h4>
+                  <h4 className="text-[10.5px] font-extrabold text-[#0D4F4F] uppercase tracking-wider">AI Technology</h4>
                 </div>
-                <p className="text-[9.5px] text-slate-500 leading-relaxed">Rather than presenting generic brochures, we conduct pre-contact operational analysis to identify the exact friction points and revenue leaks specific to {company.company_name}'s market position.</p>
+                <p className="text-[9px] text-slate-500 leading-relaxed">Machine learning predictive risk models, OCR document intelligence, dynamic pricing engines, and automated routing bots.</p>
+              </div>
+
+              <div className="bg-white border border-[#E6E1D8] border-l-4 border-l-[#C8A951] rounded-xl p-3 shadow-sm">
+                <div className="flex items-center gap-2 mb-1">
+                  <Globe className="h-4 w-4 text-[#C8A951]" />
+                  <h4 className="text-[10.5px] font-extrabold text-[#0D4F4F] uppercase tracking-wider">Digital Marketing</h4>
+                </div>
+                <p className="text-[9px] text-slate-500 leading-relaxed">Performance-focused lead acquisition, personalized WhatsApp engagement engines, and conversion rate optimization.</p>
+              </div>
+
+              <div className="bg-white border border-[#E6E1D8] border-l-4 border-l-[#0D4F4F] rounded-xl p-3 shadow-sm">
+                <div className="flex items-center gap-2 mb-1">
+                  <Building2 className="h-4 w-4 text-brand-teal" />
+                  <h4 className="text-[10.5px] font-extrabold text-[#0D4F4F] uppercase tracking-wider">Human Capital</h4>
+                </div>
+                <p className="text-[9px] text-slate-500 leading-relaxed">Operational restructuring, workflow change management, staff enablement, and high-impact Omanization programs.</p>
               </div>
             </div>
           </div>
 
-          <div className="border-t border-[#E6E1D8] pt-3 flex justify-between text-[8.5px] text-slate-400 uppercase tracking-widest font-semibold z-20">
-            <span>Tadbeer Transformations</span>
-            <span>PROPRIETARY OPERATIONAL INTELLIGENCE</span>
+          <div className="border-t border-[#E6E1D8] pt-2.5 flex justify-between text-[8.5px] text-slate-400 uppercase tracking-widest font-semibold z-20">
+            <span>Tadbeer TT Transformations</span>
+            <span>ORGANIZATIONAL OVERVIEW & CAPABILITIES</span>
           </div>
         </div>
       )
     },
-    // Slide 3: Case Studies & Credibility
+    // Slide 3: Tadbeer TT Case Studies
     {
-      title: 'Client Credibility',
-      subtitle: 'Relevant Case Studies',
+      title: 'Tadbeer TT Case Studies',
+      subtitle: 'Verified Case Studies',
       render: () => (
         <div className="flex-1 flex flex-col justify-between p-[45px] relative h-full">
           <div className="absolute inset-4 border border-[#C8A951]/20 rounded-lg pointer-events-none z-10" />
           <div className="flex justify-between items-center z-20">
-            <span className="text-[10px] font-black tracking-[3px] text-brand-teal uppercase">PROVEN INDUSTRY CREDIBILITY</span>
-            <img src="/logo/tadbeer-logo.png" className="h-7 object-contain" alt="Tadbeer Logo" />
+            <span className="text-[10px] font-black tracking-[3px] text-brand-teal uppercase">TADBEER TT CASE STUDIES</span>
+            <img src="/logo/tadbeer-logo.png" className="h-7 object-contain" alt="Tadbeer TT Logo" />
           </div>
 
-          <div className="flex-grow flex flex-col justify-center my-3 z-20">
-            <p className="text-[10px] font-extrabold tracking-[2px] uppercase text-[#C8A951] mb-1">03 // RELEVANT CASE STUDIES & CLIENT CREDIBILITY</p>
-            <h2 className="text-2xl font-extrabold text-[#0D4F4F] mb-1 font-serif border-b border-[#C8A951] inline-block pb-1">Proven Transformation in {company.industry || 'Your Sector'}</h2>
-            <p className="text-[11px] text-slate-500 mb-3">Verified outcomes across peer GCC organizations facing similar operational complexity.</p>
+          <div className="flex-grow flex flex-col justify-center my-2 z-20">
+            <p className="text-[10px] font-extrabold tracking-[2px] uppercase text-[#C8A951] mb-1">03 // TADBEER TT VERIFIED CASE STUDIES</p>
+            <h2 className="text-2xl font-extrabold text-[#0D4F4F] mb-1 font-serif border-b border-[#C8A951] inline-block pb-1">Proven Transformation Case Studies</h2>
+            <p className="text-[10.5px] text-slate-500 mb-2">Real-world transformation benchmarks delivered by Tadbeer TT across major GCC sectors.</p>
 
-            <div className="grid grid-cols-2 gap-4 mb-3">
+            <div className="grid grid-cols-2 gap-3.5 mb-2.5">
               {selectedStudies.map((cs, i) => (
-                <div key={i} className="bg-white border border-[#E6E1D8] border-t-4 border-t-[#0D4F4F] rounded-xl p-3.5 shadow-sm">
+                <div key={i} className="bg-white border border-[#E6E1D8] border-t-4 border-t-[#0D4F4F] rounded-xl p-3 shadow-sm">
                   <div className="flex justify-between items-center mb-1">
                     <span className="text-[8px] font-black text-[#C8A951] uppercase tracking-wider">{cs.industry}</span>
-                    <Badge variant="outline" className="text-[8px] border-emerald-300 text-emerald-700 bg-emerald-50 font-bold">Verified Result</Badge>
+                    <Badge variant="outline" className="text-[7.5px] border-emerald-300 text-emerald-700 bg-emerald-50 font-bold">Verified Result</Badge>
                   </div>
-                  <h4 className="text-[12px] font-extrabold font-serif text-[#0D4F4F] mb-1">{cs.title}</h4>
-                  <p className="text-[9px] text-slate-600 mb-1 leading-snug"><strong>Client:</strong> {cs.clientName}</p>
-                  <p className="text-[9px] text-slate-500 mb-2 leading-snug line-clamp-2">{cs.problemSummary}</p>
-                  <div className="bg-[#FAF9F6] p-1.5 rounded text-[8.5px] font-bold text-[#0D4F4F] border border-black/5 mb-2">
+                  <h4 className="text-[11.5px] font-extrabold font-serif text-[#0D4F4F] mb-0.5">{cs.title}</h4>
+                  <p className="text-[8.5px] text-slate-600 mb-1 leading-snug"><strong>Client:</strong> {cs.clientName}</p>
+                  <p className="text-[8.5px] text-slate-500 mb-1.5 leading-snug line-clamp-2">{cs.problemSummary}</p>
+                  <div className="bg-[#FAF9F6] p-1.5 rounded text-[8px] font-bold text-[#0D4F4F] border border-black/5 mb-1.5">
                     {cs.outcome}
                   </div>
                   <div className="flex gap-2">
                     {cs.metrics.map((m, mi) => (
-                      <div key={mi} className="flex-1 bg-[#0D4F4F] text-white p-1.5 rounded text-center">
-                        <span className="text-xs font-black text-[#C8A951] block leading-none">{m.value}</span>
-                        <span className="text-[7px] font-bold uppercase tracking-wider text-white/80">{m.label}</span>
+                      <div key={mi} className="flex-1 bg-[#0D4F4F] text-white p-1 rounded text-center">
+                        <span className="text-[11px] font-black text-[#C8A951] block leading-none">{m.value}</span>
+                        <span className="text-[6.5px] font-bold uppercase tracking-wider text-white/80">{m.label}</span>
                       </div>
                     ))}
                   </div>
@@ -896,10 +921,10 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
             </div>
 
             <div>
-              <span className="text-[8px] font-extrabold text-[#C8A951] uppercase tracking-widest block mb-1">Selected Approved Enterprise Partners</span>
-              <div className="flex gap-2 items-center justify-between bg-white border border-[#E6E1D8] rounded-lg p-2">
+              <span className="text-[7.5px] font-extrabold text-[#C8A951] uppercase tracking-widest block mb-1">Tadbeer TT Client Ecosystem</span>
+              <div className="flex gap-2 items-center justify-between bg-white border border-[#E6E1D8] rounded-lg p-1.5">
                 {selectedLogos.map((l, li) => (
-                  <div key={li} className="bg-[#FAF9F6] px-2.5 py-1 rounded text-[8.5px] font-extrabold text-[#0D4F4F] uppercase tracking-wider border border-black/5 truncate max-w-[130px]">
+                  <div key={li} className="bg-[#FAF9F6] px-2 py-0.5 rounded text-[8px] font-extrabold text-[#0D4F4F] uppercase tracking-wider border border-black/5 truncate max-w-[130px]">
                     {l.clientName}
                   </div>
                 ))}
@@ -907,9 +932,9 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
             </div>
           </div>
 
-          <div className="border-t border-[#E6E1D8] pt-2.5 flex justify-between text-[8.5px] text-slate-400 uppercase tracking-widest font-semibold z-20">
-            <span>Tadbeer Transformations</span>
-            <span>VERIFIED CLIENT CREDIBILITY</span>
+          <div className="border-t border-[#E6E1D8] pt-2 flex justify-between text-[8.5px] text-slate-400 uppercase tracking-widest font-semibold z-20">
+            <span>Tadbeer TT Transformations</span>
+            <span>VERIFIED CLIENT CASE STUDIES</span>
           </div>
         </div>
       )
