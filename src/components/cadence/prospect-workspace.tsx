@@ -719,22 +719,41 @@ export function ProspectWorkspace({
                 </div>
 
                 <div>
+                  <SectionLabel>Collaboration Title Structure</SectionLabel>
+                  <Input
+                    value={proposalData.coverTitleFormat || `Tadbeer × ${company.company_name}`}
+                    onChange={(e) => updateProposalField('coverTitleFormat', e.target.value)}
+                    className="text-xs font-bold"
+                    placeholder="Tadbeer × [Company Name]"
+                  />
+                </div>
+                <div>
                   <SectionLabel>Tagline</SectionLabel>
                   <Input
                     value={proposalData.tagline}
                     onChange={(e) => updateProposalField('tagline', e.target.value)}
                     className="text-xs"
-                    placeholder="e.g. The Reverse-Engineered Path to Dominance for..."
+                    placeholder="e.g. Operational Transformation Map for..."
                   />
                 </div>
                 <div>
-                  <SectionLabel>Subtitle</SectionLabel>
+                  <SectionLabel>Strategic Subtitle</SectionLabel>
                   <Textarea
                     rows={2}
                     value={proposalData.subtitle}
                     onChange={(e) => updateProposalField('subtitle', e.target.value)}
                     className="text-xs"
-                    placeholder="A precision growth map built from the top down..."
+                    placeholder="A precision assessment built specifically for..."
+                  />
+                </div>
+                <div>
+                  <SectionLabel>Why This Specific Conversation (About Tadbeer Context)</SectionLabel>
+                  <Textarea
+                    rows={2}
+                    value={proposalData.aboutTadbeerContext || ''}
+                    onChange={(e) => updateProposalField('aboutTadbeerContext', e.target.value)}
+                    className="text-xs"
+                    placeholder="Based on operational complexity across your environment..."
                   />
                 </div>
 
