@@ -21,16 +21,16 @@ export interface ApprovedClientLogo {
 }
 
 export const APPROVED_CLIENT_LOGOS: ApprovedClientLogo[] = [
-  { id: 'logo-ofm', clientName: 'Oman Flour Mills SAOG', industry: 'Manufacturing', isApproved: true },
-  { id: 'logo-mni', clientName: 'Muna Noor International LLC', industry: 'Construction/Engineering', isApproved: true },
-  { id: 'logo-aljassar', clientName: 'Al Jassar Group LLC', industry: 'Trading/Distribution', isApproved: true },
-  { id: 'logo-vertex', clientName: 'Vertex+ Interior Design', industry: 'Interior Design', isApproved: true },
-  { id: 'logo-stay', clientName: 'Stay Development', industry: 'Real Estate', isApproved: true },
-  { id: 'logo-arak', clientName: 'Arak Medical Clinics', industry: 'Healthcare', isApproved: true },
-  { id: 'logo-nationalfin', clientName: 'National Finance', industry: 'Finance/Microfinance', isApproved: true },
-  { id: 'logo-mwasalat', clientName: 'Mwasalat', industry: 'Public Transportation', isApproved: true },
-  { id: 'logo-pm-vw', clientName: 'Premium Motors Volkswagen Oman', industry: 'Automotive', isApproved: true },
-  { id: 'logo-kenz', clientName: 'Kenz Hypermarket', industry: 'Retail/Hypermarket', isApproved: true },
+  { id: 'logo-ofm', clientName: 'Oman Flour Mills SAOG', industry: 'Manufacturing', logoUrl: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=120&auto=format&fit=crop&q=80', isApproved: true },
+  { id: 'logo-mni', clientName: 'Muna Noor International LLC', industry: 'Construction/Engineering', logoUrl: 'https://images.unsplash.com/photo-1541888946425-d0fbb186a5b3?w=120&auto=format&fit=crop&q=80', isApproved: true },
+  { id: 'logo-aljassar', clientName: 'Al Jassar Group LLC', industry: 'Trading/Distribution', logoUrl: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=120&auto=format&fit=crop&q=80', isApproved: true },
+  { id: 'logo-vertex', clientName: 'Vertex+ Interior Design', industry: 'Interior Design', logoUrl: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=120&auto=format&fit=crop&q=80', isApproved: true },
+  { id: 'logo-stay', clientName: 'Stay Development', industry: 'Real Estate', logoUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=120&auto=format&fit=crop&q=80', isApproved: true },
+  { id: 'logo-arak', clientName: 'Arak Medical Clinics', industry: 'Healthcare', logoUrl: 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=120&auto=format&fit=crop&q=80', isApproved: true },
+  { id: 'logo-nationalfin', clientName: 'National Finance', industry: 'Finance/Microfinance', logoUrl: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=120&auto=format&fit=crop&q=80', isApproved: true },
+  { id: 'logo-mwasalat', clientName: 'Mwasalat', industry: 'Public Transportation', logoUrl: 'https://images.unsplash.com/photo-1570125909232-eb263c188f7e?w=120&auto=format&fit=crop&q=80', isApproved: true },
+  { id: 'logo-pm-vw', clientName: 'Premium Motors Volkswagen Oman', industry: 'Automotive', logoUrl: 'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=120&auto=format&fit=crop&q=80', isApproved: true },
+  { id: 'logo-kenz', clientName: 'Kenz Hypermarket', industry: 'Retail/Hypermarket', logoUrl: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=120&auto=format&fit=crop&q=80', isApproved: true },
 ]
 
 export const CASE_STUDIES_LIBRARY: CaseStudy[] = [
