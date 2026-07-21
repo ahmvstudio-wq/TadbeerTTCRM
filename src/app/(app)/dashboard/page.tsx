@@ -259,9 +259,8 @@ export default function DashboardPage() {
             <div
               key={stat.label}
               onClick={() => setExpandedCard(isExpanded ? null : stat.label)}
-              className={`hover-lift press-effect cursor-pointer transition-all duration-200 border rounded-xl overflow-hidden ${
-                isExpanded ? "border-brand-teal ring-1 ring-brand-teal bg-brand-teal-light/10" : "border-transparent bg-white shadow-sm"
-              }`}
+              className={`hover-lift press-effect cursor-pointer transition-all duration-200 border rounded-xl overflow-hidden ${isExpanded ? "border-brand-teal ring-1 ring-brand-teal bg-brand-teal-light/10" : "border-transparent bg-white shadow-sm"
+                }`}
             >
               <Card className="border-0 bg-transparent shadow-none">
                 <CardContent className="p-4">

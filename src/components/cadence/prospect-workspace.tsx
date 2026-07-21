@@ -25,11 +25,12 @@ import {
   createDefaultProposalData,
   migrateFromLegacy
 } from './proposal-pdf-preview'
+import { getOutreachMessageForChannel } from '@/lib/outreach-messages-library'
 
 const DIAG_COLORS: Record<string, { border: string }> = {
   LEAK: { border: '#EF4444' },
   RISK: { border: '#F59E0B' },
-  GAP:  { border: '#3B82F6' },
+  GAP: { border: '#3B82F6' },
 }
 
 interface Contact {
@@ -90,7 +91,7 @@ export function ProspectWorkspace({
   onUpdate
 }: ProspectWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<'details' | 'research' | 'outreach' | 'proposal' | 'history'>('details')
-  
+
   // Research notes states
   const [researchNotes, setResearchNotes] = useState(company.notes || '')
   const [isSavingResearch, setIsSavingResearch] = useState(false)
@@ -182,7 +183,7 @@ export function ProspectWorkspace({
     }
   ]
 
-  // Initialize values from existing preparation data
+  // Initialize values from existing preparation data & channel library
   useEffect(() => {
     const proposal = preparations.find(p => p.use_case_summary === 'PROPOSAL')
     if (proposal) {
@@ -198,7 +199,18 @@ export function ProspectWorkspace({
       setProposalStatus('draft')
       setProposalData(createDefaultProposalData(company.company_name, company.industry || '', contact.full_name))
     }
-  }, [preparations, company.id, company.company_name, company.industry, contact.full_name])
+
+    // Load channel-specific outreach message
+    const channelUpper = outreachChannel.toUpperCase()
+    const prepMatch = preparations.find(p => p.use_case_summary === `OUTREACH_${channelUpper}` || p.use_case_summary === 'OUTREACH')
+    
+    if (prepMatch && prepMatch.message_body && prepMatch.message_body.length > 50 && prepMatch.use_case_summary === `OUTREACH_${channelUpper}`) {
+      setOutreachMessage(prepMatch.message_body)
+    } else {
+      const channelMsg = getOutreachMessageForChannel(company.id, company.company_name, contact.full_name, outreachChannel)
+      setOutreachMessage(channelMsg)
+    }
+  }, [preparations, company.id, company.company_name, company.industry, contact.full_name, outreachChannel])
 
   const displayNextAction = company.next_action || 'RESEARCH PROSPECT'
   const displayNextActionDueDate = company.next_action_due_date || ''
@@ -207,9 +219,9 @@ export function ProspectWorkspace({
     const selected = PLAYBOOK_TEMPLATES.find(t => t.id === templateId)
     if (!selected) return
     let text = selected.body
-    
+
     // Get specific observation if available from proposalData or default fallback
-    const specificObs = (proposalData as any)?.specificObservation || 
+    const specificObs = (proposalData as any)?.specificObservation ||
       `your team's work in ${company.industry || 'the sector'} and overall operational scale`
 
     // Replace all placeholders including [specific observation] and {specific_observation}
@@ -532,11 +544,10 @@ export function ProspectWorkspace({
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider text-center transition-all border-b-2 ${
-                activeTab === tab
+              className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider text-center transition-all border-b-2 ${activeTab === tab
                   ? 'border-brand-teal text-brand-teal bg-brand-teal/5'
                   : 'border-transparent text-text-secondary hover:text-brand-teal hover:bg-slate-50'
-              }`}
+                }`}
             >
               {tab}
             </button>
@@ -610,7 +621,7 @@ export function ProspectWorkspace({
                     <p className="text-[11px] text-text-secondary">Country: {company.country || 'Oman'}</p>
                   </div>
                 </div>
-                
+
                 <div className="md:col-span-2 p-4 bg-slate-50 border border-border-light rounded-xl flex flex-col space-y-3">
                   <div>
                     <span className="text-[9px] uppercase tracking-wider font-extrabold text-brand-teal font-bold">Research Notes</span>
@@ -651,11 +662,10 @@ export function ProspectWorkspace({
                   <button
                     key={ch}
                     onClick={() => setOutreachChannel(ch)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize border transition-all ${
-                      outreachChannel === ch
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize border transition-all ${outreachChannel === ch
                         ? 'bg-brand-teal border-brand-teal text-white shadow-sm'
                         : 'bg-white border-border text-text-secondary hover:bg-slate-50'
-                    }`}
+                      }`}
                   >
                     {ch}
                   </button>
@@ -712,7 +722,7 @@ export function ProspectWorkspace({
                 </div>
                 <Badge className={
                   proposalStatus === 'sent' ? 'bg-emerald-100 text-emerald-700' :
-                  proposalStatus === 'ready' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'
+                    proposalStatus === 'ready' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'
                 }>
                   {proposalStatus}
                 </Badge>
