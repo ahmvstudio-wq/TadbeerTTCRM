@@ -35,17 +35,40 @@ CREATE TABLE IF NOT EXISTS outreach_reached (
   reached_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- LinkedIn Prospects
+CREATE TABLE IF NOT EXISTS linkedin_prospects (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  title TEXT,
+  company TEXT,
+  location TEXT,
+  degree TEXT,
+  connections TEXT,
+  profile_url TEXT,
+  connection_status TEXT NOT NULL DEFAULT 'to_connect',
+  message_status TEXT NOT NULL DEFAULT 'to_send',
+  mutual_connection TEXT,
+  industry TEXT,
+  screenshot_date TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_outreach_touches_lead ON outreach_touches(lead_id);
 CREATE INDEX IF NOT EXISTS idx_outreach_touches_campaign ON outreach_touches(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_outreach_touches_sent ON outreach_touches(sent_at DESC);
 CREATE INDEX IF NOT EXISTS idx_outreach_touches_followup ON outreach_touches(follow_up_date);
+CREATE INDEX IF NOT EXISTS idx_linkedin_prospects_conn ON linkedin_prospects(connection_status);
 
 -- RLS
 ALTER TABLE outreach_touches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outreach_campaigns ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outreach_reached ENABLE ROW LEVEL SECURITY;
+ALTER TABLE linkedin_prospects ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Authenticated users can manage outreach touches" ON outreach_touches FOR ALL USING (auth.role() = 'authenticated');
 CREATE POLICY "Authenticated users can manage campaigns" ON outreach_campaigns FOR ALL USING (auth.role() = 'authenticated');
 CREATE POLICY "Authenticated users can manage reached" ON outreach_reached FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "Authenticated users can manage linkedin prospects" ON linkedin_prospects FOR ALL USING (auth.role() = 'authenticated');
