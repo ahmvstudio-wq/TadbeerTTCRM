@@ -32,14 +32,20 @@ const statusColor: Record<CompanyStatus, string> = {
 
 const csvFields = [
   { key: "company_name", label: "Company Name", required: true },
+  { key: "person_name", label: "Contact Person Name" },
+  { key: "person_title", label: "Contact Title" },
+  { key: "contact_email", label: "Contact Email" },
+  { key: "contact_phone", label: "Contact Phone" },
+  { key: "whatsapp", label: "WhatsApp" },
+  { key: "contact_linkedin", label: "Contact LinkedIn" },
   { key: "industry", label: "Industry" },
   { key: "website", label: "Website" },
-  { key: "phone", label: "Phone" },
-  { key: "email", label: "Email" },
+  { key: "phone", label: "Company Phone" },
+  { key: "email", label: "Company Email" },
   { key: "country", label: "Country" },
   { key: "city", label: "City" },
   { key: "employee_count", label: "Employee Count" },
-  { key: "linkedin_url", label: "LinkedIn URL" },
+  { key: "linkedin_url", label: "Company LinkedIn" },
   { key: "notes", label: "Notes" },
 ];
 
