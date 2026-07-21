@@ -27,7 +27,7 @@ export default function SettingsPage() {
           <CardContent className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Company Name</label>
-              <Input defaultValue="Tadbeer Transformation Trading" />
+              <Input defaultValue="Tadbeer TT" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Daily Outreach Target</label>

@@ -568,7 +568,7 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
     </div>
 
     <div class="slide-footer">
-      <span>Tadbeer TT Transformations</span>
+      <span>Tadbeer TT</span>
       <span>PROPRIETARY STRATEGIC REPORT</span>
     </div>
   </div>
@@ -585,8 +585,7 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
 
     <div class="content-body">
       <div class="section-number">02 // ABOUT TADBEER TT & EXECUTIVE OVERVIEW</div>
-      <h1 class="section-heading">Oman’s System & Scale Transformation Partner</h1>
-      <p class="section-sub">${d.aboutTadbeerContext || `Tadbeer Transformation (Tadbeer TT) is Oman's premier system architecture and operational scaling partner based in Madinat Qaboos, Muscat. We empower GCC enterprises to eliminate operational bottlenecks and scale seamlessly.`}</p>
+      <p class="section-sub">${d.aboutTadbeerContext || `Tadbeer TT is Oman's premier system architecture and operational scaling partner based in Madinat Qaboos, Muscat. We empower GCC enterprises to eliminate operational bottlenecks and scale seamlessly.`}</p>
 
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 10px;">
         <div style="background: white; border: 1px solid #E6E1D8; border-left: 4px solid #0D4F4F; border-radius: 10px; padding: 14px;">
@@ -609,7 +608,7 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
     </div>
 
     <div class="slide-footer">
-      <span>Tadbeer TT Transformations</span>
+      <span>Tadbeer TT</span>
       <span>ORGANIZATIONAL OVERVIEW & CAPABILITIES</span>
     </div>
   </div>
@@ -638,7 +637,7 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
     </div>
 
     <div class="slide-footer">
-      <span>Tadbeer TT Transformations</span>
+      <span>Tadbeer TT</span>
       <span>VERIFIED CLIENT CASE STUDIES</span>
     </div>
   </div>
@@ -662,7 +661,7 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
     </div>
 
     <div class="slide-footer">
-      <span>Tadbeer Transformations</span>
+      <span>Tadbeer TT</span>
       <span>EXECUTIVE CONTEXT</span>
     </div>
   </div>
@@ -685,7 +684,7 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
     </div>
 
     <div class="slide-footer">
-      <span>Tadbeer Transformations</span>
+      <span>Tadbeer TT</span>
       <span>FORENSIC DIAGNOSIS</span>
     </div>
   </div>
@@ -709,7 +708,7 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
     </div>
 
     <div class="slide-footer">
-      <span>Tadbeer Transformations</span>
+      <span>Tadbeer TT</span>
       <span>SOLUTION BLUEPRINT</span>
     </div>
   </div>
@@ -739,7 +738,7 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
     </div>
 
     <div class="slide-footer">
-      <span>Tadbeer Transformations</span>
+      <span>Tadbeer TT</span>
       <span>PROPOSAL VALID UNTIL: ${d.proposalValidUntil}</span>
     </div>
   </div>
@@ -834,7 +833,7 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
           <div className="flex-grow flex flex-col justify-center my-2 z-20">
             <p className="text-[10px] font-extrabold tracking-[2px] uppercase text-[#C8A951] mb-1">02 // ABOUT TADBEER TT & EXECUTIVE OVERVIEW</p>
             <h2 className="text-2xl font-extrabold text-[#0D4F4F] mb-1.5 font-serif border-b border-[#C8A951] inline-block pb-1">Oman’s System & Scale Transformation Partner</h2>
-            <p className="text-[11px] text-slate-600 leading-relaxed max-w-[720px] mb-3">{d.aboutTadbeerContext || `Tadbeer Transformation (Tadbeer TT) is Oman's premier system architecture and operational scaling partner based in Madinat Qaboos, Muscat. We empower GCC enterprises to eliminate operational bottlenecks and scale seamlessly.`}</p>
+            <p className="text-[11px] text-slate-600 leading-relaxed max-w-[720px] mb-3">{d.aboutTadbeerContext || `Tadbeer TT is Oman's premier system architecture and operational scaling partner based in Madinat Qaboos, Muscat. We empower GCC enterprises to eliminate operational bottlenecks and scale seamlessly.`}</p>
 
             <div className="grid grid-cols-2 gap-3.5">
               <div className="bg-white border border-[#E6E1D8] border-l-4 border-l-[#0D4F4F] rounded-xl p-3 shadow-sm">
@@ -872,7 +871,7 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
           </div>
 
           <div className="border-t border-[#E6E1D8] pt-2.5 flex justify-between text-[8.5px] text-slate-400 uppercase tracking-widest font-semibold z-20">
-            <span>Tadbeer TT Transformations</span>
+            <span>Tadbeer TT</span>
             <span>ORGANIZATIONAL OVERVIEW & CAPABILITIES</span>
           </div>
         </div>
@@ -933,7 +932,7 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
           </div>
 
           <div className="border-t border-[#E6E1D8] pt-2 flex justify-between text-[8.5px] text-slate-400 uppercase tracking-widest font-semibold z-20">
-            <span>Tadbeer TT Transformations</span>
+            <span>Tadbeer TT</span>
             <span>VERIFIED CLIENT CASE STUDIES</span>
           </div>
         </div>
@@ -1146,7 +1145,7 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
           </div>
 
           <div className="border-t border-[#E6E1D8] pt-2.5 flex justify-between text-[8.5px] text-slate-400 uppercase tracking-widest font-semibold z-20">
-            <span>Tadbeer Transformations</span>
+            <span>Tadbeer TT</span>
             <span>PROPOSAL VALID UNTIL: <strong className="text-[#C8A951]">{d.proposalValidUntil}</strong></span>
           </div>
         </div>

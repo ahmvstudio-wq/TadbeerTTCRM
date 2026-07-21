@@ -43,7 +43,7 @@ export const DEFAULT_WHATSAPP_TEMPLATES: MessageTemplate[] = [
 
 I came across {company} and was really impressed by your work in {industry}.
 
-I'm {bdm} from Tadbeer Transformations — we help companies like yours with {service}.
+I'm {bdm} from Tadbeer TT — we help companies like yours with {service}.
 
 Would you be open to a quick 10-minute chat this week to explore how we might support {company}'s goals?
 
@@ -150,7 +150,7 @@ export const DEFAULT_EMAIL_TEMPLATES: MessageTemplate[] = [
 
 I hope this message finds you well. I'm reaching out because {company}'s work in {industry} caught our attention.
 
-At Tadbeer Transformations, we specialize in {service}. We've helped organizations in your sector achieve:
+At Tadbeer TT, we specialize in {service}. We've helped organizations in your sector achieve:
 
 • 40% reduction in operational costs
 • 3x faster processing times
@@ -161,7 +161,7 @@ I'd welcome the opportunity to discuss how we can support {company}'s objectives
 Would a 15-minute call this week work for you?
 
 Best regards,
-Tadbeer Transformations`,
+Tadbeer TT`,
   },
   {
     id: "em-t2", name: "Email: Follow-up", channel: "email", category: "Warm Follow-up",

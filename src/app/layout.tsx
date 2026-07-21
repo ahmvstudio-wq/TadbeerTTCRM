@@ -9,7 +9,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Tadbeer CRM | Business Development Operating System",
-  description: "Internal Business Development and CRM Operating System for Tadbeer Transformation Trading",
+  description: "Internal Business Development and CRM Operating System for Tadbeer TT",
 };
 
 export default function RootLayout({
