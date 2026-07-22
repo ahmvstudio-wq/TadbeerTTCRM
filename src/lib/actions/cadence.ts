@@ -35,14 +35,16 @@ export async function getOrCreateSession(userId: string, dateStr: string) {
     }
 
     // Check if session exists
-    let { data: session, error } = await supabase
+    let { data: sessions, error } = await supabase
       .from('daily_outreach_sessions')
       .select('*')
       .eq('user_id', userId)
       .eq('session_date', dateStr)
-      .maybeSingle()
+      .order('created_at', { ascending: true })
 
     if (error) return { data: null, error: error.message }
+
+    let session = sessions && sessions.length > 0 ? sessions[0] : null
 
     if (!session) {
       // Create new session
