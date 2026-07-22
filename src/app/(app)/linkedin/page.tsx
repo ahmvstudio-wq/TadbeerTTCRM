@@ -59,13 +59,18 @@ function DegreeBadge({ degree }: { degree: string }) {
 function AddProspectModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [pending, startTransition] = useTransition()
   const [form, setForm] = useState({
-    name: '', title: '', company: '', location: '', degree: '2nd',
-    connections: '500+ connections', profile_url: '', connection_status: 'to_connect' as ConnectionStatus,
+    name: '', company: '', title: '', profile_url: '',
+    location: 'Muscat', degree: '2nd', connections: '500+ connections',
+    connection_status: 'to_connect' as ConnectionStatus,
     message_status: 'to_send' as MessageStatus, mutual_connection: '',
-    industry: '', screenshot_date: new Date().toISOString().split('T')[0], notes: '',
+    industry: 'General', screenshot_date: new Date().toISOString().split('T')[0], notes: '',
   })
 
   const handleSubmit = () => {
+    if (!form.name.trim() || !form.company.trim()) {
+      alert('Please provide at least Contact Name and Company Name.')
+      return
+    }
     startTransition(async () => {
       const { error } = await createLinkedInProspect(form)
       if (!error) { onSaved(); onClose() }
@@ -83,81 +88,92 @@ function AddProspectModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+      padding: '16px',
     }}>
       <div style={{
-        background: '#fff', borderRadius: '16px', padding: '28px',
-        width: '560px', maxHeight: '90vh', overflowY: 'auto',
+        background: '#fff', borderRadius: '16px', padding: '24px',
+        width: '100%', maxWidth: '440px', maxHeight: '90vh', overflowY: 'auto',
         boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Add LinkedIn Prospect</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: '#111827' }}>Quick Add Prospect</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
             <X size={18} style={{ color: '#6B7280' }} />
           </button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-          {[
-            { label: 'Full Name *', key: 'name' },
-            { label: 'Title / Role', key: 'title' },
-            { label: 'Company', key: 'company' },
-            { label: 'Location', key: 'location' },
-            { label: 'Industry', key: 'industry' },
-            { label: 'LinkedIn URL', key: 'profile_url' },
-            { label: 'Mutual Connection', key: 'mutual_connection' },
-            { label: 'Screenshot Date', key: 'screenshot_date', type: 'date' },
-          ].map(({ label, key, type }) => (
-            <div key={key}>
-              <label style={{ fontSize: '11px', fontWeight: 600, color: '#6B7280', display: 'block', marginBottom: '4px' }}>{label}</label>
-              <input
-                type={type || 'text'}
-                style={inp}
-                value={(form as any)[key]}
-                onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
-              />
-            </div>
-          ))}
-
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div>
-            <label style={{ fontSize: '11px', fontWeight: 600, color: '#6B7280', display: 'block', marginBottom: '4px' }}>Degree</label>
-            <select style={inp} value={form.degree} onChange={e => setForm(p => ({ ...p, degree: e.target.value }))}>
-              <option>1st</option><option>2nd</option><option>3rd</option>
-            </select>
+            <label style={{ fontSize: '12px', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '4px' }}>
+              Company Name <span style={{ color: '#DC2626' }}>*</span>
+            </label>
+            <input
+              type="text"
+              style={inp}
+              placeholder="e.g. 350 Youth Clothing"
+              value={form.company}
+              onChange={e => setForm(p => ({ ...p, company: e.target.value }))}
+              autoFocus
+            />
           </div>
 
           <div>
-            <label style={{ fontSize: '11px', fontWeight: 600, color: '#6B7280', display: 'block', marginBottom: '4px' }}>Connection Status</label>
-            <select style={inp} value={form.connection_status} onChange={e => setForm(p => ({ ...p, connection_status: e.target.value as ConnectionStatus }))}>
-              <option value="to_connect">Not Connected</option>
-              <option value="connected">Connected (1st)</option>
-              <option value="pending">Pending</option>
-              <option value="following">Following</option>
-            </select>
+            <label style={{ fontSize: '12px', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '4px' }}>
+              Contact Person Name <span style={{ color: '#DC2626' }}>*</span>
+            </label>
+            <input
+              type="text"
+              style={inp}
+              placeholder="e.g. Abdul Aziz"
+              value={form.name}
+              onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+            />
           </div>
-        </div>
 
-        <div style={{ marginTop: '12px' }}>
-          <label style={{ fontSize: '11px', fontWeight: 600, color: '#6B7280', display: 'block', marginBottom: '4px' }}>Notes</label>
-          <textarea
-            style={{ ...inp, minHeight: '80px', resize: 'vertical' }}
-            value={form.notes}
-            onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
-          />
+          <div>
+            <label style={{ fontSize: '12px', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '4px' }}>
+              Title / Position
+            </label>
+            <input
+              type="text"
+              style={inp}
+              placeholder="e.g. Owner, Managing Director"
+              value={form.title}
+              onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: '12px', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '4px' }}>
+              LinkedIn URL (Optional)
+            </label>
+            <input
+              type="text"
+              style={inp}
+              placeholder="https://linkedin.com/in/..."
+              value={form.profile_url}
+              onChange={e => setForm(p => ({ ...p, profile_url: e.target.value }))}
+            />
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{
-            padding: '9px 18px', borderRadius: '8px', border: '1px solid #E5E7EB',
-            background: '#F9FAFB', fontSize: '13px', cursor: 'pointer', fontWeight: 500,
-          }}>Cancel</button>
-          <button onClick={handleSubmit} disabled={pending || !form.name} style={{
-            padding: '9px 18px', borderRadius: '8px', border: 'none',
-            background: '#0A66C2', color: '#fff', fontSize: '13px', cursor: 'pointer',
-            fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px',
-            opacity: pending || !form.name ? 0.6 : 1,
+            padding: '8px 16px', borderRadius: '8px', border: '1px solid #E5E7EB',
+            background: '#fff', fontSize: '13px', cursor: 'pointer', color: '#374151', fontWeight: 600,
           }}>
-            {pending ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={14} />}
-            Save Prospect
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={pending}
+            style={{
+              padding: '8px 20px', borderRadius: '8px', border: 'none',
+              background: '#0A66C2', color: '#fff', fontSize: '13px', cursor: 'pointer',
+              fontWeight: 700,
+            }}
+          >
+            {pending ? 'Saving…' : 'Save Prospect'}
           </button>
         </div>
       </div>
