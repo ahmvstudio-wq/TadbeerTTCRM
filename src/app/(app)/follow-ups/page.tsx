@@ -113,34 +113,34 @@ export default function FollowUpsPage() {
     const contactName = followup.contacts?.full_name || "";
 
     return (
-      <Card key={followup.id} className={cn("mb-3 transition-all hover:shadow-md", isOverdue && "bg-red-50 border-red-200", isDueToday && "bg-amber-50 border-amber-200")}>
-        <CardContent className="p-4">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <Building2 className="h-4 w-4 text-text-muted" />
-                <span className="font-semibold text-text-primary">{companyName}</span>
-                <Badge variant={isOverdue ? "destructive" : isDueToday ? "default" : "secondary"} className="text-xs">
+      <Card key={followup.id} className={cn("mb-3 transition-all hover:shadow-md", isOverdue && "bg-red-50/70 border-red-200", isDueToday && "bg-amber-50/70 border-amber-200")}>
+        <CardContent className="p-3.5 sm:p-4">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <Building2 className="h-4 w-4 text-text-muted flex-shrink-0" />
+                <span className="font-semibold text-text-primary text-sm truncate max-w-[200px] sm:max-w-none">{companyName}</span>
+                <Badge variant={isOverdue ? "destructive" : isDueToday ? "default" : "secondary"} className="text-[10px]">
                   {isOverdue ? "Overdue" : isDueToday ? "Due Today" : "Upcoming"}
                 </Badge>
               </div>
               {contactName && (
-                <div className="flex items-center gap-2 text-sm text-text-secondary mb-2">
+                <div className="flex items-center gap-1.5 text-xs text-text-secondary mb-1.5">
                   <User className="h-3 w-3" /> <span>{contactName}</span>
                 </div>
               )}
-              <p className="text-sm text-text-primary font-medium mb-2">{followup.subject}</p>
-              <div className="flex items-center gap-4 text-xs text-text-muted">
+              <p className="text-xs sm:text-sm text-text-primary font-semibold mb-2">{followup.subject}</p>
+              <div className="flex items-center gap-3 text-xs text-text-muted flex-wrap">
                 <div className="flex items-center gap-1"><Calendar className="h-3 w-3" /><span>{followup.due_date}</span></div>
                 {followup.due_time && <div className="flex items-center gap-1"><Clock className="h-3 w-3" /><span>{followup.due_time}</span></div>}
-                <div className={cn("flex items-center gap-1", CHANNEL_COLORS[followup.channel])}><Icon className="h-3 w-3" /><span className="capitalize">{followup.channel}</span></div>
+                <div className={cn("flex items-center gap-1 font-medium", CHANNEL_COLORS[followup.channel])}><Icon className="h-3 w-3" /><span className="capitalize">{followup.channel}</span></div>
               </div>
             </div>
             {followup.status === "pending" && (
-              <div className="flex gap-2 items-center">
-                <Button size="sm" variant="outline" onClick={() => handleReschedule(followup.id)}><RotateCcw className="h-3 w-3 mr-1" /> Reschedule</Button>
-                <Button size="sm" className="bg-brand-teal hover:bg-brand-teal-dark text-white" onClick={() => { setSelectedFollowup(followup); setCompleteDialogOpen(true); }}><CheckCircle2 className="h-3 w-3 mr-1" /> Complete</Button>
-                <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDelete(followup.id)}><Trash2 className="h-3 w-3" /></Button>
+              <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
+                <Button size="sm" variant="outline" className="text-xs px-2.5 h-7" onClick={() => handleReschedule(followup.id)}><RotateCcw className="h-3 w-3 mr-1" /> Reschedule</Button>
+                <Button size="sm" className="bg-brand-teal hover:bg-brand-teal-dark text-white text-xs px-2.5 h-7" onClick={() => { setSelectedFollowup(followup); setCompleteDialogOpen(true); }}><CheckCircle2 className="h-3 w-3 mr-1" /> Complete</Button>
+                <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700 hover:bg-red-50 h-7 w-7 p-0" onClick={() => handleDelete(followup.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
               </div>
             )}
           </div>
@@ -152,14 +152,14 @@ export default function FollowUpsPage() {
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="animate-spin h-8 w-8 text-brand-teal" /></div>;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-3 sm:p-6 max-w-6xl mx-auto space-y-4">
       {toast && (
         <div className={`flex items-center gap-2 p-3 rounded-lg text-sm mb-4 ${toast.type === "success" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
           {toast.message}<button onClick={() => setToast(null)} className="ml-auto"><X className="h-4 w-4" /></button>
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Follow-ups</h1>
           <p className="text-slate-500">Manage your pending follow-ups</p>

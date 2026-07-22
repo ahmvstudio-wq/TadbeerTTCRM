@@ -266,10 +266,10 @@ export default function DashboardPage() {
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-sm font-medium text-slate-500">{stat.label}</p>
-                      <div className="flex items-baseline gap-1 mt-1">
-                        <span className="text-2xl font-bold text-slate-900">{stat.value}</span>
-                        <span className="text-sm text-slate-400">{stat.sub}</span>
+                      <p className="text-xs sm:text-sm font-medium text-slate-500">{stat.label}</p>
+                      <div className="flex items-baseline gap-1 mt-1 flex-wrap">
+                        <span className="text-xl sm:text-2xl font-bold text-slate-900">{stat.value}</span>
+                        <span className="text-xs text-slate-400">{stat.sub}</span>
                       </div>
                     </div>
                     <div className={stat.bg + " p-2 rounded-lg"}>

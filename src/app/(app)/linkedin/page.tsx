@@ -536,7 +536,7 @@ CREATE POLICY "Allow all" ON public.linkedin_prospects
   }
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div className="p-3 sm:p-6 max-w-[1200px] mx-auto space-y-5">
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
 
       {showAddModal && (
@@ -587,7 +587,7 @@ CREATE POLICY "Allow all" ON public.linkedin_prospects
       </div>
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px', marginBottom: '20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '10px', marginBottom: '20px' }}>
         {[
           { label: 'Total', value: stats.total, color: '#1D4ED8', bg: '#EFF6FF', icon: <Users size={14} /> },
           { label: 'Connected', value: stats.connected, color: '#16A34A', bg: '#F0FDF4', icon: <UserCheck size={14} /> },
@@ -624,7 +624,7 @@ CREATE POLICY "Allow all" ON public.linkedin_prospects
           onChange={e => setSearch(e.target.value)}
           style={{
             border: '1px solid #E5E7EB', borderRadius: '8px',
-            padding: '6px 12px', fontSize: '12px', outline: 'none', minWidth: '200px',
+            padding: '6px 12px', fontSize: '12px', outline: 'none', minWidth: '180px', flex: 1,
           }}
         />
         <select
@@ -654,21 +654,14 @@ CREATE POLICY "Allow all" ON public.linkedin_prospects
           <option value="sent">Sent</option>
           <option value="replied">Replied</option>
         </select>
-        {(filterConnection !== 'all' || filterMessage !== 'all' || search) && (
+        {(search || filterConnection !== 'all' || filterMessage !== 'all') && (
           <button
-            onClick={() => { setFilterConnection('all'); setFilterMessage('all'); setSearch('') }}
-            style={{
-              background: '#F3F4F6', border: 'none', borderRadius: '8px',
-              padding: '6px 10px', fontSize: '11px', color: '#6B7280',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
-            }}
+            onClick={() => { setSearch(''); setFilterConnection('all'); setFilterMessage('all') }}
+            style={{ fontSize: '12px', color: '#6B7280', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
           >
-            <RefreshCw size={11} /> Reset
+            Clear filters
           </button>
         )}
-        <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#9CA3AF' }}>
-          Showing {filtered.length} of {profiles.length}
-        </span>
       </div>
 
       {/* Priority banner */}

@@ -137,54 +137,54 @@ export default function ProspectsPage() {
     <div className="space-y-5 page-enter">
       <ToastContainer />
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Prospects</h1>
-          <p className="text-text-secondary text-sm mt-0.5">Manage your prospect pipeline and track outreach progress.</p>
+          <h1 className="text-2xl font-bold text-text-primary">Prospects Directory</h1>
+          <p className="text-text-secondary text-xs sm:text-sm mt-0.5">Manage your prospect pipeline and track outreach progress.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleExport} className="hover-lift press-effect">
-            <Download className="h-3.5 w-3.5 mr-1" />Export CSV
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={handleExport} className="hover-lift press-effect text-xs px-2.5 h-8">
+            <Download className="h-3.5 w-3.5 mr-1" />Export
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setCsvOpen(true)} className="hover-lift press-effect">
-            <Upload className="h-3.5 w-3.5 mr-1" />Import CSV
+          <Button variant="outline" size="sm" onClick={() => setCsvOpen(true)} className="hover-lift press-effect text-xs px-2.5 h-8">
+            <Upload className="h-3.5 w-3.5 mr-1" />Import
           </Button>
           <Link href="/prospects/new">
-            <Button className="bg-brand-teal hover:bg-brand-teal-dark text-white hover-lift press-effect">
-              <Plus className="h-4 w-4 mr-2" />Add Prospect
+            <Button className="bg-brand-teal hover:bg-brand-teal-dark text-white hover-lift press-effect text-xs px-3 h-8">
+              <Plus className="h-3.5 w-3.5 mr-1" />Add Prospect
             </Button>
           </Link>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 stagger-children">
+      <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-1">
         <button
           onClick={() => setStatusFilter("")}
-          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200 press-effect ${
-            statusFilter === "" ? "ring-2 ring-brand-teal bg-brand-teal text-white shadow-sm" : "bg-white border border-border text-text-secondary hover:bg-cream-dark hover:border-brand-teal/30"
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all duration-200 press-effect ${
+            statusFilter === "" ? "ring-2 ring-brand-teal bg-brand-teal text-white shadow-xs" : "bg-white border border-border text-text-secondary hover:bg-cream-dark hover:border-brand-teal/30"
           }`}
         >
-          All <span className="ml-0.5 text-[10px] opacity-70">{prospects.length}</span>
+          All <span className="ml-0.5 text-[10px] opacity-80">{prospects.length}</span>
         </button>
         {statusCounts.map((s) => (
           <button
             key={s.key}
             onClick={() => setStatusFilter(statusFilter === s.key ? "" : s.key)}
-            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200 press-effect ${
-              statusFilter === s.key ? "ring-2 ring-brand-teal shadow-sm " + statusColor[s.key] : "bg-white border border-border text-text-secondary hover:bg-cream-dark hover:border-brand-teal/30"
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all duration-200 press-effect ${
+              statusFilter === s.key ? "ring-2 ring-brand-teal shadow-xs " + statusColor[s.key] : "bg-white border border-border text-text-secondary hover:bg-cream-dark hover:border-brand-teal/30"
             }`}
           >
-            {s.label} <span className="ml-0.5 text-[10px] opacity-70">{s.count}</span>
+            {s.label} <span className="ml-0.5 text-[10px] opacity-80">{s.count}</span>
           </button>
         ))}
       </div>
 
-      <Card className="animate-fade-in-up">
-        <CardHeader className="flex flex-row items-center gap-4 space-y-0">
-          <div className="flex-1 flex items-center gap-4">
-            <CardTitle>All Prospects</CardTitle>
+      <Card className="animate-fade-in-up border-border bg-white shadow-xs">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b border-border/60">
+          <div className="flex items-center justify-between sm:justify-start gap-3">
+            <CardTitle className="text-sm font-bold text-text-primary">Prospects List</CardTitle>
             {prospects.length > 0 && (
-              <div className="flex items-center gap-2 border-l border-border pl-4">
+              <div className="flex items-center gap-2 border-l border-border pl-3">
                 <input
                   type="checkbox"
                   checked={prospects.length > 0 && selectedIds.length === prospects.length}
@@ -197,18 +197,18 @@ export default function ProspectsPage() {
                   }}
                   className="h-4 w-4 rounded border-gray-300 text-brand-teal focus:ring-brand-teal cursor-pointer"
                 />
-                <span className="text-xs text-text-secondary select-none font-medium">Select All ({selectedIds.length} selected)</span>
+                <span className="text-xs text-text-secondary select-none font-semibold">Select All ({selectedIds.length})</span>
               </div>
             )}
           </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
-            <Input placeholder="Search company or person..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 w-64" />
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted" />
+            <Input placeholder="Search company or person..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-8 text-xs w-full" />
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {loading ? (
-            <div className="space-y-3">
+            <div className="space-y-3 p-4">
               {[...Array(5)].map((_, i) => (
                 <div key={i} className="flex items-center gap-4 py-3 px-4">
                   <div className="skeleton h-4 w-4 rounded" />
@@ -220,13 +220,13 @@ export default function ProspectsPage() {
               ))}
             </div>
           ) : error ? (
-            <div className="text-center py-12 animate-fade-in">
+            <div className="text-center py-12 animate-fade-in p-4">
               <AlertTriangle className="h-10 w-10 text-red-400 mx-auto mb-3 animate-pulse-soft" />
               <p className="text-red-600 text-sm">{error}</p>
               <Button variant="ghost" size="sm" className="mt-2" onClick={() => fetchProspects(search, statusFilter)}>Retry</Button>
             </div>
           ) : prospects.length === 0 ? (
-            <div className="text-center py-16 animate-fade-in-up">
+            <div className="text-center py-16 animate-fade-in-up p-4">
               <Building2 className="h-12 w-12 text-text-muted mx-auto mb-4 opacity-40" />
               <p className="text-text-secondary text-sm mb-4">
                 {search || statusFilter ? "No prospects match your filters." : "No prospects yet."}
@@ -247,7 +247,7 @@ export default function ProspectsPage() {
                 return (
                   <div key={prospect.id} className="animate-fade-in">
                     <div
-                      className="flex items-center gap-4 py-3 px-4 hover:bg-cream-dark/30 cursor-pointer transition-all duration-200"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 sm:p-4 hover:bg-slate-50/60 cursor-pointer transition-all duration-200 gap-2"
                       onClick={() => setExpandedId(isExpanded ? null : prospect.id)}
                     >
                       <input

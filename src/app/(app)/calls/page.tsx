@@ -107,19 +107,19 @@ export default function CallsPage() {
           {calls.map((item: any) => (
             <Card key={item.id}>
               <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-start gap-3 flex-1 min-w-0">
-                    <div className="bg-brand-teal-light p-2 rounded-lg mt-0.5"><Phone className="h-5 w-5 text-brand-teal" /></div>
+                    <div className="bg-brand-teal-light p-2 rounded-lg mt-0.5 flex-shrink-0"><Phone className="h-5 w-5 text-brand-teal" /></div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-semibold text-text-primary">{item.companies?.company_name || "Unknown"}</h3>
-                      <p className="text-xs text-text-muted mt-0.5">{item.contacts?.full_name || "No contact"}</p>
-                      <div className="flex items-center gap-3 mt-2 text-xs text-text-muted">
+                      <h3 className="text-sm font-semibold text-text-primary truncate">{item.companies?.company_name || "Unknown"}</h3>
+                      <p className="text-xs text-text-muted mt-0.5 truncate">{item.contacts?.full_name || "No contact"}</p>
+                      <div className="flex items-center gap-3 mt-1.5 text-xs text-text-muted">
                         {item.companies?.phone && <span>Phone: {item.companies.phone}</span>}
                       </div>
                     </div>
                   </div>
-                  <Button className="bg-brand-teal hover:bg-brand-teal-dark text-white" onClick={() => startCall(item)}>
-                    <Phone className="h-4 w-4 mr-1" /> Call Now
+                  <Button className="bg-brand-teal hover:bg-brand-teal-dark text-white text-xs px-3 h-8 w-full sm:w-auto" onClick={() => startCall(item)}>
+                    <Phone className="h-3.5 w-3.5 mr-1" /> Call Now
                   </Button>
                 </div>
               </CardContent>

@@ -336,24 +336,31 @@ export default function DailyCadencePage() {
             {/* 1. TODAY'S PENDING OUTREACH */}
             <Card className="border-border bg-white shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
               <div 
-                className="flex items-center justify-between px-5 py-4 border-b border-border/60 cursor-pointer bg-slate-50/70 hover:bg-slate-100/50 transition-all select-none"
+                className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:px-5 sm:py-4 border-b border-border/60 cursor-pointer bg-slate-50/70 hover:bg-slate-100/50 transition-all select-none gap-3"
                 onClick={() => setExpandOutreach(!expandOutreach)}
               >
-                <div className="flex items-center gap-2.5">
-                  <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-brand-teal-light text-brand-teal">
-                    <Play className="h-4 w-4" />
+                <div className="flex items-center justify-between sm:justify-start gap-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-brand-teal-light text-brand-teal flex-shrink-0">
+                      <Play className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-bold text-text-primary">Today's Pending Outreach</span>
+                      <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-brand-teal/15 text-brand-teal">
+                        {sessionItems.filter(item => item.status !== 'sent').length} target{sessionItems.filter(item => item.status !== 'sent').length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-sm font-bold text-text-primary">Today's Pending Outreach</span>
-                    <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-brand-teal/15 text-brand-teal">
-                      {sessionItems.filter(item => item.status !== 'sent').length} target{sessionItems.filter(item => item.status !== 'sent').length !== 1 ? 's' : ''}
-                    </span>
-                  </div>
+
+                  <button onClick={(e) => { e.stopPropagation(); setExpandOutreach(!expandOutreach); }} className="sm:hidden text-text-muted hover:text-brand-teal p-1">
+                    <ChevronRight className={`h-4 w-4 text-text-secondary transition-transform duration-200 ${expandOutreach ? 'rotate-90 text-brand-teal' : ''}`} />
+                  </button>
                 </div>
-                <div className="flex items-center gap-4" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex gap-2">
-                    <Link href="/daily-cadence/bulk-proposals">
-                      <Button size="sm" className="bg-brand-gold hover:bg-brand-gold/90 text-white text-xs hover-lift h-8 px-3 rounded-lg font-semibold press-effect">
+
+                <div className="flex items-center justify-between sm:justify-end gap-2.5" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <Link href="/daily-cadence/bulk-proposals" className="flex-1 sm:flex-initial">
+                      <Button size="sm" className="w-full sm:w-auto bg-brand-gold hover:bg-brand-gold/90 text-white text-xs hover-lift h-8 px-3 rounded-lg font-semibold press-effect">
                         <FileText className="h-3.5 w-3.5 mr-1.5" />
                         Bulk Proposals
                       </Button>
@@ -361,13 +368,13 @@ export default function DailyCadencePage() {
                     <Button
                       size="sm"
                       onClick={() => setAddProspectsOpen(true)}
-                      className="bg-brand-teal hover:bg-brand-teal-dark text-white text-xs hover-lift h-8 px-3 rounded-lg font-semibold press-effect"
+                      className="flex-1 sm:flex-initial bg-brand-teal hover:bg-brand-teal-dark text-white text-xs hover-lift h-8 px-3 rounded-lg font-semibold press-effect"
                     >
                       <Plus className="h-3.5 w-3.5 mr-1.5" />
                       Add Prospects
                     </Button>
                   </div>
-                  <button onClick={() => setExpandOutreach(!expandOutreach)} className="text-text-muted hover:text-brand-teal transition-all p-1">
+                  <button onClick={() => setExpandOutreach(!expandOutreach)} className="hidden sm:block text-text-muted hover:text-brand-teal transition-all p-1">
                     <ChevronRight className={`h-4 w-4 text-text-secondary transition-transform duration-200 ${expandOutreach ? 'rotate-90 text-brand-teal' : ''}`} />
                   </button>
                 </div>
@@ -391,19 +398,19 @@ export default function DailyCadencePage() {
                         return (
                           <div
                             key={item.id}
-                            className="flex items-center justify-between p-4 hover:bg-slate-50/50 cursor-pointer transition-all hover:pl-5 group"
+                            className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 sm:p-4 hover:bg-slate-50/50 cursor-pointer transition-all hover:pl-5 group gap-2"
                             onClick={() => setSelectedItem(item)}
                           >
-                            <div className="flex items-center gap-3">
-                              <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-brand-teal-light text-brand-teal group-hover:scale-105 transition-transform">
+                            <div className="flex items-start sm:items-center gap-3 min-w-0">
+                              <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-brand-teal-light text-brand-teal group-hover:scale-105 transition-transform flex-shrink-0 mt-0.5 sm:mt-0">
                                 <Play className="h-4 w-4" />
                               </div>
                               <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-semibold text-text-primary group-hover:text-brand-teal transition-colors">{item.companies?.company_name}</span>
-                                  <span className="text-xs text-text-secondary">· {contact?.full_name || 'No Contact'}</span>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-sm font-semibold text-text-primary group-hover:text-brand-teal transition-colors truncate max-w-[180px] sm:max-w-none">{item.companies?.company_name}</span>
+                                  <span className="text-xs text-text-secondary truncate max-w-[140px] sm:max-w-none">· {contact?.full_name || 'No Contact'}</span>
                                 </div>
-                                <div className="flex items-center gap-2 mt-0.5 text-[10px] text-text-muted">
+                                <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-text-muted flex-wrap">
                                   <span>{item.companies?.industry || 'General'}</span>
                                   <span>·</span>
                                   <span>{item.companies?.city || 'Muscat'}</span>
@@ -416,12 +423,12 @@ export default function DailyCadencePage() {
                                 </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-end gap-2 pt-1 sm:pt-0" onClick={(e) => e.stopPropagation()}>
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => setSelectedItem(item)}
-                                className="text-xs text-brand-teal hover:underline px-2"
+                                className="text-xs text-brand-teal hover:underline px-2 h-7"
                               >
                                 Open Workspace <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
                               </Button>
@@ -429,9 +436,9 @@ export default function DailyCadencePage() {
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => handleRemoveProspect(item.company_id)}
-                                className="h-8 w-8 text-text-muted hover:text-red-500 rounded-lg"
+                                className="h-7 w-7 text-text-muted hover:text-red-500 rounded-lg"
                               >
-                                <AlertTriangle className="h-4 w-4" />
+                                <AlertTriangle className="h-3.5 w-3.5" />
                               </Button>
                             </div>
                           </div>

@@ -81,19 +81,19 @@ export default function PipelinePage() {
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="animate-spin h-8 w-8 text-brand-teal" /></div>;
 
   return (
-    <div className="space-y-6">
+    <div className="p-3 sm:p-6 max-w-6xl mx-auto space-y-6">
       {toast && (
         <div className={`flex items-center gap-2 p-3 rounded-lg text-sm ${toast.type === "success" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
           {toast.message}<button onClick={() => setToast(null)} className="ml-auto"><X className="h-4 w-4" /></button>
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Pipeline</h1>
-          <p className="text-slate-500 mt-1">Track your sales opportunities</p>
+          <h1 className="text-2xl font-bold text-slate-900">Pipeline & Deals</h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">Track your sales opportunities and deal pipeline.</p>
         </div>
-        <Button className="bg-brand-teal hover:bg-brand-teal-dark text-white" onClick={() => setNewDialogOpen(true)}>+ New Opportunity</Button>
+        <Button className="bg-brand-teal hover:bg-brand-teal-dark text-white text-xs px-3 h-8 self-start sm:self-auto" onClick={() => setNewDialogOpen(true)}>+ New Opportunity</Button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
