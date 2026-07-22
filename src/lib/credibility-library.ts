@@ -115,31 +115,25 @@ export const CASE_STUDIES_LIBRARY: CaseStudy[] = [
   },
   {
     id: 'cs-atur-marketplace',
-    title: 'Strategy & Platform Development',
+    title: 'STRATEGY & PLATFORM DEVELOPMENT',
     clientName: 'Atur',
     industry: 'PERFUME MARKETPLACE',
-    problemSummary: 'Traditional GCC fragrance retail was constrained to physical stores without scalable online sales infrastructure.',
+    problemSummary: 'Transforming traditional GCC fragrance retail into a scalable marketplace.',
     solutionSummary: 'Transforming traditional GCC fragrance retail into a scalable marketplace.',
-    outcome: 'Successfully built and launched a scalable GCC fragrance retail e-commerce marketplace.',
-    metrics: [
-      { value: 'Scalable', label: 'Marketplace Platform' },
-      { value: '100%', label: 'Inventory Sync' }
-    ],
+    outcome: 'Transforming traditional GCC fragrance retail into a scalable marketplace.',
+    metrics: [],
     tags: ['perfume', 'marketplace', 'atur', 'fragrance', 'retail'],
     isApproved: true
   },
   {
     id: 'cs-sultanate-marble-erp',
-    title: 'ERP Consulting & Implementation',
+    title: 'ERP CONSULTING & IMPLEMENTATION',
     clientName: 'Sultanate of Marble',
     industry: 'MANUFACTURING',
-    problemSummary: 'Manual disconnected operational workflows across stone processing workshops hindered team coordination.',
+    problemSummary: 'Workflows evaluation and ERPNext implementation for 200+ staff.',
     solutionSummary: 'Workflows evaluation and ERPNext implementation for 200+ staff.',
-    outcome: 'Fully onboarded 200+ staff onto integrated ERPNext across operations and finance.',
-    metrics: [
-      { value: '200+', label: 'Staff Onboarded' },
-      { value: 'ERPNext', label: 'System Implementation' }
-    ],
+    outcome: 'Workflows evaluation and ERPNext implementation for 200+ staff.',
+    metrics: [],
     tags: ['manufacturing', 'stone', 'marble', 'erpnext', 'sultanate of marble'],
     isApproved: true
   }
