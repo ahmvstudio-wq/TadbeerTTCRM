@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Download, X, ChevronLeft, ChevronRight, Layers, Presentation, ShieldCheck, Sparkles, Building2, Globe, Phone, Mail, ExternalLink, CheckCircle2, ArrowRight, Star, AlertCircle, Wrench, Trophy } from 'lucide-react'
 import { CaseStudy, ApprovedClientLogo, CASE_STUDIES_LIBRARY, APPROVED_CLIENT_LOGOS, getRecommendedCaseStudies, getRecommendedClientLogos } from '@/lib/credibility-library'
+import { cn } from '@/lib/utils'
 
 // ── Proposal Data Model ──────────────────────────────────────────
 export interface HeroStat {
@@ -1334,7 +1335,6 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
                 </div>
               ))}
             </div>
-
             <div className="bg-[#0D4F4F] text-white p-3 rounded-xl flex justify-between items-center text-[9.5px]">
               <span className="font-black tracking-wider uppercase">TADBEER TT OPERATIONAL ARCHITECTURE</span>
               <span className="text-[#C8A951] font-bold">PREPARED FOR {company.company_name.toUpperCase()}</span>
@@ -1378,7 +1378,7 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
 
-            <div className="flex gap-6 text-[10.5px] font-black text-[#0D4F4F] bg-white border border-[#0D4F4F]/15 px-6 py-2.5 rounded-full shadow-sm">
+            <div className="flex flex-wrap justify-center gap-4 sm:gap-6 text-[10.5px] font-black text-[#0D4F4F] bg-white border border-[#0D4F4F]/15 px-6 py-2.5 rounded-full shadow-sm">
               <span className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 text-[#C8A951]" /> {d.ctaPhone || '+968 7630 7656'}</span>
               <span className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 text-[#C8A951]" /> {d.ctaEmail || 'operation@tadbeertt.com'}</span>
               <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5 text-[#C8A951]" /> www.tadbeertt.com</span>
@@ -1394,6 +1394,25 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
     }
   ]
 
+  useEffect(() => {
+    const handleResize = () => {
+      if (containerRef.current) {
+        const width = containerRef.current.clientWidth
+        const height = containerRef.current.clientHeight
+        const isMobile = window.innerWidth < 768
+        const wScale = (width - (isMobile ? 12 : 32)) / 960
+        const hScale = (height - (isMobile ? 12 : 32)) / 540
+        setScale(Math.max(0.35, Math.min(1, Math.min(wScale, hScale))))
+      }
+    }
+    const timer = setTimeout(handleResize, 100)
+    window.addEventListener('resize', handleResize)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [activeSlide])
+
   const handlePrev = () => {
     setActiveSlide(prev => Math.max(0, prev - 1))
   }
@@ -1403,63 +1422,81 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 animate-fade-in backdrop-blur-sm">
-      <Card className="w-full max-w-[1240px] h-[92vh] overflow-hidden flex flex-col shadow-2xl bg-[#FAF9F6] border-0 rounded-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-0 md:p-4 animate-fade-in backdrop-blur-sm">
+      <Card className="w-full max-w-[1240px] h-[100dvh] md:h-[92vh] overflow-hidden flex flex-col shadow-2xl bg-[#FAF9F6] border-0 rounded-none md:rounded-2xl">
         
         {/* Header bar */}
-        <div className="px-6 py-3.5 border-b border-border flex items-center justify-between bg-white rounded-t-2xl flex-shrink-0">
-          <div className="flex items-center gap-2.5">
-            <Presentation className="h-5 w-5 text-brand-teal" />
+        <div className="px-3 sm:px-6 py-2.5 sm:py-3.5 border-b border-border flex items-center justify-between bg-white rounded-t-none md:rounded-t-2xl flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Presentation className="h-4 sm:h-5 w-4 sm:w-5 text-brand-teal" />
             <div>
-              <h3 className="font-bold text-brand-teal text-xs uppercase tracking-wider">Tadbeer Executive Proposal Deck</h3>
-              <p className="text-[11px] text-text-secondary">{company.company_name} · {slides.length} Natural Language Interactive Slides</p>
+              <h3 className="font-bold text-brand-teal text-[11px] sm:text-xs uppercase tracking-wider truncate max-w-[200px] sm:max-w-none">Executive Proposal Deck</h3>
+              <p className="text-[10px] sm:text-[11px] text-text-secondary truncate max-w-[200px] sm:max-w-none">{company.company_name} · {slides.length} Interactive Slides</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-[#0D4F4F] hover:bg-[#0a3e3e] text-white shadow-sm transition-all press-effect"
+              className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold bg-[#0D4F4F] hover:bg-[#0a3e3e] text-white shadow-sm transition-all press-effect"
             >
               <Download className="h-3.5 w-3.5" />
-              Export PDF
+              <span className="hidden sm:inline">Export PDF</span>
             </button>
             <button
               onClick={onClose}
-              className="p-2 rounded-xl border border-border bg-white hover:bg-slate-50 text-text-secondary transition-all press-effect"
+              className="p-1.5 sm:p-2 rounded-xl border border-border bg-white hover:bg-slate-50 text-text-secondary transition-all press-effect"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
         </div>
 
+        {/* Mobile Horizontal Slide Selector Strip */}
+        <div className="md:hidden flex items-center gap-1.5 px-3 py-2 bg-white border-b border-border overflow-x-auto scrollbar-hide flex-shrink-0">
+          {slides.map((s, idx) => (
+            <button
+              key={idx}
+              onClick={() => setActiveSlide(idx)}
+              className={cn(
+                "px-3 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-all",
+                activeSlide === idx
+                  ? "bg-brand-teal text-white shadow-xs"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              )}
+            >
+              {idx + 1}. {s.title}
+            </button>
+          ))}
+        </div>
+
         {/* Sidebar + Presenter split panel */}
         <div className="flex-1 flex overflow-hidden min-h-0 bg-slate-100">
           
-          {/* Left Sidebar: Slide Nav Thumbnails */}
-          <div className="w-[260px] border-r border-slate-200 bg-white flex flex-col overflow-y-auto p-4 gap-2 flex-shrink-0">
+          {/* Left Sidebar: Slide Nav Thumbnails (Desktop) */}
+          <div className="hidden md:flex w-[240px] border-r border-slate-200 bg-white flex-col overflow-y-auto p-3.5 gap-2 flex-shrink-0">
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Proposal Storyline</span>
             {slides.map((s, idx) => (
               <button
                 key={idx}
                 onClick={() => setActiveSlide(idx)}
-                className={`w-full text-left p-3 rounded-xl border transition-all text-xs flex flex-col gap-1 ${
+                className={`w-full text-left p-2.5 rounded-xl border transition-all text-xs flex flex-col gap-0.5 ${
                   activeSlide === idx
                     ? 'border-brand-teal bg-brand-teal/5 text-brand-teal font-extrabold shadow-sm'
                     : 'border-slate-100 bg-slate-50 hover:bg-slate-100/70 text-slate-600 font-semibold'
                 }`}
               >
                 <div className="flex items-center justify-between w-full">
-                  <span className="text-[9px] uppercase tracking-wider text-[#C8A951]">Slide 0{idx + 1}</span>
+                  <span className="text-[8.5px] uppercase tracking-wider text-[#C8A951]">Slide 0{idx + 1}</span>
                   <Layers className={`h-3 w-3 ${activeSlide === idx ? 'text-brand-teal' : 'text-slate-300'}`} />
                 </div>
-                <div className="truncate text-slate-800">{s.title}</div>
-                <div className="truncate text-[9.5px] text-slate-400 font-normal">{s.subtitle}</div>
+                <div className="truncate text-slate-800 font-bold">{s.title}</div>
+                <div className="truncate text-[9px] text-slate-400 font-normal">{s.subtitle}</div>
               </button>
             ))}
           </div>
 
           {/* Right Main Presenter Area */}
-          <div className="flex-1 flex flex-col overflow-hidden bg-slate-100/80 justify-between items-center p-6 relative">
+          <div className="flex-1 flex flex-col overflow-hidden bg-slate-100/80 justify-between items-center p-2 sm:p-4 md:p-6 relative">
             
             {/* Aspect Ratio Canvas Container */}
             <div className="flex-1 w-full flex items-center justify-center min-h-0" ref={containerRef}>
@@ -1482,25 +1519,25 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
             </div>
 
             {/* Presenter bottom controls */}
-            <div className="w-full max-w-[960px] flex items-center justify-between mt-4 bg-white border border-slate-200/80 px-4 py-2.5 rounded-xl shadow-sm flex-shrink-0">
+            <div className="w-full max-w-[960px] flex items-center justify-between mt-2 sm:mt-4 bg-white border border-slate-200/80 px-3 sm:px-4 py-2 rounded-xl shadow-sm flex-shrink-0">
               <button
                 onClick={handlePrev}
                 disabled={activeSlide === 0}
-                className="flex items-center gap-1 text-xs font-bold text-slate-600 disabled:text-slate-300 transition-colors"
+                className="flex items-center gap-1 text-xs font-bold text-slate-600 disabled:text-slate-300 transition-colors py-1 px-2 rounded-lg hover:bg-slate-100"
               >
-                <ChevronLeft className="h-4 w-4" /> Prev Slide
+                <ChevronLeft className="h-4 w-4" /> <span className="hidden sm:inline">Prev Slide</span>
               </button>
 
-              <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest">
+              <span className="text-[10px] sm:text-[11px] font-extrabold text-slate-500 uppercase tracking-widest">
                 SLIDE 0{activeSlide + 1} OF 0{slides.length}
               </span>
 
               <button
                 onClick={handleNext}
                 disabled={activeSlide === slides.length - 1}
-                className="flex items-center gap-1 text-xs font-bold text-slate-600 disabled:text-slate-300 transition-colors"
+                className="flex items-center gap-1 text-xs font-bold text-slate-600 disabled:text-slate-300 transition-colors py-1 px-2 rounded-lg hover:bg-slate-100"
               >
-                Next Slide <ChevronRight className="h-4 w-4" />
+                <span className="hidden sm:inline">Next Slide</span> <ChevronRight className="h-4 w-4" />
               </button>
             </div>
 

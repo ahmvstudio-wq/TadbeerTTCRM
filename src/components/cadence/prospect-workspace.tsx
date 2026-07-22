@@ -539,14 +539,14 @@ export function ProspectWorkspace({
 
       {/* Right Column: Execution Workspace */}
       <div className="lg:col-span-2 space-y-6">
-        <div className="flex border-b border-border bg-white rounded-t-xl overflow-hidden">
+        <div className="flex items-center gap-1 border-b border-border bg-white rounded-t-xl overflow-x-auto scrollbar-hide p-1.5">
           {(['details', 'research', 'outreach', 'proposal', 'history'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider text-center transition-all border-b-2 ${activeTab === tab
-                  ? 'border-brand-teal text-brand-teal bg-brand-teal/5'
-                  : 'border-transparent text-text-secondary hover:text-brand-teal hover:bg-slate-50'
+              className={`flex-1 min-w-[75px] py-2 px-3 text-[11px] sm:text-xs font-bold uppercase tracking-wider text-center whitespace-nowrap transition-all rounded-lg ${activeTab === tab
+                  ? 'bg-brand-teal text-white shadow-xs'
+                  : 'text-text-secondary hover:text-brand-teal hover:bg-slate-50'
                 }`}
             >
               {tab}
