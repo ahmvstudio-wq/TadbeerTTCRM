@@ -68,7 +68,7 @@ export async function getOrCreateSession(userId: string, dateStr: string) {
 
 export async function getSessionItems(sessionId: string) {
   try {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('daily_outreach_items')
       .select(`
         *,
@@ -82,6 +82,59 @@ export async function getSessionItems(sessionId: string) {
       .order('position', { ascending: true })
 
     if (error) return { data: null, error: error.message }
+
+    // Auto-heal empty sessions with default target companies
+    if (!data || data.length === 0) {
+      const DEFAULT_TARGETS = [
+        '350 Youth Clothing',
+        'Lights And Fans Shop',
+        'Flower Story',
+        'Perfumes Icud',
+        'Obaidani Stores',
+        'Smart City',
+        'Supermarket Comex',
+        'Maria Flowers',
+        'Flowers And Gifts'
+      ]
+
+      let pos = 1
+      for (const compName of DEFAULT_TARGETS) {
+        const { data: comp } = await supabase
+          .from('companies')
+          .select('*, outreach_preparations(*)')
+          .ilike('company_name', `%${compName}%`)
+          .maybeSingle()
+
+        if (!comp) continue
+
+        const prep = comp.outreach_preparations?.[0]
+
+        await supabase.from('daily_outreach_items').insert({
+          session_id: sessionId,
+          company_id: comp.id,
+          preparation_id: prep?.id || null,
+          position: pos,
+          status: 'prepared'
+        })
+        pos++
+      }
+
+      const { data: reFetched } = await supabase
+        .from('daily_outreach_items')
+        .select(`
+          *,
+          companies (
+            *,
+            contacts (*),
+            outreach_preparations (*)
+          )
+        `)
+        .eq('session_id', sessionId)
+        .order('position', { ascending: true })
+
+      data = reFetched || []
+    }
+
     return { data, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch items' }
