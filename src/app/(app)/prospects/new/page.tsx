@@ -28,6 +28,8 @@ export default function NewProspectPage() {
     companyName: "",
     contactName: "",
     phone: "",
+    website: "",
+    linkedin: "",
     industry: "",
   });
 
@@ -50,6 +52,7 @@ export default function NewProspectPage() {
       const result = await createCompany({
         company_name: form.companyName.trim(),
         industry: form.industry.trim() || "General",
+        website: form.website.trim() || undefined,
         phone: cleanPhone,
         city: "Muscat",
         country: "Oman",
@@ -57,6 +60,7 @@ export default function NewProspectPage() {
           full_name: form.contactName.trim(),
           phone: cleanPhone,
           whatsapp: cleanPhone,
+          linkedin_url: form.linkedin.trim() || undefined,
           title: "Decision Maker",
         },
       });
@@ -173,6 +177,33 @@ export default function NewProspectPage() {
                 />
               </div>
               <p className="text-[10px] text-text-secondary mt-1">Used for WhatsApp proposal delivery and closer callback queue.</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              <div>
+                <label className="text-xs font-bold text-text-secondary mb-1.5 block">
+                  Website (Optional)
+                </label>
+                <Input
+                  name="website"
+                  value={form.website}
+                  onChange={handleChange}
+                  placeholder="https://example.com"
+                  className="h-9 text-xs bg-slate-50/50"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-text-secondary mb-1.5 block">
+                  LinkedIn URL (Optional)
+                </label>
+                <Input
+                  name="linkedin"
+                  value={form.linkedin}
+                  onChange={handleChange}
+                  placeholder="https://linkedin.com/in/..."
+                  className="h-9 text-xs bg-slate-50/50"
+                />
+              </div>
             </div>
 
             <div>
