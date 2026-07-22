@@ -7,56 +7,46 @@ export interface MultiChannelOutreach {
 export const OUTREACH_LIBRARY: Record<string, MultiChannelOutreach> = {
   // 1. Al Obaidani Stores
   'fec07e51-ec4e-461e-9f99-1da920225ae0': {
-    whatsapp: `Assalamu Alaikum Abbas,
+    whatsapp: `Assalamu Alaikum Mr Abbas,
 
-I took a closer look at Al Obaidani's online dishdasha ordering and retail presence across your 30+ outlets and factories.
+Hope you're doing well.
 
-A few practical opportunities stood out:
-1. Simplifying the dishdasha online tailoring order journey across web & WhatsApp.
-2. Unifying uniforms orders, production status, and corporate client tracking in one OS.
-3. Automated seasonal Eid & Ramadan re-order reminders for regular Omani buyers.
+We looked into Al Obaidani Stores and noticed a few areas around connecting your branches and digital presence into one smoother customer journey that could help the business.
 
-I've put together brief observations—not a sales pitch. Would you be open to a 10-minute chat or reviewing a short audit?
+We put together some observations just for you. This isn't a sales pitch, just something useful we wanted to share.
 
-Best regards,
-Ismail Hassan | Tadbeer Transformation Trading`,
+We're also offering a free business audit if you'd like us to look deeper.
+
+Ismail`,
 
     linkedin: `Hi Abbas,
 
-I’ve been following Al Obaidani Stores' expansion as Oman's premier menswear and uniforms brand. 
+Hope you're doing well.
 
-Given your oversight across retail outlets and manufacturing factories, we’ve analyzed operational benchmarks for GCC tailoring and uniform distribution. We identified three high-yield opportunities to streamline corporate order intake, unify customer measurement databases, and capture seasonal retail demand on WhatsApp.
+We looked into Al Obaidani Stores and noticed a few areas around connecting your branches and digital presence into one smoother customer journey that could help the business.
 
-Would you be open to connecting and reviewing a complimentary operational audit report?
+We put together some observations just for you. We're also offering a free business audit if you'd like to look deeper.
 
-Best,
-Ismail Hassan
-Tadbeer Transformation Trading`,
+Best regards,
+Ismail Hassan | Tadbeer TT`,
 
-    email: `Subject: Operational Observation & Digital Growth Roadmap for Al Obaidani Stores
+    email: `Subject: Observations & Free Digital Audit for Al Obaidani Stores
 
 Assalamu Alaikum Abbas,
 
-I hope this email finds you well.
+Hope you're doing well.
 
-I’m reaching out from Tadbeer Transformation Trading in Madinat Qaboos. We recently completed an external review of Al Obaidani’s customer journey across your digital channels, retail branches, and uniforms manufacturing operations.
+We looked into Al Obaidani Stores and noticed a few areas around connecting your branches and digital presence into one smoother customer journey that could help the business.
 
-While Al Obaidani maintains a strong market reputation and network across Oman, we observed three key areas where connected systems could accelerate revenue and reduce administrative friction:
+We put together some observations just for you. This isn't a sales pitch, just something useful we wanted to share.
 
-1. Retail Dishdasha Journey: Streamlining online configuration, guided measurement, and WhatsApp inquiry handling for seasonal Eid drops.
-2. Uniforms Operating OS: Unifying corporate order intake, factory production status, and institutional client delivery portals.
-3. Multi-Branch CRM: Centralizing customer profiles across 30+ branches to automate repeat purchase reminders.
-
-We have compiled these observations into a complimentary initial audit and strategic roadmap tailored for Al Obaidani.
-
-Would you be available for a brief 15-minute call next week to discuss these findings?
+We're also offering a free business audit if you'd like us to look deeper.
 
 Best regards,
 
 Ismail Hassan
-Transformation Lead | Tadbeer Transformation Trading
-Al Noor Plaza, Madinat Qaboos, Muscat, Sultanate of Oman
-Phone: +968 7630 7656 | Email: operation@tadbeertt.com | Web: www.tadbeertt.com`
+Tadbeer TT
+Phone: +968 7630 7656 | Email: operation@tadbeertt.com`
   },
 
   // 2. Maria Flowers
@@ -162,234 +152,222 @@ Transformation Lead | Tadbeer Transformation Trading`
 
   // 4. 350 Youth Clothing
   '10f1eb67-65d2-4ec9-8254-7c4157720f7a': {
-    whatsapp: `Assalamu Alaikum Abdul Aziz,
+    whatsapp: `Assalamu Alaikum Mr Abdul,
 
-I'm with Tadbeer TT and have been following 350 Youth Clothing's streetwear drops on Instagram.
+Hope you're doing well.
 
-For your store, a few clear opportunities stood out:
-1. Instant WhatsApp micro-catalog for new apparel drops.
-2. VIP alert list for fast-selling limited collections.
-3. Automated sizing guide & store stock checker on WhatsApp.
+We looked into 350 Youth Clothing and noticed a few areas around online visibility and how customers browse and enquire that could help the business.
 
-Happy to share brief observations if you'd like to take a look!
+We put together some observations just for you. This isn't a sales pitch, just something useful we wanted to share.
 
-Best regards,
-Ismail Hassan | Tadbeer TT`,
+We're also offering a free business audit if you'd like us to look deeper.
+
+Ismail`,
 
     linkedin: `Hi Abdul Aziz,
 
-Love the brand positioning of 350 Youth Clothing in Muscat. We help Omani fashion retailers automate Instagram & WhatsApp order intake and inventory alerts so you never miss a DM sale during drop days.
+Hope you're doing well.
 
-Would be glad to share a quick 5-minute audit note.
+We looked into 350 Youth Clothing and noticed a few areas around online visibility and how customers browse and enquire that could help the business.
+
+We put together some observations just for you. We're also offering a free business audit if you'd like to look deeper.
 
 Best regards,
 Ismail Hassan | Tadbeer TT`,
 
-    email: `Subject: Drop Automation & Customer Retention Strategy for 350 Youth Clothing
+    email: `Subject: Observations & Free Business Audit for 350 Youth Clothing
 
 Assalamu Alaikum Abdul Aziz,
 
-I hope you are doing well.
+Hope you're doing well.
 
-I’m reaching out from Tadbeer Transformation Trading in Muscat. We specialize in digital sales engines and inventory automation for retail and fashion brands in Oman.
+We looked into 350 Youth Clothing and noticed a few areas around online visibility and how customers browse and enquire that could help the business.
 
-We looked at how 350 Youth Clothing manages drop announcements, DM inquiries, and store sales. Here are three quick wins we identified:
+We put together some observations just for you. This isn't a sales pitch, just something useful we wanted to share.
 
-1. WhatsApp Drop Notifications: Notify your VIP list instantly when new inventory arrives.
-2. Sizing & Stock Assistant: Reduce manual DM responses with automated stock & sizing lookups.
-3. Repeat Customer Rewards: Automatically re-engage buyers 30 days post-purchase with complementary collection items.
-
-We'd love to share a short complimentary retail audit with you.
+We're also offering a free business audit if you'd like us to look deeper.
 
 Best regards,
 
-Ismail Hassan | Tadbeer Transformation Trading`
+Ismail Hassan
+Tadbeer TT
+Phone: +968 7630 7656 | Email: operation@tadbeertt.com`
   },
 
   // 5. Lights And Fans Shop
   'fb86a8b0-3155-4dc6-b9c2-ab2100a96627': {
-    whatsapp: `Assalamu Alaikum Abdul Aziz,
+    whatsapp: `Assalamu Alaikum Mr Abdul,
 
-I've been looking into Lights And Fans Shop's showroom and contractor orders in Oman.
+Hope you're doing well.
 
-A few practical opportunities stood out:
-1. Simplifying fixture price queries and contractor B2B quotes via WhatsApp.
-2. Bulk order delivery tracking and status updates for site projects.
-3. Automated room size vs fan/lighting sizing calculator.
+We looked into Lights And Fans Shop and noticed a few areas around online visibility and how customers ask about products that could help the business.
 
-I've prepared a brief set of observations—happy to send it over!
+We put together some observations just for you. This isn't a sales pitch, just something useful we wanted to share.
 
-Best regards,
-Ismail Hassan | Tadbeer TT`,
+We're also offering a free business audit if you'd like us to look deeper.
+
+Ismail`,
 
     linkedin: `Hi Abdul Aziz,
 
-I noticed Lights And Fans Shop's strong presence serving both homeowners and commercial contractors in Oman. 
+Hope you're doing well.
 
-We help electrical & fixture distributors streamline B2B contractor quoting and delivery scheduling on WhatsApp. 
+We looked into Lights And Fans Shop and noticed a few areas around online visibility and how customers ask about products that could help the business.
 
-Open to connecting and sharing a quick diagnostic note?
+We put together some observations just for you. We're also offering a free business audit if you'd like to look deeper.
 
-Best,
+Best regards,
 Ismail Hassan | Tadbeer TT`,
 
-    email: `Subject: B2B Contractor Quoting & Inventory Automation for Lights And Fans Shop
+    email: `Subject: Observations & Free Business Audit for Lights And Fans Shop
 
 Assalamu Alaikum Abdul Aziz,
 
-I hope this email finds you well.
+Hope you're doing well.
 
-I am writing from Tadbeer Transformation Trading in Muscat. We assist building material and electrical retailers in Oman with streamlining B2B quote management and customer dispatching.
+We looked into Lights And Fans Shop and noticed a few areas around online visibility and how customers ask about products that could help the business.
 
-For Lights And Fans Shop, we saw clear potential in three areas:
+We put together some observations just for you. This isn't a sales pitch, just something useful we wanted to share.
 
-1. B2B Contractor WhatsApp Portal: Instant quote intake and tier-based pricing for contractor accounts.
-2. Bulk Delivery Tracking: Automated SMS/WhatsApp status updates when fixtures leave the warehouse for job sites.
-3. Homeowner Selection Guide: Digital product calculators to help retail clients choose appropriate fan CFMs and lighting lumens.
-
-We would be pleased to share a complimentary operational audit report with your team.
+We're also offering a free business audit if you'd like us to look deeper.
 
 Best regards,
 
-Ismail Hassan | Tadbeer Transformation Trading`
+Ismail Hassan
+Tadbeer TT
+Phone: +968 7630 7656 | Email: operation@tadbeertt.com`
   },
 
   // 6. Flower Story
   '83354cf8-3901-4b19-bc7f-2db37e25a947': {
-    whatsapp: `Assalamu Alaikum Abdul Hameed,
+    whatsapp: `Assalamu Alaikum Mr Abdul,
 
-I've been reviewing Flower Story's luxury floral arrangements and event design in Muscat.
+Hope you're doing well.
 
-A few quick opportunities stood out:
-1. Automated anniversary & birthday reminders for high-net-worth regular buyers.
-2. WhatsApp photo updates of completed arrangements sent to senders upon delivery.
-3. Quick structured bouquet selection templates to speed up order confirmation.
+We looked into Flower Story and noticed a few areas around turning your strong Instagram following into more orders and repeat customers that could help the business.
 
-Happy to share a short note with these observations if you'd like!
+We put together some observations just for you. This isn't a sales pitch, just something useful we wanted to share.
 
-Best regards,
-Ismail Hassan | Tadbeer TT`,
+We're also offering a free business audit if you'd like us to look deeper.
+
+Ismail`,
 
     linkedin: `Hi Abdul Hameed,
 
-I’ve been admiring Flower Story's luxury floral work and corporate event decor. 
+Hope you're doing well.
 
-We build customer retention and dispatch tracking systems for Omani luxury florists. I'd love to share a short operational note on automating client occasion reminders.
+We looked into Flower Story and noticed a few areas around turning your strong Instagram following into more orders and repeat customers that could help the business.
+
+We put together some observations just for you. We're also offering a free business audit if you'd like to look deeper.
 
 Best regards,
 Ismail Hassan | Tadbeer TT`,
 
-    email: `Subject: Customer Occasion Automation & Delivery Tracking for Flower Story
+    email: `Subject: Observations & Free Business Audit for Flower Story
 
 Assalamu Alaikum Abdul Hameed,
 
-I hope you are having a wonderful week.
+Hope you're doing well.
 
-I’m reaching out from Tadbeer Transformation Trading in Muscat. We specialize in digital customer retention and operational systems for luxury gift and floral boutiques across Oman.
+We looked into Flower Story and noticed a few areas around turning your strong Instagram following into more orders and repeat customers that could help the business.
 
-During our review of Flower Story's customer journey, we identified three key levers to increase repeat sales and smooth out delivery operations:
+We put together some observations just for you. This isn't a sales pitch, just something useful we wanted to share.
 
-1. Automated VIP Occasion Reminders: Automatically messaging regular buyers 7 days before annual anniversaries and corporate events.
-2. Photo Proof of Delivery: Instant automated WhatsApp photo updates sent to the gift sender once delivered.
-3. Corporate Event Quote Builder: Structured WhatsApp intake forms for corporate floral inquiries.
-
-We would be glad to share a short complimentary diagnostic report with you.
+We're also offering a free business audit if you'd like us to look deeper.
 
 Best regards,
 
-Ismail Hassan | Tadbeer Transformation Trading`
+Ismail Hassan
+Tadbeer TT
+Phone: +968 7630 7656 | Email: operation@tadbeertt.com`
   },
 
   // 7. Perfumes Icud
   '05afde7d-9047-4c4f-b8c7-50febaf33aad': {
-    whatsapp: `Assalamu Alaikum Abdullah,
+    whatsapp: `Assalamu Alaikum Mr Abdullah,
 
-I'm with Tadbeer TT looking at digital growth for artisanal perfume houses in Oman.
+Hope you're doing well.
 
-For Perfumes Icud, we see great potential in:
-1. Guided fragrance & oud selection consultation flows on WhatsApp.
-2. Customer scent profile database for targeted seasonal fragrance drops.
-3. Instant online order intake and delivery tracking updates.
+We looked into Perfumes Icud and noticed a few areas around helping customers choose the right fragrance online and come back for repeat purchases that could help the business.
 
-I've put together a short note with these observations—happy to share it!
+We put together some observations just for you. This isn't a sales pitch, just something useful we wanted to share.
 
-Best regards,
-Ismail Hassan | Tadbeer TT`,
+We're also offering a free business audit if you'd like us to look deeper.
+
+Ismail`,
 
     linkedin: `Hi Abdullah,
 
-I’ve been following Perfumes Icud's specialty oud and niche fragrance releases. 
+Hope you're doing well.
 
-We help Omani perfume creators build automated WhatsApp scent concierges and VIP loyalty systems. Would love to share a short diagnostic brief if you're open to connecting.
+We looked into Perfumes Icud and noticed a few areas around helping customers choose the right fragrance online and come back for repeat purchases that could help the business.
+
+We put together some observations just for you. We're also offering a free business audit if you'd like to look deeper.
 
 Best regards,
 Ismail Hassan | Tadbeer TT`,
 
-    email: `Subject: Digital Fragrance Concierge & VIP Loyalty Strategy for Perfumes Icud
+    email: `Subject: Observations & Free Business Audit for Perfumes Icud
 
 Assalamu Alaikum Abdullah,
 
-I hope this message finds you well.
+Hope you're doing well.
 
-I am writing from Tadbeer Transformation Trading in Muscat. We help Omani fragrance and luxury houses design digital customer experiences that drive repeat purchases.
+We looked into Perfumes Icud and noticed a few areas around helping customers choose the right fragrance online and come back for repeat purchases that could help the business.
 
-For Perfumes Icud, we see significant opportunity in three specific areas:
+We put together some observations just for you. This isn't a sales pitch, just something useful we wanted to share.
 
-1. Interactive WhatsApp Fragrance Guide: Helping customers find their ideal oud/attar notes via quick interactive choices.
-2. VIP Customer Scent Database: Storing customer fragrance preferences to send personalized re-order invitations ahead of Eid and winter drops.
-3. Dispatch & Tracking Updates: Automated notifications from dispatch to customer doorstep.
-
-We have compiled these points into a brief complimentary report.
+We're also offering a free business audit if you'd like us to look deeper.
 
 Best regards,
 
-Ismail Hassan | Tadbeer Transformation Trading`
+Ismail Hassan
+Tadbeer TT
+Phone: +968 7630 7656 | Email: operation@tadbeertt.com`
   },
 
   // 8. Smart City
   '69296064-308a-4119-9f7d-9852c3197927': {
-    whatsapp: `Assalamu Alaikum Abbas,
+    whatsapp: `Assalamu Alaikum Mr Abbas,
 
-I've been looking at how Smart City handles smart gadget inquiries, support, and sales across WhatsApp and in-store.
+Hope you're doing well.
 
-A few visible opportunities stood out:
-1. Automated warranty registration & repair status tracking on WhatsApp.
-2. Smart accessory upsell flows post-device purchase.
-3. Instant product availability & price lookup bot.
+We looked into Smart City and noticed a few areas around how customers find the business and reach out with questions that could help the business.
 
-I've prepared a brief set of observations—happy to send them over!
+We put together some observations just for you. This isn't a sales pitch, just something useful we wanted to share.
 
-Best regards,
-Ismail Hassan | Tadbeer TT`,
+We're also offering a free business audit if you'd like us to look deeper.
+
+Ismail`,
 
     linkedin: `Hi Abbas,
 
-I noticed Smart City's strong position in consumer electronics and smart home devices in Oman. 
+Hope you're doing well.
 
-We help electronics retailers automate post-sale support, warranty tracking, and accessory upsells via WhatsApp. Open to connecting and reviewing a brief audit?
+We looked into Smart City and noticed a few areas around how customers find the business and reach out with questions that could help the business.
+
+We put together some observations just for you. We're also offering a free business audit if you'd like to look deeper.
 
 Best regards,
 Ismail Hassan | Tadbeer TT`,
 
-    email: `Subject: Warranty Automation & Post-Sale Upsell Strategy for Smart City
+    email: `Subject: Observations & Free Business Audit for Smart City
 
 Assalamu Alaikum Abbas,
 
-I hope you are doing well.
+Hope you're doing well.
 
-I’m reaching out from Tadbeer Transformation Trading in Muscat. We specialize in operational workflows and customer service automation for electronics retailers in Oman.
+We looked into Smart City and noticed a few areas around how customers find the business and reach out with questions that could help the business.
 
-In reviewing Smart City's customer touchpoints, we identified three ways to reduce support overhead while driving additional accessory revenue:
+We put together some observations just for you. This isn't a sales pitch, just something useful we wanted to share.
 
-1. Digital Warranty & Service Tracking: Allowing customers to log repairs and track service status via WhatsApp.
-2. Automated Accessory Cross-Selling: Triggering targeted offers (cases, chargers, smart home hubs) 3 days after device purchase.
-3. Stock Availability Helper: Instant automated responses for product pricing and branch stock queries.
-
-We would be pleased to share a complimentary 5-minute audit with your team.
+We're also offering a free business audit if you'd like us to look deeper.
 
 Best regards,
 
-Ismail Hassan | Tadbeer Transformation Trading`
+Ismail Hassan
+Tadbeer TT
+Phone: +968 7630 7656 | Email: operation@tadbeertt.com`
   },
 
   // 9. Flowers And Gifts
@@ -440,48 +418,46 @@ Ismail Hassan | Tadbeer Transformation Trading`
 
   // 10. Supermarket Comex
   'da0710f7-b96e-4841-b79f-b255fa49128f': {
-    whatsapp: `Assalamu Alaikum Ahmed,
+    whatsapp: `Assalamu Alaikum Mr Ahmed,
 
-I'm with Tadbeer TT looking at practical digital improvements for supermarkets and FMCG retail in Oman.
+Hope you're doing well.
 
-For Supermarket Comex, a few opportunities stood out:
-1. Simple WhatsApp grocery ordering and neighborhood home delivery coordination.
-2. Automated daily fresh stock notifications for loyal neighborhood regulars.
-3. Digital loyalty balance checks and customer follow-up via WhatsApp.
+Following up on our existing connection with Comex, we looked into a few practical ways to improve customer convenience and communication for Supermarket Comex.
 
-I've prepared brief observations—happy to share them with you!
+We put together some observations just for you. This isn't a sales pitch, just something useful we wanted to share.
 
-Best regards,
-Ismail Hassan | Tadbeer TT`,
+We're also offering a free business audit if you'd like us to look deeper.
+
+Ismail`,
 
     linkedin: `Hi Ahmed,
 
-I noticed Supermarket Comex's strong position in neighborhood FMCG retail in Muscat. 
+Hope you're doing well.
 
-We build simple WhatsApp ordering and customer loyalty notification systems for Omani supermarkets. Would love to share a quick 5-minute diagnostic brief with you.
+Following up on our existing connection with Comex, we looked into a few practical ways to improve customer convenience and communication for Supermarket Comex.
+
+We put together some observations just for you. We're also offering a free business audit if you'd like to look deeper.
 
 Best regards,
 Ismail Hassan | Tadbeer TT`,
 
-    email: `Subject: Neighborhood Delivery Automation & Loyalty Engagement for Supermarket Comex
+    email: `Subject: Observations & Free Business Audit for Supermarket Comex
 
 Assalamu Alaikum Ahmed,
 
-I hope this message finds you well.
+Hope you're doing well.
 
-I am writing from Tadbeer Transformation Trading in Muscat. We work with FMCG retailers and neighborhood supermarkets in Oman to digitize customer ordering and repeat engagement.
+Following up on our existing connection with Comex, we looked into a few practical ways to improve customer convenience and communication for Supermarket Comex.
 
-For Supermarket Comex, we identified three practical digital improvements:
+We put together some observations just for you. This isn't a sales pitch, just something useful we wanted to share.
 
-1. WhatsApp Order Intake & Delivery Dispatch: Enabling local residents to submit grocery lists on WhatsApp with automated delivery confirmation.
-2. Fresh Arrival Broadcasts: Automated opt-in alerts for weekly fresh produce, meat, or bakery arrivals.
-3. Digital Receipts & Loyalty: Sending receipts and point balances directly to customer WhatsApp accounts.
-
-We would be pleased to share a brief complimentary audit report with your management team.
+We're also offering a free business audit if you'd like us to look deeper.
 
 Best regards,
 
-Ismail Hassan | Tadbeer Transformation Trading`
+Ismail Hassan
+Tadbeer TT
+Phone: +968 7630 7656 | Email: operation@tadbeertt.com`
   }
 }
 
