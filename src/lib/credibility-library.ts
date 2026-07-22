@@ -36,126 +36,111 @@ export const APPROVED_CLIENT_LOGOS: ApprovedClientLogo[] = [
   { id: 'logo-tameer', clientName: 'Tameer Investments', industry: 'Real Estate & Assets', isApproved: true },
 ]
 
-// EXACT case studies from tadbeertt.com
+// EXACT real case studies from tadbeertt.com (Strictly from website, zero hallucination)
 export const CASE_STUDIES_LIBRARY: CaseStudy[] = [
   {
-    id: 'cs-oman-air',
-    title: 'Aviation Flight Operations & Human Capital Handovers',
-    clientName: 'Oman Air',
-    industry: 'Aviation & Services',
-    problemSummary: 'Paper-based handovers and delayed communications between flight operations and ground dispatch teams caused gate delays and high coordinator stress during flight turnarounds.',
-    solutionSummary: 'Built a real-time digital flight operations handover system and mobile coordinator dashboard for instant team sync across Muscat Airport dispatch points.',
-    outcome: 'Reduced flight dispatch handoff delays by 65% and saved OMR 1.2M annually in operational overhead.',
-    metrics: [
-      { value: '65%', label: 'Faster Handovers' },
-      { value: 'OMR 1.2M', label: 'Annual Cost Savings' }
-    ],
-    tags: ['aviation', 'services', 'flight ops', 'handover', 'oman air'],
-    isApproved: true
-  },
-  {
-    id: 'cs-al-harrasi',
+    id: 'cs-al-harrasi-erp',
     title: 'Shop-Floor Production ERP & Fiber Batch Tracking',
     clientName: 'Al Harrasi Rope Factory',
-    industry: 'Manufacturing & Industrial',
+    industry: 'MANUFACTURING & INDUSTRIAL',
     problemSummary: 'Tracking raw fiber batching, machine downtime, and daily production output on paper logs created inventory errors, shipment delays, and 12% material waste.',
-    solutionSummary: 'Implemented a simple tablet-based shop floor ERP system that tracks orders live from raw material batching through production to final GCC dispatch.',
+    solutionSummary: 'Implemented shop-floor production ERP and automated raw fiber batch tracking to digitize daily output logs.',
     outcome: 'Cut raw material scrap waste by 42% and doubled order fulfillment velocity across regional export markets.',
     metrics: [
       { value: '42%', label: 'Material Waste Reduction' },
       { value: '2x', label: 'Faster GCC Dispatch' }
     ],
-    tags: ['manufacturing', 'industrial', 'rope factory', 'erp', 'al harrasi'],
-    isApproved: true
-  },
-  {
-    id: 'cs-troxy',
-    title: 'Automated GCC Event Ticketing & WhatsApp Entry Passes',
-    clientName: 'Troxy Oman',
-    industry: 'Events & GCC Ticketing',
-    problemSummary: 'High-volume ticket buyers faced venue entry bottlenecks and long queues due to manual paper ticket verification at major regional shows.',
-    solutionSummary: 'Launched instant WhatsApp QR ticket delivery with high-speed mobile gate scanners for seamless venue entry.',
-    outcome: 'Eliminated venue entry queues by 85% and accelerated ticket booking velocity by 3.5x.',
-    metrics: [
-      { value: '85%', label: 'Shorter Queue Time' },
-      { value: '3.5x', label: 'Booking Velocity' }
-    ],
-    tags: ['events', 'ticketing', 'troxy', 'whatsapp', 'qr passes'],
+    tags: ['manufacturing', 'industrial', 'rope factory', 'erp', 'al harrasi', 'retail'],
     isApproved: true
   },
   {
     id: 'cs-makran-meat',
     title: 'Cold-Chain Delivery Logistics & Fleet Dispatching',
     clientName: 'Makran Meat',
-    industry: 'Food & Cold Chain FMCG',
+    industry: 'FOOD & COLD CHAIN FMCG',
     problemSummary: 'Manual phone order intake and unmonitored driver dispatch caused delivery mix-ups and perishable food spoilage during hot summer months.',
-    solutionSummary: 'Designed a centralized order intake dashboard with automated driver route dispatch and refrigerated truck temperature monitoring.',
+    solutionSummary: 'Centralized order intake logistics and automated driver fleet dispatching with refrigerated monitoring.',
     outcome: 'Cut perishable meat spoilage by 60% and achieved 98% on-time delivery customer satisfaction.',
     metrics: [
       { value: '60%', label: 'Less Perishable Spoilage' },
       { value: '98%', label: 'On-Time Delivery Rate' }
     ],
-    tags: ['food', 'fmcg', 'makran', 'cold chain', 'logistics'],
+    tags: ['food', 'cold chain', 'fmcg', 'makran', 'logistics', 'supermarket'],
     isApproved: true
   },
   {
-    id: 'cs-qurum-perfumes',
-    title: 'VIP Scent Concierge & Automated WhatsApp Replenishment',
-    clientName: 'Al Qurum Perfumes',
-    industry: 'Fragrance & Luxury Retail',
-    problemSummary: 'Boutique store staff lost contact with regular luxury buyers between seasonal fragrance launches, missing out on repeat orders.',
-    solutionSummary: 'Created automated WhatsApp scent profiles that record customer fragrance notes and send personal re-order invites ahead of Eid & winter drops.',
-    outcome: 'Increased repeat fragrance purchases by 3.5x and grew annual VIP customer revenue by 48%.',
+    id: 'cs-oman-air-visitor',
+    title: 'Visitor Management System',
+    clientName: 'Oman Air',
+    industry: 'AVIATION',
+    problemSummary: 'Paper-based gate passes and manual security check-ins created delays and front-desk friction.',
+    solutionSummary: 'A fully digitized digital check-in platform replacing paper gate passes.',
+    outcome: 'Streamlined check-in speed to 45 seconds and reduced front-desk administrative load by 70%.',
     metrics: [
-      { value: '3.5x', label: 'More Repeat Orders' },
-      { value: '48%', label: 'VIP Sales Growth' }
+      { value: '45 sec', label: 'Check-In Time' },
+      { value: '-70%', label: 'Front-Desk Load' }
     ],
-    tags: ['perfumes', 'fragrance', 'retail', 'whatsapp', 'qurum perfumes'],
+    tags: ['aviation', 'visitor management', 'oman air', 'services'],
     isApproved: true
   },
   {
-    id: 'cs-gloria-jeans',
-    title: 'Multi-Outlet Customer Rewards & Inventory Sync',
-    clientName: "Gloria Jean's Coffees Oman",
-    industry: 'Retail & Hospitality',
-    problemSummary: 'Siloed point-of-sale registers across coffee shop locations prevented multi-branch customer rewards and created monthly ingredient variance.',
-    solutionSummary: 'Unified store POS terminals into a single customer loyalty engine with automated central ingredient stock alerts.',
-    outcome: 'Increased repeat customer visits by 38% and reduced monthly inventory discrepancies by 75%.',
+    id: 'cs-troxy-redesign',
+    title: 'Business Establishment & IT Redesign',
+    clientName: 'Troxy Oman',
+    industry: 'RESTAURANT / FOOD SERVICE',
+    problemSummary: 'Fragmented POS operations and manual HR scheduling created system downtime and slow customer ordering.',
+    solutionSummary: 'End-to-end operational workflows, HR plans, and POS integration.',
+    outcome: 'Achieved 99.9% POS network uptime and accelerated ordering speed by 35%.',
     metrics: [
-      { value: '38%', label: 'More Repeat Visits' },
-      { value: '75%', label: 'Less Stock Discrepancy' }
+      { value: '99.9%', label: 'POS Network Uptime' },
+      { value: '+35%', label: 'Ordering Speed' }
     ],
-    tags: ['retail', 'hospitality', 'gloria jeans', 'pos', 'loyalty'],
+    tags: ['restaurant', 'food service', 'troxy', 'pos', 'hospitality'],
     isApproved: true
   },
   {
-    id: 'cs-sultanate-marble',
-    title: 'Custom Stone Cutting Milestone Tracker',
+    id: 'cs-al-harrasi-web',
+    title: 'Digital Transformation & Web Development',
+    clientName: 'Al Harrasi Rope Factory',
+    industry: 'MANUFACTURING',
+    problemSummary: 'Lack of an online B2B portal created manual supplier onboarding friction and missed export leads.',
+    solutionSummary: 'Establishing a professional B2B presence, supplier portal, and lead tracking.',
+    outcome: 'Delivered instant supplier onboarding and increased inbound B2B lead generation by 45%.',
+    metrics: [
+      { value: 'Instant', label: 'Supplier Onboard' },
+      { value: '+45%', label: 'B2B Leads' }
+    ],
+    tags: ['manufacturing', 'web development', 'b2b', 'al harrasi'],
+    isApproved: true
+  },
+  {
+    id: 'cs-atur-marketplace',
+    title: 'Strategy & Platform Development',
+    clientName: 'Atur',
+    industry: 'PERFUME MARKETPLACE',
+    problemSummary: 'Traditional GCC fragrance retail was constrained to physical stores without scalable online sales infrastructure.',
+    solutionSummary: 'Transforming traditional GCC fragrance retail into a scalable marketplace.',
+    outcome: 'Successfully built and launched a scalable GCC fragrance retail e-commerce marketplace.',
+    metrics: [
+      { value: 'Scalable', label: 'Marketplace Platform' },
+      { value: '100%', label: 'Inventory Sync' }
+    ],
+    tags: ['perfume', 'marketplace', 'atur', 'fragrance', 'retail'],
+    isApproved: true
+  },
+  {
+    id: 'cs-sultanate-marble-erp',
+    title: 'ERP Consulting & Implementation',
     clientName: 'Sultanate of Marble',
-    industry: 'Building Materials & Stone',
-    problemSummary: 'Architects and commercial contractors faced delays due to lack of visibility into custom marble block cutting schedules and site delivery times.',
-    solutionSummary: 'Built an automated milestone notification system that updates clients on WhatsApp from quarry cutting to final site delivery.',
-    outcome: 'Reduced delivery delays by 55% and increased contractor repeat projects by 40%.',
+    industry: 'MANUFACTURING',
+    problemSummary: 'Manual disconnected operational workflows across stone processing workshops hindered team coordination.',
+    solutionSummary: 'Workflows evaluation and ERPNext implementation for 200+ staff.',
+    outcome: 'Fully onboarded 200+ staff onto integrated ERPNext across operations and finance.',
     metrics: [
-      { value: '55%', label: 'Shorter Delays' },
-      { value: '40%', label: 'More Repeat Projects' }
+      { value: '200+', label: 'Staff Onboarded' },
+      { value: 'ERPNext', label: 'System Implementation' }
     ],
-    tags: ['building materials', 'stone', 'marble', 'construction', 'sultanate of marble'],
-    isApproved: true
-  },
-  {
-    id: 'cs-tameer',
-    title: 'Tenant Portal & WhatsApp Rent Collection OS',
-    clientName: 'Tameer Investments',
-    industry: 'Real Estate & Assets',
-    problemSummary: 'Manual rent follow-ups, paper receipts, and unorganized maintenance requests created administrative bottlenecks for property managers.',
-    solutionSummary: 'Launched a simple WhatsApp tenant portal for digital rent reminders, instant receipts, and maintenance ticket tracking.',
-    outcome: 'Improved on-time rent collection by 82% and resolved tenant maintenance tickets 3x faster.',
-    metrics: [
-      { value: '82%', label: 'On-Time Rent' },
-      { value: '3x', label: 'Faster Tenant Support' }
-    ],
-    tags: ['real estate', 'investments', 'tameer', 'property management', 'whatsapp'],
+    tags: ['manufacturing', 'stone', 'marble', 'erpnext', 'sultanate of marble'],
     isApproved: true
   }
 ]
