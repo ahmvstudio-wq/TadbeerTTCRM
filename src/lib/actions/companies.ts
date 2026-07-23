@@ -75,3 +75,30 @@ export async function updateCompanyStatus(id: string, status: string) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
   }
 }
+
+export async function updateCompanyLeadType(id: string, lead_type: string) {
+  try {
+    const { data: company, error } = await supabase.from('companies').update({ lead_type, updated_at: new Date().toISOString() }).eq('id', id).select().single()
+    if (error) return { data: null, error: error.message }
+    return { data: company, error: null }
+  } catch (error) {
+    return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
+  }
+}
+
+export async function addCompanyActivity(company_id: string, title: string, description?: string, activity_type = 'note_added') {
+  try {
+    const { data: activity, error } = await supabase.from('activities').insert({
+      company_id,
+      activity_type,
+      title,
+      description: description || '',
+      created_at: new Date().toISOString()
+    }).select().single()
+    if (error) return { data: null, error: error.message }
+    return { data: activity, error: null }
+  } catch (error) {
+    return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
+  }
+}
+

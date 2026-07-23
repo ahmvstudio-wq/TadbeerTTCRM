@@ -483,23 +483,39 @@ export function ProspectWorkspace({
                     <Phone className="h-3.5 w-3.5 text-brand-teal" /> Call
                   </a>
                 )}
-                {contact.whatsapp && (
-                  <a href={`https://wa.me/${contact.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 p-2 rounded-lg bg-slate-50 border border-border-light hover:border-green-400 hover:bg-white transition-all text-text-primary">
-                    <MessageCircle className="h-3.5 w-3.5 text-green-600" /> WhatsApp
-                  </a>
-                )}
+                {(() => {
+                  const waRaw = contact.whatsapp || contact.phone;
+                  if (!waRaw) return null;
+                  let digits = waRaw.replace(/\D/g, "");
+                  if (!digits) return null;
+                  if (digits.length === 8 && (digits.startsWith("9") || digits.startsWith("7") || digits.startsWith("2"))) {
+                    digits = "968" + digits;
+                  } else if (!digits.startsWith("968") && digits.length <= 9) {
+                    digits = "968" + digits;
+                  }
+                  return (
+                    <a href={`https://wa.me/${digits}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 p-2 rounded-lg bg-slate-50 border border-border-light hover:border-green-400 hover:bg-white transition-all text-text-primary">
+                      <MessageCircle className="h-3.5 w-3.5 text-green-600" /> WhatsApp (+968)
+                    </a>
+                  );
+                })()}
                 {contact.email && (
                   <a href={`mailto:${contact.email}`} className="flex items-center gap-1.5 p-2 rounded-lg bg-slate-50 border border-border-light hover:border-blue-400 hover:bg-white transition-all text-text-primary col-span-2">
                     <Mail className="h-3.5 w-3.5 text-blue-600" />
                     <span className="truncate">{contact.email}</span>
                   </a>
                 )}
-                {contact.linkedin_url && (
-                  <a href={contact.linkedin_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 p-2 rounded-lg bg-slate-50 border border-border-light hover:border-sky-500 hover:bg-white transition-all text-text-primary col-span-2">
-                    <ExternalLink className="h-3.5 w-3.5 text-sky-600" />
-                    <span className="truncate">Open LinkedIn</span>
-                  </a>
-                )}
+                {(() => {
+                  const url = contact.linkedin_url || company.linkedin_url;
+                  if (!url || !url.toLowerCase().includes('linkedin.com')) return null;
+                  const validUrl = url.startsWith('http') ? url : `https://${url}`;
+                  return (
+                    <a href={validUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 p-2 rounded-lg bg-slate-50 border border-border-light hover:border-sky-500 hover:bg-white transition-all text-text-primary col-span-2">
+                      <ExternalLink className="h-3.5 w-3.5 text-sky-600" />
+                      <span className="truncate">Open LinkedIn</span>
+                    </a>
+                  );
+                })()}
               </div>
             </div>
 
@@ -507,9 +523,15 @@ export function ProspectWorkspace({
             {(() => {
               const waSection = proposalData?.additionalSections?.find(s => s.title === 'WhatsApp Message')
               const waMsg = waSection?.content?.join('\n') || ''
-              if (!waMsg || !contact.whatsapp) return null
-              const phone = contact.whatsapp.replace(/\D/g, '')
-              const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(waMsg)}`
+              const rawPhone = contact.whatsapp || contact.phone
+              if (!waMsg || !rawPhone) return null
+              let digits = rawPhone.replace(/\D/g, '')
+              if (digits.length === 8 && (digits.startsWith("9") || digits.startsWith("7") || digits.startsWith("2"))) {
+                digits = "968" + digits;
+              } else if (!digits.startsWith("968") && digits.length <= 9) {
+                digits = "968" + digits;
+              }
+              const waUrl = `https://wa.me/${digits}?text=${encodeURIComponent(waMsg)}`
               return (
                 <div className="p-3 bg-green-50 border border-green-200 rounded-xl">
                   <p className="text-[9px] uppercase tracking-wider font-extrabold text-green-700 mb-2">📨 Proposal WhatsApp Shortcut</p>
@@ -520,11 +542,11 @@ export function ProspectWorkspace({
                     className="flex items-center justify-center gap-2 w-full py-2 px-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-lg transition-all hover-lift shadow-sm"
                   >
                     <MessageCircle className="h-3.5 w-3.5" />
-                    Send Proposal on WhatsApp
+                    Send Proposal on WhatsApp (+968)
                   </a>
                   <p className="text-[9px] text-green-600 mt-1 text-center">Opens WhatsApp · Attach PDF after</p>
                 </div>
-              )
+              );
             })()}
 
             <div>

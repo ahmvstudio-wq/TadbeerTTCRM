@@ -178,3 +178,61 @@ export async function getCompletedCalls(userId?: string) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
   }
 }
+
+export async function addToCallQueue(companyId: string, contactId?: string, priority = 'medium') {
+  try {
+    const supabase = await createClient()
+
+    const { data: existing } = await supabase
+      .from('call_queue')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('status', 'pending')
+      .single()
+
+    if (existing) {
+      return { data: existing, error: null }
+    }
+
+    const { data, error } = await supabase
+      .from('call_queue')
+      .insert({
+        company_id: companyId,
+        contact_id: contactId || null,
+        priority: priority,
+        status: 'pending',
+        queued_at: new Date().toISOString()
+      })
+      .select()
+      .single()
+
+    if (error) {
+      // Fallback: update company status to 'in_call_queue' even if call_queue table constraint trips
+      await supabase.from('companies').update({ status: 'in_call_queue', updated_at: new Date().toISOString() }).eq('id', companyId)
+      return { data: null, error: error.message }
+    }
+
+    await supabase
+      .from('companies')
+      .update({ status: 'in_call_queue', updated_at: new Date().toISOString() })
+      .eq('id', companyId)
+
+    return { data, error: null }
+  } catch (error) {
+    return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
+  }
+}
+
+export async function addBatchToCallQueue(companyIds: string[]) {
+  try {
+    let successCount = 0;
+    for (const id of companyIds) {
+      const res = await addToCallQueue(id);
+      if (!res.error) successCount++;
+    }
+    return { count: successCount, error: null };
+  } catch (error) {
+    return { count: 0, error: error instanceof Error ? error.message : 'An unexpected error occurred' };
+  }
+}
+

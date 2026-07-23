@@ -1,24 +1,135 @@
 'use client'
 
-import React, { useState, useEffect, useTransition, useCallback } from 'react'
+import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react'
 import {
   UserCheck, Clock, MessageSquare, UserPlus,
   ChevronDown, ChevronRight, Eye, Filter,
   Users, TrendingUp, CheckCircle2, Send, AlertCircle, RefreshCw,
-  Plus, Trash2, Loader2, Save, X
+  Plus, Trash2, Loader2, Save, X, Calendar, FileText, Check, Award, Flame,
+  Share2, ArrowRight, Tag, MapPin, Building2, Sparkles, AlertTriangle,
+  Zap, Layers, Target, HelpCircle, CheckSquare, MessageCircle, Search
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 import {
   getLinkedInProspects,
   updateConnectionStatus,
   updateMessageStatus,
   updateProspectNotes,
-  createLinkedInProspect,
+  updateProspectPriority,
+  createOrUpdateLinkedInProspect,
+  addTimelineActivity,
   deleteLinkedInProspect,
   seedLinkedInProspects,
+  getLinkedInDailyLogs,
+  createOrUpdateDailyLog,
+  convertProspectToPipeline,
+  updateProspectBdStage,
+  updateProspectTier,
+  updateTadbeerAngle,
   type LinkedInProspect,
   type ConnectionStatus,
   type MessageStatus,
+  type TimelineActivity,
+  type LinkedInDailyLog,
+  type LinkedInBdStage,
+  type LinkedInStageInfo
 } from '@/lib/actions/linkedin'
+import { formatOmanWhatsAppUrl, isValidLinkedInUrl } from '@/app/(app)/prospects/page'
+
+export const LINKEDIN_BD_STAGES_MAP: Record<LinkedInBdStage, LinkedInStageInfo> = {
+  stage_1_targeting: {
+    stage_number: 1,
+    id: 'stage_1_targeting',
+    name: '1. Targeting & Classification',
+    short_label: '1. Targeting',
+    description: 'Classify account (Tier 1 Strategic, Tier 2 Good Fit, Tier 3 Network). Identify entry trigger.',
+    recommended_action: 'Classify account tier and identify specific entry trigger reason before outreach.',
+    crm_status_text: 'Target Identified'
+  },
+  stage_2_research: {
+    stage_number: 2,
+    id: 'stage_2_research',
+    name: '2. Profile Visit & Research',
+    short_label: '2. Research',
+    description: 'Check role, company developments & Tadbeer angle. Answer: Why should they talk to Tadbeer?',
+    recommended_action: 'Document specific Tadbeer angle in CRM. If no clear angle exists, do not force outreach.',
+    crm_status_text: 'Research Completed'
+  },
+  stage_3_warm_engagement: {
+    stage_number: 3,
+    id: 'stage_3_warm_engagement',
+    name: '3. Warm Engagement',
+    short_label: '3. Warm Engage',
+    description: 'Visit profile -> Follow -> Engage with post -> Leave thoughtful comment to build name recognition.',
+    recommended_action: 'Leave 1 thoughtful comment on recent post. For Tier 1, engage across multiple days.',
+    crm_status_text: 'Warm Touch Done'
+  },
+  stage_4_connection_pending: {
+    stage_number: 4,
+    id: 'stage_4_connection_pending',
+    name: '4. Connection Request Sent',
+    short_label: '4. Connect Sent',
+    description: 'Connection request sent without sales pitch. Personalised note only if adding real context.',
+    recommended_action: 'Wait for acceptance. Do not repeatedly interact just to get noticed.',
+    crm_status_text: 'Connection Pending'
+  },
+  stage_5_welcome_convo: {
+    stage_number: 5,
+    id: 'stage_5_welcome_convo',
+    name: '5. Welcome Conversation (No Pitch)',
+    short_label: '5. Welcome DM',
+    description: 'Send simple human message within 24h of acceptance (e.g. Haitham style). No pitch or links.',
+    recommended_action: 'Send warm human welcome message. Close initial exchange naturally when they reply.',
+    crm_status_text: 'Warm Connection'
+  },
+  stage_6_intelligent_nurture: {
+    stage_number: 6,
+    id: 'stage_6_intelligent_nurture',
+    name: '6. Intelligent Event Nurturing',
+    short_label: '6. Event Nurture',
+    description: 'Monitor company news, hiring, posts & developments. Engage only when there is a legitimate reason.',
+    recommended_action: 'Monitor triggers (e.g. warehouse post, hiring). Reach out only when triggered, not calendar-spam.',
+    crm_status_text: 'Nurturing Active'
+  },
+  stage_7_business_convo: {
+    stage_number: 7,
+    id: 'stage_7_business_convo',
+    name: '7. Start Business Conversation',
+    short_label: '7. Business Convo',
+    description: 'Transition from relationship to business using contextual observation (e.g. operational scaling).',
+    recommended_action: 'Open discussion around their operational approach (not selling services directly).',
+    crm_status_text: 'Business Conversation'
+  },
+  stage_8_problem_discovery: {
+    stage_number: 8,
+    id: 'stage_8_problem_discovery',
+    name: '8. Problem Discovery & Fit',
+    short_label: '8. Problem Fit',
+    description: 'Uncover problem -> importance -> urgency -> authority -> fit. Propose meeting as logical next step.',
+    recommended_action: 'If genuine problem appears, propose meeting as natural next step instead of forced CTA.',
+    crm_status_text: 'Meeting Proposed'
+  },
+  stage_9_meeting_booked: {
+    stage_number: 9,
+    id: 'stage_9_meeting_booked',
+    name: '9. Book Meeting & Briefing',
+    short_label: '9. Meeting Booked',
+    description: 'Meeting agreed! Generate company intelligence brief with previous interactions & Tadbeer angles.',
+    recommended_action: 'Review compiled briefing (who they are, what changed, what they need) before meeting.',
+    crm_status_text: 'Meeting Booked'
+  },
+  stage_10_pipeline_converted: {
+    stage_number: 10,
+    id: 'stage_10_pipeline_converted',
+    name: '10. Sales Pipeline Transition',
+    short_label: '10. Sales Pipeline',
+    description: 'Transferred into main sales pipeline (Discovery -> Opportunity -> Proposal -> Won/Lost).',
+    recommended_action: 'Track in main CRM Pipeline. Continue using LinkedIn as a relationship channel throughout.',
+    crm_status_text: 'In Main Pipeline'
+  }
+};
+
 
 // ── Inline LinkedIn logo SVG ───────────────────────────────────────────────
 function LinkedInIcon({ size = 16 }: { size?: number }) {
@@ -29,41 +140,70 @@ function LinkedInIcon({ size = 16 }: { size?: number }) {
   )
 }
 
-// ── Status config ────────────────────────────────────────────────────────────
-const CONNECTION_STATUS_CONFIG: Record<ConnectionStatus, { label: string; color: string; bg: string; icon: React.ReactNode; action: string }> = {
-  connected:  { label: '1st – Connected',    color: '#16A34A', bg: '#F0FDF4', icon: <UserCheck size={12} />,  action: 'Send Message' },
-  pending:    { label: 'Invitation Pending',  color: '#D97706', bg: '#FFFBEB', icon: <Clock size={12} />,      action: 'Awaiting Accept' },
-  to_connect: { label: 'Not Connected',       color: '#6B7280', bg: '#F9FAFB', icon: <UserPlus size={12} />,  action: 'Send Invite + Msg' },
-  following:  { label: 'Following',           color: '#7C3AED', bg: '#F5F3FF', icon: <Eye size={12} />,       action: 'Send Message' },
+// ── Status Config ────────────────────────────────────────────────────────────
+const CONNECTION_STATUS_CONFIG: Record<ConnectionStatus, { label: string; color: string; bg: string }> = {
+  connected:      { label: 'Connected (1st)',       color: '#16A34A', bg: '#F0FDF4' },
+  pending:        { label: 'Invitation Pending',     color: '#D97706', bg: '#FFFBEB' },
+  to_connect:     { label: 'Not Connected',          color: '#6B7280', bg: '#F9FAFB' },
+  following:      { label: 'Following',              color: '#7C3AED', bg: '#F5F3FF' },
+  engaged:        { label: 'Post Engaged',           color: '#2563EB', bg: '#EFF6FF' },
+  profile_viewer: { label: 'Viewed My Profile',      color: '#EA580C', bg: '#FFF7ED' },
 }
 
 const MESSAGE_STATUS_CONFIG: Record<MessageStatus, { label: string; color: string; bg: string }> = {
-  to_send: { label: 'To Send',  color: '#DC2626', bg: '#FEF2F2' },
-  sent:    { label: 'Sent',     color: '#D97706', bg: '#FFFBEB' },
-  replied: { label: 'Replied',  color: '#16A34A', bg: '#F0FDF4' },
+  none:    { label: 'No Message',      color: '#9CA3AF', bg: '#F3F4F6' },
+  to_send: { label: 'To Send',         color: '#DC2626', bg: '#FEF2F2' },
+  planned: { label: 'DM Planned',      color: '#8B5CF6', bg: '#F3E8FF' },
+  sent:    { label: 'Welcome DM Sent', color: '#16A34A', bg: '#F0FDF4' },
+  replied: { label: 'Replied',         color: '#059669', bg: '#ECFDF5' },
 }
 
-function DegreeBadge({ degree }: { degree: string }) {
-  const color = degree === '1st' ? '#16A34A' : degree === '2nd' ? '#2563EB' : '#9CA3AF'
+function deriveBdStage(prospect: LinkedInProspect): LinkedInBdStage {
+  if (prospect.bd_stage) return prospect.bd_stage;
+  if (prospect.in_pipeline) return 'stage_10_pipeline_converted';
+  if (prospect.connection_status === 'connected' && prospect.message_status === 'replied') return 'stage_6_intelligent_nurture';
+  if (prospect.connection_status === 'connected' && prospect.message_status === 'sent') return 'stage_5_welcome_convo';
+  if (prospect.connection_status === 'pending') return 'stage_4_connection_pending';
+  if (prospect.connection_status === 'engaged' || prospect.connection_status === 'following') return 'stage_3_warm_engagement';
+  if (prospect.profile_url) return 'stage_2_research';
+  return 'stage_1_targeting';
+}
+
+function TierBadge({ tier }: { tier?: string }) {
+  const currentTier = tier || 'Tier 2';
+  let color = '#2563EB';
+  let bg = '#EFF6FF';
+  let label = 'Tier 2: Good Fit';
+
+  if (currentTier.includes('Tier 1')) {
+    color = '#7C3AED'; bg = '#F5F3FF'; label = '👑 Tier 1: Strategic Account';
+  } else if (currentTier.includes('Tier 3')) {
+    color = '#059669'; bg = '#ECFDF5'; label = '🌱 Tier 3: Network Relationship';
+  }
+
   return (
     <span style={{
-      fontSize: '10px', fontWeight: 700, color, border: `1px solid ${color}`,
-      borderRadius: '4px', padding: '1px 5px', letterSpacing: '0.03em',
+      fontSize: '11px', fontWeight: 800, color, background: bg,
+      border: `1px solid ${color}40`, borderRadius: '6px',
+      padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px',
     }}>
-      {degree}
+      {label}
     </span>
-  )
+  );
 }
 
 // ── Add Prospect Modal ────────────────────────────────────────────────────────
 function AddProspectModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [pending, startTransition] = useTransition()
   const [form, setForm] = useState({
-    name: '', company: '', title: '', profile_url: '',
-    location: 'Muscat', degree: '2nd', connections: '500+ connections',
+    name: '', title: '', company: '', location: '', degree: '2nd',
     connection_status: 'to_connect' as ConnectionStatus,
-    message_status: 'to_send' as MessageStatus, mutual_connection: '',
-    industry: 'General', screenshot_date: new Date().toISOString().split('T')[0], notes: '',
+    message_status: 'none' as MessageStatus, priority: 'High',
+    bd_stage: 'stage_1_targeting' as LinkedInBdStage,
+    tier: 'Tier 2' as 'Tier 1' | 'Tier 2' | 'Tier 3',
+    tadbeer_angle: '',
+    lead_type: '', profile_url: '', notes: '', activity_type: 'profile_visit', activity_desc: 'Visited LinkedIn profile today',
+    activity_status: 'confirmed' as 'confirmed' | 'planned'
   })
 
   const handleSubmit = () => {
@@ -72,7 +212,22 @@ function AddProspectModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
       return
     }
     startTransition(async () => {
-      const { error } = await createLinkedInProspect(form)
+      const initialActivities: TimelineActivity[] = [
+        {
+          id: 'act-' + Date.now(),
+          date: '2026-07-23',
+          activity_type: form.activity_type as any,
+          description: form.activity_desc || 'Added to LinkedIn CRM',
+          status: form.activity_status,
+        }
+      ]
+
+      const { error } = await createOrUpdateLinkedInProspect({
+        ...form,
+        screenshot_date: '2026-07-23',
+        activities: initialActivities,
+      })
+
       if (!error) { onSaved(); onClose() }
       else alert('Failed to save: ' + error)
     })
@@ -86,663 +241,635 @@ function AddProspectModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-      padding: '16px',
+      padding: '16px', backdropFilter: 'blur(4px)',
     }}>
       <div style={{
         background: '#fff', borderRadius: '16px', padding: '24px',
-        width: '100%', maxWidth: '440px', maxHeight: '90vh', overflowY: 'auto',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+        width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto',
+        boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: '#111827' }}>Quick Add Prospect</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
-            <X size={18} style={{ color: '#6B7280' }} />
-          </button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#111827' }}>Add New LinkedIn Lead</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280' }}><X size={20} /></button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div>
-            <label style={{ fontSize: '12px', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '4px' }}>
-              Company Name <span style={{ color: '#DC2626' }}>*</span>
-            </label>
-            <input
-              type="text"
-              style={inp}
-              placeholder="e.g. 350 Youth Clothing"
-              value={form.company}
-              onChange={e => setForm(p => ({ ...p, company: e.target.value }))}
-              autoFocus
-            />
+            <label style={{ fontSize: '11px', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '4px' }}>Full Name *</label>
+            <input style={inp} placeholder="e.g. Jad Atat" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div>
+              <label style={{ fontSize: '11px', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '4px' }}>Title</label>
+              <input style={inp} placeholder="e.g. Group CEO" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
+            </div>
+            <div>
+              <label style={{ fontSize: '11px', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '4px' }}>Company Name *</label>
+              <input style={inp} placeholder="e.g. EVCG" value={form.company} onChange={e => setForm({ ...form, company: e.target.value })} />
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div>
+              <label style={{ fontSize: '11px', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '4px' }}>Account Classification Tier</label>
+              <select style={inp} value={form.tier} onChange={e => setForm({ ...form, tier: e.target.value as any })}>
+                <option value="Tier 1">👑 Tier 1: High-Value Strategic Account</option>
+                <option value="Tier 2">☀️ Tier 2: Good-Fit Prospect</option>
+                <option value="Tier 3">🌱 Tier 3: Network Relationship</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: '11px', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '4px' }}>BD Process Stage</label>
+              <select style={inp} value={form.bd_stage} onChange={e => setForm({ ...form, bd_stage: e.target.value as any })}>
+                {Object.values(LINKEDIN_BD_STAGES_MAP).map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div>
-            <label style={{ fontSize: '12px', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '4px' }}>
-              Contact Person Name <span style={{ color: '#DC2626' }}>*</span>
-            </label>
-            <input
-              type="text"
-              style={inp}
-              placeholder="e.g. Abdul Aziz"
-              value={form.name}
-              onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-            />
+            <label style={{ fontSize: '11px', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '4px' }}>Why conversation with Tadbeer makes sense?</label>
+            <input style={inp} placeholder="e.g. Scaling warehouse operations & needs ERP automation" value={form.tadbeer_angle} onChange={e => setForm({ ...form, tadbeer_angle: e.target.value })} />
           </div>
 
           <div>
-            <label style={{ fontSize: '12px', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '4px' }}>
-              Title / Position
-            </label>
-            <input
-              type="text"
-              style={inp}
-              placeholder="e.g. Owner, Managing Director"
-              value={form.title}
-              onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
-            />
+            <label style={{ fontSize: '11px', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '4px' }}>LinkedIn Profile URL</label>
+            <input style={inp} placeholder="https://linkedin.com/in/username" value={form.profile_url} onChange={e => setForm({ ...form, profile_url: e.target.value })} />
           </div>
 
-          <div>
-            <label style={{ fontSize: '12px', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '4px' }}>
-              LinkedIn URL (Optional)
-            </label>
-            <input
-              type="text"
-              style={inp}
-              placeholder="https://linkedin.com/in/..."
-              value={form.profile_url}
-              onChange={e => setForm(p => ({ ...p, profile_url: e.target.value }))}
-            />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
+            <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #D1D5DB', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+            <button onClick={handleSubmit} disabled={pending} style={{ padding: '8px 18px', borderRadius: '8px', border: 'none', background: '#0A66C2', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
+              {pending ? 'Saving...' : 'Save Prospect'}
+            </button>
           </div>
-        </div>
-
-        <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{
-            padding: '8px 16px', borderRadius: '8px', border: '1px solid #E5E7EB',
-            background: '#fff', fontSize: '13px', cursor: 'pointer', color: '#374151', fontWeight: 600,
-          }}>
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={pending}
-            style={{
-              padding: '8px 20px', borderRadius: '8px', border: 'none',
-              background: '#0A66C2', color: '#fff', fontSize: '13px', cursor: 'pointer',
-              fontWeight: 700,
-            }}
-          >
-            {pending ? 'Saving…' : 'Save Prospect'}
-          </button>
         </div>
       </div>
     </div>
   )
 }
 
-// ── Profile card ─────────────────────────────────────────────────────────────
-function ProfileCard({
+// ── Single Prospect Card Component ────────────────────────────────────────────
+function ProspectCard({
   profile,
-  onUpdateConnection,
-  onUpdateMessage,
-  onDelete,
+  onRefresh,
 }: {
   profile: LinkedInProspect
-  onUpdateConnection: (id: string, status: ConnectionStatus) => void
-  onUpdateMessage: (id: string, status: MessageStatus) => void
-  onDelete: (id: string) => void
+  onRefresh: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const [savingConn, setSavingConn] = useState(false)
   const [savingMsg, setSavingMsg] = useState(false)
-  const [localNotes, setLocalNotes] = useState(profile.notes)
+  const [savingStage, setSavingStage] = useState(false)
+  const [converting, setConverting] = useState(false)
+  const [showAddAct, setShowAddAct] = useState(false)
+  const [notes, setNotes] = useState(profile.notes || '')
+  const [tadbeerAngle, setTadbeerAngle] = useState(profile.tadbeer_angle || '')
   const [savingNotes, setSavingNotes] = useState(false)
-  const [notesChanged, setNotesChanged] = useState(false)
 
-  const cs = CONNECTION_STATUS_CONFIG[profile.connection_status]
-  const ms = MESSAGE_STATUS_CONFIG[profile.message_status]
+  // New activity form
+  const [newActType, setNewActType] = useState<TimelineActivity['activity_type']>('profile_visit')
+  const [newActDesc, setNewActDesc] = useState('')
+  const [newActStatus, setNewActStatus] = useState<'confirmed' | 'planned'>('confirmed')
+  const [savingAct, setSavingAct] = useState(false)
 
-  const handleConnChange = async (status: ConnectionStatus) => {
+  const currentStage = deriveBdStage(profile)
+  const stageInfo = LINKEDIN_BD_STAGES_MAP[currentStage]
+  const validLinkedin = isValidLinkedInUrl(profile.profile_url)
+
+  const handleConnChange = async (newStatus: ConnectionStatus) => {
     setSavingConn(true)
-    await onUpdateConnection(profile.id, status)
+    await updateConnectionStatus(profile.id, newStatus)
     setSavingConn(false)
+    onRefresh()
   }
 
-  const handleMsgChange = async (status: MessageStatus) => {
+  const handleMsgChange = async (newStatus: MessageStatus) => {
     setSavingMsg(true)
-    await onUpdateMessage(profile.id, status)
+    await updateMessageStatus(profile.id, newStatus)
     setSavingMsg(false)
+    onRefresh()
   }
 
-  const handleSaveNotes = async () => {
-    setSavingNotes(true)
-    const { error } = await updateProspectNotes(profile.id, localNotes)
-    if (!error) setNotesChanged(false)
-    setSavingNotes(false)
+  const handleStageChange = async (newStage: LinkedInBdStage) => {
+    setSavingStage(true)
+    await updateProspectBdStage(profile.id, newStage)
+    setSavingStage(false)
+    onRefresh()
   }
+
+  const handleTierChange = async (newTier: 'Tier 1' | 'Tier 2' | 'Tier 3') => {
+    await updateProspectTier(profile.id, newTier)
+    onRefresh()
+  }
+
+  const handleSaveAngle = async () => {
+    setSavingNotes(true)
+    await updateTadbeerAngle(profile.id, tadbeerAngle)
+    await updateProspectNotes(profile.id, notes)
+    setSavingNotes(false)
+    onRefresh()
+  }
+
+  const handleAddAct = async () => {
+    if (!newActDesc.trim()) return
+    setSavingAct(true)
+    await addTimelineActivity(profile.id, {
+      date: '2026-07-23',
+      activity_type: newActType,
+      description: newActDesc,
+      status: newActStatus,
+    })
+    setSavingAct(false)
+    setNewActDesc('')
+    setShowAddAct(false)
+    onRefresh()
+  }
+
+  const handleConvertToPipeline = async () => {
+    if (!confirm(`Send "${profile.name}" (${profile.company}) into main CRM pipeline?`)) return
+    setConverting(true)
+    const { error } = await convertProspectToPipeline(profile.id)
+    setConverting(false)
+    if (error) alert(error)
+    else {
+      await updateProspectBdStage(profile.id, 'stage_10_pipeline_converted')
+      alert(`"${profile.name}" has been pushed into the main CRM pipeline!`)
+      onRefresh()
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!confirm(`Delete prospect "${profile.name}"?`)) return
+    await deleteLinkedInProspect(profile.id)
+    onRefresh()
+  }
+
+  const cs = CONNECTION_STATUS_CONFIG[profile.connection_status] || CONNECTION_STATUS_CONFIG.to_connect
+  const ms = MESSAGE_STATUS_CONFIG[profile.message_status] || MESSAGE_STATUS_CONFIG.none
 
   return (
     <div style={{
-      background: '#fff', borderRadius: '14px', border: '1px solid #E5E7EB',
-      overflow: 'hidden', transition: 'box-shadow 0.2s',
+      background: '#ffffff', borderRadius: '16px', border: '1px solid #E5E7EB',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.04)', overflow: 'hidden',
+      transition: 'box-shadow 0.2s ease',
     }}>
-      {/* Header */}
-      <div style={{ padding: '14px 16px' }}>
+      {/* ── 10-Stage Progress Stepper Ribbon ───────────────────────────────── */}
+      <div style={{
+        background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', padding: '10px 16px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{
+            fontSize: '11px', fontWeight: 900, color: '#fff', background: '#0A66C2',
+            padding: '2px 8px', borderRadius: '12px', letterSpacing: '0.04em'
+          }}>
+            STAGE {stageInfo.stage_number} / 10
+          </span>
+
+          <select
+            value={currentStage}
+            onChange={e => handleStageChange(e.target.value as LinkedInBdStage)}
+            disabled={savingStage}
+            style={{
+              fontSize: '12px', fontWeight: 800, color: '#1E293B', background: '#fff',
+              border: '1px solid #CBD5E1', borderRadius: '8px', padding: '4px 10px', cursor: 'pointer',
+              outline: 'none',
+            }}
+          >
+            {Object.values(LINKEDIN_BD_STAGES_MAP).map(s => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <select
+            value={profile.tier || 'Tier 2'}
+            onChange={e => handleTierChange(e.target.value as any)}
+            style={{
+              fontSize: '11px', fontWeight: 800, background: '#fff', border: '1px solid #CBD5E1',
+              borderRadius: '8px', padding: '3px 8px', cursor: 'pointer'
+            }}
+          >
+            <option value="Tier 1">👑 Tier 1: Strategic Account</option>
+            <option value="Tier 2">☀️ Tier 2: Good Fit</option>
+            <option value="Tier 3">🌱 Tier 3: Network</option>
+          </select>
+
+          {profile.in_pipeline ? (
+            <span style={{ fontSize: '11px', fontWeight: 800, color: '#059669', background: '#ECFDF5', border: '1px solid #A7F3D0', padding: '3px 8px', borderRadius: '8px' }}>
+              ✓ Main Pipeline Active
+            </span>
+          ) : (
+            <button
+              onClick={handleConvertToPipeline}
+              disabled={converting}
+              style={{
+                fontSize: '11px', fontWeight: 800, color: '#fff', background: '#059669',
+                border: 'none', borderRadius: '8px', padding: '4px 10px', cursor: 'pointer'
+              }}
+            >
+              {converting ? 'Sending...' : 'Send to Main Pipeline'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Main Card Header */}
+      <div style={{ padding: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-          {/* Avatar */}
           <div style={{
-            width: '44px', height: '44px', borderRadius: '50%', flexShrink: 0,
-            background: `linear-gradient(135deg, #0A66C2, #1a8fe3)`,
+            width: '48px', height: '48px', borderRadius: '14px', flexShrink: 0,
+            background: `linear-gradient(135deg, #0A66C2, #004182)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff', fontSize: '16px', fontWeight: 700,
+            color: '#fff', fontSize: '18px', fontWeight: 900,
+            boxShadow: '0 4px 10px rgba(10,102,194,0.2)',
           }}>
             {profile.name.charAt(0)}
           </div>
 
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
-              <span style={{ fontWeight: 700, fontSize: '14px', color: '#111827' }}>{profile.name}</span>
-              <DegreeBadge degree={profile.degree || '2nd'} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '2px' }}>
+              <span style={{ fontWeight: 900, fontSize: '16px', color: '#0F172A' }}>{profile.name}</span>
+              <TierBadge tier={profile.tier} />
+              {validLinkedin && (
+                <a href={profile.profile_url.startsWith('http') ? profile.profile_url : `https://${profile.profile_url}`} target="_blank" rel="noopener noreferrer" style={{ color: '#0A66C2' }} title="Verified LinkedIn Profile">
+                  <LinkedInIcon size={16} />
+                </a>
+              )}
             </div>
-            <div style={{ fontSize: '12px', color: '#374151', lineHeight: 1.4, marginBottom: '3px' }}>
+
+            <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
               {profile.title}
             </div>
-            <div style={{ fontSize: '11px', color: '#6B7280' }}>
-              {profile.company} · {profile.location}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', fontSize: '12px', color: '#64748B' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 700, color: '#0F172A' }}>
+                <Building2 size={12} style={{ color: '#0A66C2' }} /> {profile.company}
+              </span>
+              {profile.location && (
+                <span style={{ display: 'inline-flex', gap: '3px' }}>
+                  <MapPin size={12} /> {profile.location}
+                </span>
+              )}
             </div>
           </div>
 
-          {/* Actions */}
-          <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-            {profile.profile_url && (
-              <a
-                href={profile.profile_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  width: '30px', height: '30px', borderRadius: '8px',
-                  background: '#0A66C2', color: '#fff',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  textDecoration: 'none',
-                }}
-                title="Open LinkedIn Profile"
-              >
-                <LinkedInIcon size={14} />
-              </a>
-            )}
-            <button
-              onClick={() => onDelete(profile.id)}
-              style={{
-                width: '30px', height: '30px', borderRadius: '8px',
-                background: '#FEF2F2', border: 'none', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-              title="Delete Prospect"
-            >
-              <Trash2 size={13} style={{ color: '#DC2626' }} />
-            </button>
-            <button
-              onClick={() => setExpanded(!expanded)}
-              style={{
-                width: '30px', height: '30px', borderRadius: '8px',
-                background: '#F3F4F6', border: 'none', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            </button>
-          </div>
+          <button onClick={handleDelete} style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: '4px' }} title="Delete Prospect">
+            <Trash2 size={15} />
+          </button>
         </div>
 
-        {/* Status row */}
-        <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
-          {/* Connection status dropdown */}
+        {/* 🎯 Tadbeer Angle & Strategy Box */}
+        <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '10px 12px', marginTop: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 800, color: '#0A66C2', marginBottom: '4px' }}>
+            <Target size={13} />
+            <span>Tadbeer Angle (Why talk to Tadbeer?):</span>
+          </div>
+          <p style={{ fontSize: '12px', color: '#334155', margin: 0, fontWeight: 600 }}>
+            {profile.tadbeer_angle || profile.notes || 'Document specific Tadbeer angle during Stage 2 Research.'}
+          </p>
+        </div>
+
+        {/* ⚡ Recommended Action Box for Current Stage */}
+        <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '12px', padding: '10px 12px', marginTop: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 800, color: '#1E40AF', marginBottom: '2px' }}>
+            <Zap size={13} style={{ fill: '#1E40AF' }} />
+            <span>Recommended BD Stage Action:</span>
+          </div>
+          <p style={{ fontSize: '11px', color: '#1E3A8A', margin: 0, fontWeight: 700, lineHeight: '1.4' }}>
+            {stageInfo.recommended_action}
+          </p>
+        </div>
+
+        {/* Status Dropdowns */}
+        <div style={{ display: 'flex', gap: '8px', marginTop: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
           <div style={{ position: 'relative' }}>
             <select
               value={profile.connection_status}
               onChange={e => handleConnChange(e.target.value as ConnectionStatus)}
               disabled={savingConn}
               style={{
-                fontSize: '11px', fontWeight: 600, color: cs.color,
-                background: cs.bg, border: `1px solid ${cs.color}40`,
-                borderRadius: '20px', padding: '3px 8px', cursor: 'pointer',
+                fontSize: '11px', fontWeight: 700, color: cs.color,
+                background: cs.bg, border: `1px solid ${cs.color}50`,
+                borderRadius: '20px', padding: '4px 10px', cursor: 'pointer',
                 outline: 'none', appearance: 'none', paddingRight: '22px',
               }}
             >
-              <option value="to_connect">Not Connected</option>
-              <option value="pending">Invitation Pending</option>
-              <option value="connected">Connected (1st)</option>
-              <option value="following">Following</option>
+              <option value="to_connect">Status: Not Connected</option>
+              <option value="pending">Status: Invitation Pending</option>
+              <option value="connected">Status: Connected (1st)</option>
+              <option value="following">Status: Following</option>
+              <option value="engaged">Status: Post Engaged</option>
+              <option value="profile_viewer">Status: Viewed My Profile</option>
             </select>
-            {savingConn
-              ? <Loader2 size={10} style={{ position: 'absolute', right: '6px', top: '6px', color: cs.color, animation: 'spin 1s linear infinite' }} />
-              : <ChevronDown size={10} style={{ position: 'absolute', right: '6px', top: '6px', color: cs.color, pointerEvents: 'none' }} />
-            }
+            <ChevronDown size={10} style={{ position: 'absolute', right: '8px', top: '7px', color: cs.color, pointerEvents: 'none' }} />
           </div>
 
-          {/* Message status dropdown */}
           <div style={{ position: 'relative' }}>
             <select
               value={profile.message_status}
               onChange={e => handleMsgChange(e.target.value as MessageStatus)}
               disabled={savingMsg}
               style={{
-                fontSize: '11px', fontWeight: 600, color: ms.color,
-                background: ms.bg, border: `1px solid ${ms.color}40`,
-                borderRadius: '20px', padding: '3px 8px', cursor: 'pointer',
+                fontSize: '11px', fontWeight: 700, color: ms.color,
+                background: ms.bg, border: `1px solid ${ms.color}50`,
+                borderRadius: '20px', padding: '4px 10px', cursor: 'pointer',
                 outline: 'none', appearance: 'none', paddingRight: '22px',
               }}
             >
-              <option value="to_send">Msg: To Send</option>
-              <option value="sent">Msg: Sent</option>
-              <option value="replied">Msg: Replied</option>
+              <option value="none">DM: None</option>
+              <option value="to_send">DM: To Send</option>
+              <option value="planned">DM: Planned (Not Sent)</option>
+              <option value="sent">Welcome DM Sent</option>
+              <option value="replied">DM: Replied</option>
             </select>
-            {savingMsg
-              ? <Loader2 size={10} style={{ position: 'absolute', right: '6px', top: '6px', color: ms.color, animation: 'spin 1s linear infinite' }} />
-              : <ChevronDown size={10} style={{ position: 'absolute', right: '6px', top: '6px', color: ms.color, pointerEvents: 'none' }} />
-            }
+            <ChevronDown size={10} style={{ position: 'absolute', right: '8px', top: '7px', color: ms.color, pointerEvents: 'none' }} />
           </div>
-
-          {profile.industry && (
-            <span style={{
-              fontSize: '11px', color: '#6B7280', background: '#F3F4F6',
-              borderRadius: '20px', padding: '3px 8px', fontWeight: 500,
-            }}>
-              {profile.industry}
-            </span>
-          )}
-          {profile.mutual_connection && (
-            <span style={{
-              fontSize: '11px', color: '#7C3AED', background: '#F5F3FF',
-              borderRadius: '20px', padding: '3px 8px', fontWeight: 500,
-            }}>
-              via {profile.mutual_connection}
-            </span>
-          )}
         </div>
       </div>
 
-      {/* Expanded notes */}
+      {/* Activity Timeline Accordion */}
+      <div
+        onClick={() => setExpanded(!expanded)}
+        style={{
+          borderTop: '1px solid #F1F5F9', padding: '10px 16px',
+          background: '#FAFAFA', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: '#334155' }}>
+          <Clock size={13} style={{ color: '#0A66C2' }} />
+          Activity Timeline ({profile.activities?.length || 0} entries)
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#64748B' }}>
+          <span>{expanded ? 'Hide Details' : 'View History & Notes'}</span>
+          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </div>
+      </div>
+
       {expanded && (
-        <div style={{
-          borderTop: '1px solid #F3F4F6', padding: '12px 16px',
-          background: '#FAFAFA',
-        }}>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: '#6B7280', marginBottom: '6px' }}>Notes</div>
-          <textarea
-            value={localNotes}
-            onChange={e => { setLocalNotes(e.target.value); setNotesChanged(true) }}
-            style={{
-              width: '100%', border: '1px solid #E5E7EB', borderRadius: '8px',
-              padding: '8px 10px', fontSize: '12px', outline: 'none',
-              fontFamily: 'inherit', minHeight: '72px', resize: 'vertical',
-              boxSizing: 'border-box', background: '#fff',
-            }}
-          />
-          {notesChanged && (
-            <button
-              onClick={handleSaveNotes}
-              disabled={savingNotes}
-              style={{
-                marginTop: '6px', padding: '5px 12px', borderRadius: '6px',
-                border: 'none', background: '#0A66C2', color: '#fff',
-                fontSize: '11px', cursor: 'pointer', fontWeight: 600,
-                display: 'flex', alignItems: 'center', gap: '5px',
-              }}
-            >
-              {savingNotes ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={11} />}
-              Save Notes
-            </button>
-          )}
-          {profile.connections && (
-            <div style={{ marginTop: '8px', fontSize: '11px', color: '#9CA3AF' }}>
-              📊 {profile.connections}  ·  Added {profile.screenshot_date}
+        <div style={{ borderTop: '1px solid #E2E8F0', padding: '16px', background: '#F8FAFC' }}>
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+              <span style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A' }}>
+                Chronological Activity Stream
+              </span>
+              <button
+                onClick={() => setShowAddAct(!showAddAct)}
+                style={{
+                  fontSize: '11px', fontWeight: 700, color: '#0A66C2', background: '#EFF6FF',
+                  border: '1px solid #BFDBFE', borderRadius: '6px', padding: '3px 8px',
+                  cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px'
+                }}
+              >
+                <Plus size={11} /> Log Activity
+              </button>
             </div>
-          )}
+
+            {showAddAct && (
+              <div style={{ background: '#fff', border: '1px solid #CBD5E1', borderRadius: '10px', padding: '12px', marginBottom: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                  <select
+                    value={newActType}
+                    onChange={e => setNewActType(e.target.value as any)}
+                    style={{ fontSize: '11px', padding: '6px', borderRadius: '6px', border: '1px solid #CBD5E1' }}
+                  >
+                    <option value="profile_visit">Profile Visited</option>
+                    <option value="connection_sent">Connection Sent</option>
+                    <option value="commented_post">Commented on Post</option>
+                    <option value="followed">Followed Profile</option>
+                    <option value="dm_sent">Welcome DM Sent</option>
+                    <option value="dm_planned">DM Planned</option>
+                  </select>
+
+                  <select
+                    value={newActStatus}
+                    onChange={e => setNewActStatus(e.target.value as any)}
+                    style={{ fontSize: '11px', padding: '6px', borderRadius: '6px', border: '1px solid #CBD5E1' }}
+                  >
+                    <option value="confirmed">Confirmed</option>
+                    <option value="planned">Planned</option>
+                  </select>
+                </div>
+
+                <input
+                  placeholder="Activity details (e.g. Commented on warehouse automation post)..."
+                  value={newActDesc}
+                  onChange={e => setNewActDesc(e.target.value)}
+                  style={{ width: '100%', fontSize: '12px', padding: '6px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', marginBottom: '8px', boxSizing: 'border-box' }}
+                />
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                  <button onClick={() => setShowAddAct(false)} style={{ fontSize: '11px', padding: '4px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', background: '#fff' }}>Cancel</button>
+                  <button onClick={handleAddAct} disabled={savingAct} style={{ fontSize: '11px', padding: '4px 12px', border: 'none', borderRadius: '6px', background: '#0A66C2', color: '#fff', fontWeight: 700 }}>Save</button>
+                </div>
+              </div>
+            )}
+
+            {/* Timeline Activities List */}
+            {profile.activities && profile.activities.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {profile.activities.map(act => (
+                  <div key={act.id} style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '10px', fontSize: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: '#1E293B' }}>
+                      <span>{act.description}</span>
+                      <span style={{ fontSize: '10px', color: '#94A3B8' }}>{act.date}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ fontSize: '12px', color: '#94A3B8', fontStyle: 'italic' }}>No activities logged yet.</p>
+            )}
+          </div>
+
+          {/* Edit Tadbeer Angle & Prospect Notes */}
+          <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '12px' }}>
+            <label style={{ fontSize: '11px', fontWeight: 800, color: '#334155', display: 'block', marginBottom: '4px' }}>
+              Edit Tadbeer Angle:
+            </label>
+            <input
+              value={tadbeerAngle}
+              onChange={e => setTadbeerAngle(e.target.value)}
+              placeholder="Why should this lead talk to Tadbeer?"
+              style={{ width: '100%', fontSize: '12px', padding: '6px 10px', borderRadius: '8px', border: '1px solid #CBD5E1', marginBottom: '8px', boxSizing: 'border-box' }}
+            />
+
+            <label style={{ fontSize: '11px', fontWeight: 800, color: '#334155', display: 'block', marginBottom: '4px' }}>
+              Prospect Relationship Notes:
+            </label>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              rows={2}
+              style={{ width: '100%', fontSize: '12px', padding: '8px', borderRadius: '8px', border: '1px solid #CBD5E1', boxSizing: 'border-box' }}
+            />
+            <button
+              onClick={handleSaveAngle}
+              disabled={savingNotes}
+              style={{ marginTop: '6px', fontSize: '11px', fontWeight: 700, color: '#fff', background: '#0A66C2', border: 'none', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer' }}
+            >
+              {savingNotes ? 'Saving...' : 'Save Notes & Angle'}
+            </button>
+          </div>
         </div>
       )}
     </div>
   )
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+// ── Main LinkedIn CRM Page ───────────────────────────────────────────────────
 export default function LinkedInPage() {
-  const [profiles, setProfiles] = useState<LinkedInProspect[]>([])
+  const [prospects, setProspects] = useState<LinkedInProspect[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [activeStageFilter, setActiveStageFilter] = useState<string>('all')
   const [search, setSearch] = useState('')
-  const [filterConnection, setFilterConnection] = useState<ConnectionStatus | 'all'>('all')
-  const [filterMessage, setFilterMessage] = useState<MessageStatus | 'all'>('all')
   const [showAddModal, setShowAddModal] = useState(false)
-  const [isPending, startTransition] = useTransition()
 
-  const loadProfiles = useCallback(async () => {
+  const loadData = useCallback(async () => {
     setLoading(true)
-    const { data, error } = await getLinkedInProspects()
-    if (error) {
-      // Table may not exist yet — try to seed
-      if (error.includes('schema cache') || error.includes('does not exist') || error.includes('not found')) {
-        setError('linkedin_prospects table not found. Please run the migration first via /api/migrate-linkedin')
+    try {
+      const res = await getLinkedInProspects()
+      if (res.data && res.data.length > 0) {
+        setProspects(res.data)
       } else {
-        setError(error)
+        await seedLinkedInProspects()
+        const retry = await getLinkedInProspects()
+        setProspects(retry.data || [])
       }
-    } else {
-      setProfiles(data || [])
-      // If empty, seed the initial 10 profiles
-      if (!data || data.length === 0) {
-        const { seeded } = await seedLinkedInProspects()
-        if (seeded) {
-          const { data: seededData } = await getLinkedInProspects()
-          setProfiles(seededData || [])
-        }
-      }
+    } catch (e) {
+      console.error('Failed to load prospects:', e)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }, [])
 
-  useEffect(() => { loadProfiles() }, [loadProfiles])
 
-  const handleUpdateConnection = async (id: string, status: ConnectionStatus) => {
-    await updateConnectionStatus(id, status)
-    setProfiles(prev => prev.map(p => p.id === id ? { ...p, connection_status: status } : p))
-  }
+  useEffect(() => { loadData() }, [loadData])
 
-  const handleUpdateMessage = async (id: string, status: MessageStatus) => {
-    await updateMessageStatus(id, status)
-    setProfiles(prev => prev.map(p => p.id === id ? { ...p, message_status: status } : p))
-  }
-
-  const handleDelete = (id: string) => {
-    if (!confirm('Delete this LinkedIn prospect?')) return
-    startTransition(async () => {
-      await deleteLinkedInProspect(id)
-      setProfiles(prev => prev.filter(p => p.id !== id))
-    })
-  }
-
-  const filtered = profiles.filter(p => {
-    const matchSearch = !search || [p.name, p.company, p.title, p.industry].some(
-      f => f?.toLowerCase().includes(search.toLowerCase())
-    )
-    const matchConn = filterConnection === 'all' || p.connection_status === filterConnection
-    const matchMsg = filterMessage === 'all' || p.message_status === filterMessage
-    return matchSearch && matchConn && matchMsg
-  })
-
-  const stats = {
-    total: profiles.length,
-    connected: profiles.filter(p => p.connection_status === 'connected').length,
-    pending: profiles.filter(p => p.connection_status === 'pending').length,
-    toConnect: profiles.filter(p => p.connection_status === 'to_connect').length,
-    following: profiles.filter(p => p.connection_status === 'following').length,
-    toSend: profiles.filter(p => p.message_status === 'to_send').length,
-    replied: profiles.filter(p => p.message_status === 'replied').length,
-  }
-
-  if (loading) {
-    return (
-      <div style={{
-        minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        flexDirection: 'column', gap: '12px',
-      }}>
-        <Loader2 size={32} style={{ color: '#0A66C2', animation: 'spin 1s linear infinite' }} />
-        <p style={{ color: '#6B7280', fontSize: '14px' }}>Loading LinkedIn Prospects from Supabase…</p>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div style={{ maxWidth: '600px', margin: '60px auto', padding: '0 24px' }}>
-        <div style={{
-          background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '12px',
-          padding: '24px',
-        }}>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-            <AlertCircle size={20} style={{ color: '#DC2626', flexShrink: 0, marginTop: '2px' }} />
-            <div>
-              <p style={{ fontWeight: 700, color: '#991B1B', margin: '0 0 8px' }}>Database Table Missing</p>
-              <p style={{ fontSize: '13px', color: '#7F1D1D', margin: '0 0 12px' }}>
-                The <code>linkedin_prospects</code> table doesn&apos;t exist yet in Supabase.
-                Please run this SQL in your <strong>Supabase SQL Editor</strong>:
-              </p>
-              <pre style={{
-                background: '#fff', borderRadius: '8px', padding: '12px',
-                fontSize: '11px', overflow: 'auto', color: '#374151',
-                border: '1px solid #FCA5A5',
-              }}>{`CREATE TABLE IF NOT EXISTS public.linkedin_prospects (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  name text NOT NULL,
-  title text,
-  company text,
-  location text,
-  degree text,
-  connections text,
-  profile_url text,
-  connection_status text NOT NULL DEFAULT 'to_connect',
-  message_status text NOT NULL DEFAULT 'to_send',
-  mutual_connection text,
-  industry text,
-  screenshot_date text,
-  notes text,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
-
-ALTER TABLE public.linkedin_prospects ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all" ON public.linkedin_prospects
-  FOR ALL USING (true) WITH CHECK (true);`}</pre>
-              <button
-                onClick={loadProfiles}
-                style={{
-                  marginTop: '12px', padding: '8px 16px', borderRadius: '8px',
-                  background: '#0A66C2', color: '#fff', border: 'none',
-                  fontSize: '13px', cursor: 'pointer', fontWeight: 600,
-                  display: 'flex', alignItems: 'center', gap: '6px',
-                }}
-              >
-                <RefreshCw size={13} /> Try Again
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const filteredProspects = useMemo(() => {
+    return prospects.filter(p => {
+      const stage = deriveBdStage(p);
+      if (activeStageFilter !== 'all' && stage !== activeStageFilter) return false;
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        return p.name.toLowerCase().includes(q) || p.company.toLowerCase().includes(q) || p.title.toLowerCase().includes(q);
+      }
+      return true;
+    });
+  }, [prospects, activeStageFilter, search]);
 
   return (
-    <div className="p-3 sm:p-6 max-w-[1200px] mx-auto space-y-5">
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-
-      {showAddModal && (
-        <AddProspectModal onClose={() => setShowAddModal(false)} onSaved={loadProfiles} />
-      )}
-
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '36px', height: '36px', borderRadius: '10px',
-            background: '#0A66C2', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', color: '#fff',
-          }}>
-            <LinkedInIcon size={20} />
-          </div>
+    <div className="space-y-6 page-enter pb-24 max-w-[1650px] mx-auto px-2 sm:px-4 font-sans">
+      
+      {/* ── Top Hero Header ─────────────────────────────────────────────── */}
+      <div className="relative overflow-hidden rounded-3xl bg-slate-900 text-white p-6 sm:p-8 shadow-2xl border border-slate-800">
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div>
-            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#111827' }}>LinkedIn Outreach</h1>
-            <p style={{ margin: 0, fontSize: '12px', color: '#6B7280' }}>
-              {stats.total} prospects · {stats.connected} connected · {stats.toSend} messages to send
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-bold mb-3">
+              <LinkedInIcon size={14} />
+              <span>Locked-in 10-Stage LinkedIn BD Process</span>
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">LinkedIn Relationship Manager</h1>
+            <p className="text-slate-300 text-sm mt-1.5 max-w-2xl font-medium leading-relaxed">
+              Track prospects through the 10-stage event-driven BD workflow: Target → Research → Warm Touch → Connect → Human Welcome → Event Nurture → Business Pivot → Problem Fit → Meeting → Sales Pipeline.
             </p>
           </div>
-        </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={loadProfiles}
-            disabled={loading}
-            style={{
-              padding: '8px 14px', borderRadius: '8px', border: '1px solid #E5E7EB',
-              background: '#fff', fontSize: '13px', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: '5px', color: '#374151',
-              fontWeight: 500,
-            }}
-          >
-            <RefreshCw size={13} style={loading ? { animation: 'spin 1s linear infinite' } : {}} /> Refresh
-          </button>
-          <button
-            onClick={() => setShowAddModal(true)}
-            style={{
-              padding: '8px 16px', borderRadius: '8px', border: 'none',
-              background: '#0A66C2', color: '#fff', fontSize: '13px', cursor: 'pointer',
-              fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px',
-            }}
-          >
-            <Plus size={14} /> Add Prospect
-          </button>
-        </div>
-      </div>
 
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '10px', marginBottom: '20px' }}>
-        {[
-          { label: 'Total', value: stats.total, color: '#1D4ED8', bg: '#EFF6FF', icon: <Users size={14} /> },
-          { label: 'Connected', value: stats.connected, color: '#16A34A', bg: '#F0FDF4', icon: <UserCheck size={14} /> },
-          { label: 'Pending', value: stats.pending, color: '#D97706', bg: '#FFFBEB', icon: <Clock size={14} /> },
-          { label: 'To Connect', value: stats.toConnect, color: '#6B7280', bg: '#F9FAFB', icon: <UserPlus size={14} /> },
-          { label: 'Following', value: stats.following, color: '#7C3AED', bg: '#F5F3FF', icon: <Eye size={14} /> },
-          { label: 'Msgs To Send', value: stats.toSend, color: '#DC2626', bg: '#FEF2F2', icon: <MessageSquare size={14} /> },
-          { label: 'Replied', value: stats.replied, color: '#16A34A', bg: '#F0FDF4', icon: <TrendingUp size={14} /> },
-        ].map(s => (
-          <div key={s.label} style={{
-            background: s.bg, borderRadius: '10px', padding: '12px',
-            border: `1px solid ${s.color}20`,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: s.color, marginBottom: '4px' }}>
-              {s.icon}
-              <span style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</span>
-            </div>
-            <div style={{ fontSize: '22px', fontWeight: 800, color: '#111827' }}>{s.value}</div>
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={() => setShowAddModal(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs h-10 rounded-xl px-5 shadow-lg border border-blue-400/30"
+            >
+              <Plus className="h-4 w-4 mr-2" /> Add LinkedIn Lead
+            </Button>
           </div>
-        ))}
+        </div>
       </div>
 
-      {/* Filters */}
-      <div style={{
-        background: '#fff', borderRadius: '12px', border: '1px solid #E5E7EB',
-        padding: '14px 16px', marginBottom: '20px',
-        display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center',
-      }}>
-        <Filter size={14} style={{ color: '#6B7280' }} />
-        <input
-          type="text"
-          placeholder="Search name, company, industry…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{
-            border: '1px solid #E5E7EB', borderRadius: '8px',
-            padding: '6px 12px', fontSize: '12px', outline: 'none', minWidth: '180px', flex: 1,
-          }}
-        />
-        <select
-          value={filterConnection}
-          onChange={e => setFilterConnection(e.target.value as ConnectionStatus | 'all')}
-          style={{
-            border: '1px solid #E5E7EB', borderRadius: '8px',
-            padding: '6px 10px', fontSize: '12px', outline: 'none', background: '#fff',
-          }}
-        >
-          <option value="all">All Connections</option>
-          <option value="connected">Connected (1st)</option>
-          <option value="pending">Pending</option>
-          <option value="to_connect">To Connect</option>
-          <option value="following">Following</option>
-        </select>
-        <select
-          value={filterMessage}
-          onChange={e => setFilterMessage(e.target.value as MessageStatus | 'all')}
-          style={{
-            border: '1px solid #E5E7EB', borderRadius: '8px',
-            padding: '6px 10px', fontSize: '12px', outline: 'none', background: '#fff',
-          }}
-        >
-          <option value="all">All Messages</option>
-          <option value="to_send">To Send</option>
-          <option value="sent">Sent</option>
-          <option value="replied">Replied</option>
-        </select>
-        {(search || filterConnection !== 'all' || filterMessage !== 'all') && (
-          <button
-            onClick={() => { setSearch(''); setFilterConnection('all'); setFilterMessage('all') }}
-            style={{ fontSize: '12px', color: '#6B7280', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
-          >
-            Clear filters
-          </button>
-        )}
-      </div>
-
-      {/* Priority banner */}
-      {stats.toConnect > 0 && (
-        <div style={{
-          background: 'linear-gradient(135deg, #FEF3C7, #FFF7ED)',
-          border: '1px solid #FCD34D', borderRadius: '10px',
-          padding: '12px 16px', marginBottom: '16px',
-          display: 'flex', alignItems: 'center', gap: '10px',
-        }}>
-          <AlertCircle size={16} style={{ color: '#D97706', flexShrink: 0 }} />
-          <span style={{ fontSize: '13px', color: '#92400E' }}>
-            <strong>{stats.toConnect} profile(s)</strong> haven&apos;t been sent a connection request yet.
-            {stats.pending > 0 && <> · <strong>{stats.pending} pending</strong> — message once they accept.</>}
+      {/* ── 10-Stage BD Stepper & Filter Ribbon ─────────────────────────── */}
+      <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <span className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+            <Layers className="h-4 w-4 text-blue-600" />
+            10-Stage LinkedIn BD Workflow Progress
           </span>
+          {activeStageFilter !== 'all' && (
+            <button onClick={() => setActiveStageFilter('all')} className="text-xs font-bold text-blue-600 hover:underline">
+              Clear Stage Filter
+            </button>
+          )}
         </div>
-      )}
 
-      {/* Profiles grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(440px, 1fr))', gap: '14px' }}>
-        {filtered.map(profile => (
-          <ProfileCard
-            key={profile.id}
-            profile={profile}
-            onUpdateConnection={handleUpdateConnection}
-            onUpdateMessage={handleUpdateMessage}
-            onDelete={handleDelete}
+        {/* 10-Stage Stepper Ribbon */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+          <button
+            onClick={() => setActiveStageFilter('all')}
+            className={cn(
+              "px-3.5 py-2 rounded-2xl text-xs font-black whitespace-nowrap transition-all border flex items-center gap-2",
+              activeStageFilter === 'all' ? "bg-slate-900 text-white border-slate-900 shadow-sm" : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+            )}
+          >
+            <span>All Leads ({prospects.length})</span>
+          </button>
+
+          {Object.values(LINKEDIN_BD_STAGES_MAP).map(s => {
+            const count = prospects.filter(p => deriveBdStage(p) === s.id).length;
+            const isSelected = activeStageFilter === s.id;
+            return (
+              <button
+                key={s.id}
+                onClick={() => setActiveStageFilter(isSelected ? 'all' : s.id)}
+                className={cn(
+                  "px-3 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all border flex items-center gap-2",
+                  isSelected ? "bg-blue-600 text-white border-blue-600 shadow-sm" : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                )}
+              >
+                <span>{s.short_label}</span>
+                <span className="bg-slate-200/80 text-slate-800 px-1.5 py-0.5 rounded-md text-[10px] font-black">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <input
+            placeholder="Search contact name, company, or title..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-10 h-10 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 font-semibold"
           />
-        ))}
+        </div>
       </div>
 
-      {filtered.length === 0 && !loading && (
-        <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9CA3AF' }}>
-          <LinkedInIcon size={48} />
-          <p style={{ fontSize: '15px', fontWeight: 600, marginTop: '12px' }}>
-            {profiles.length === 0 ? 'No prospects yet — add your first one!' : 'No profiles match your filters'}
-          </p>
-          <p style={{ fontSize: '13px' }}>
-            {profiles.length === 0
-              ? <button onClick={() => setShowAddModal(true)} style={{ background: '#0A66C2', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>+ Add First Prospect</button>
-              : 'Try adjusting your search or filters'
-            }
-          </p>
+      {/* ── Main Contacts Grid ───────────────────────────────────────────── */}
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-slate-200">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-2" />
+          <p className="text-xs font-bold text-slate-500">Loading 10-stage BD workflow...</p>
+        </div>
+      ) : filteredProspects.length === 0 ? (
+        <div className="text-center py-20 bg-white rounded-3xl border border-slate-200 border-dashed">
+          <Users className="h-10 w-10 text-slate-300 mx-auto mb-2" />
+          <h3 className="text-sm font-bold text-slate-800">No prospects at this stage</h3>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in-up">
+          {filteredProspects.map(p => (
+            <ProspectCard key={p.id} profile={p} onRefresh={loadData} />
+          ))}
         </div>
       )}
 
-      {/* Footer summary */}
-      {profiles.length > 0 && (
-        <div style={{
-          marginTop: '24px', background: '#fff', borderRadius: '12px',
-          border: '1px solid #E5E7EB', padding: '16px 18px',
-        }}>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: '#374151', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <LinkedInIcon size={14} />
-            LinkedIn Outreach Summary · {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', fontSize: '12px', color: '#6B7280' }}>
-            <span>📨 <strong>{stats.pending}</strong> invitations pending</span>
-            <span>✉️ <strong>{stats.toSend}</strong> messages to send</span>
-            <span>🤝 <strong>{stats.connected}</strong> direct connections</span>
-            <span>👁️ <strong>{stats.following}</strong> following (not connected)</span>
-            <span>💬 <strong>{stats.replied}</strong> replied</span>
-          </div>
-        </div>
-      )}
+      {showAddModal && <AddProspectModal onClose={() => setShowAddModal(false)} onSaved={loadData} />}
     </div>
   )
 }

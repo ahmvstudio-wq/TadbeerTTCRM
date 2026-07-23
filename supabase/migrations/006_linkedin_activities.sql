@@ -1,24 +1,6 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+-- Migration 006: Enhanced LinkedIn Prospects & Daily Activity Logs
+-- Created on 23 July 2026
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
-export async function GET() {
-  // Try to query the table first
-  const { error: checkErr } = await supabase
-    .from('linkedin_prospects')
-    .select('id')
-    .limit(1)
-
-  if (!checkErr) {
-    return NextResponse.json({ message: 'Tables already exist and are accessible!', seeded: true })
-  }
-
-  // Table doesn't exist — return SQL for user to run in Supabase dashboard
-  const sql = `
 -- 1. Create or update linkedin_prospects table
 CREATE TABLE IF NOT EXISTS public.linkedin_prospects (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -70,7 +52,3 @@ CREATE POLICY "Allow all for authenticated" ON public.linkedin_prospects FOR ALL
 
 DROP POLICY IF EXISTS "Allow all for authenticated" ON public.linkedin_daily_logs;
 CREATE POLICY "Allow all for authenticated" ON public.linkedin_daily_logs FOR ALL USING (true) WITH CHECK (true);
-  `
-
-  return NextResponse.json({ error: checkErr.message, sql_to_run: sql })
-}
