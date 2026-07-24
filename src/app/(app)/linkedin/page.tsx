@@ -729,6 +729,7 @@ export default function LinkedInPage() {
   const [prospects, setProspects] = useState<LinkedInProspect[]>([])
   const [loading, setLoading] = useState(true)
   const [activeStageFilter, setActiveStageFilter] = useState<string>('all')
+  const [selectedDateFilter, setSelectedDateFilter] = useState<string>('all')
   const [search, setSearch] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
 
@@ -750,20 +751,27 @@ export default function LinkedInPage() {
     }
   }, [])
 
-
   useEffect(() => { loadData() }, [loadData])
+
+  const uniqueDates = useMemo(() => {
+    const dates = prospects
+      .map(p => p.screenshot_date)
+      .filter((date): date is string => !!date);
+    return Array.from(new Set(dates)).sort((a, b) => b.localeCompare(a));
+  }, [prospects]);
 
   const filteredProspects = useMemo(() => {
     return prospects.filter(p => {
       const stage = deriveBdStage(p);
       if (activeStageFilter !== 'all' && stage !== activeStageFilter) return false;
+      if (selectedDateFilter !== 'all' && p.screenshot_date !== selectedDateFilter) return false;
       if (search.trim()) {
         const q = search.toLowerCase();
         return p.name.toLowerCase().includes(q) || p.company.toLowerCase().includes(q) || p.title.toLowerCase().includes(q);
       }
       return true;
     });
-  }, [prospects, activeStageFilter, search]);
+  }, [prospects, activeStageFilter, selectedDateFilter, search]);
 
   return (
     <div className="space-y-6 page-enter pb-24 max-w-[1650px] mx-auto px-2 sm:px-4 font-sans">
@@ -838,15 +846,30 @@ export default function LinkedInPage() {
           })}
         </div>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <input
-            placeholder="Search contact name, company, or title..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full pl-10 h-10 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 font-semibold"
-          />
+        {/* Search & Date Filter */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              placeholder="Search contact name, company, or title..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-10 h-10 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 font-semibold"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-slate-500 flex-shrink-0" />
+            <select
+              value={selectedDateFilter}
+              onChange={e => setSelectedDateFilter(e.target.value)}
+              className="h-10 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 font-bold text-slate-700 cursor-pointer min-w-[160px]"
+            >
+              <option value="all">All Outreach Dates</option>
+              {uniqueDates.map(d => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
