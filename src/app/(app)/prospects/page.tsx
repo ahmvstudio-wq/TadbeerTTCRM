@@ -1,4 +1,5 @@
 "use client";
+// Clean CRM UI
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
@@ -8,7 +9,7 @@ import {
   MessageCircle, Download, LayoutGrid, List, ArrowUpDown, 
   TrendingUp, Users, Target, Clock, ArrowRight, Loader2, Activity,
   Sparkles, Flame, UserCheck, X, FileText, Send, CheckCircle2,
-  Grid, Calendar, Filter, Zap, Globe, MapPin, Tag, User, Layers, PhoneCall
+  Grid, Calendar, Filter, Zap, Globe, MapPin, Tag, User, Layers, PhoneCall, Bot
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -120,6 +121,7 @@ export default function ProspectsPage() {
   const [leadTypeFilter, setLeadTypeFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("all");
+  const [leadSegment, setLeadSegment] = useState<"all" | "new" | "database">("all");
   const [prospects, setProspects] = useState<any[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -138,14 +140,22 @@ export default function ProspectsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [sortBy, setSortBy] = useState<SortOption>('urgency');
 
-  const fetchProspects = useCallback(async (searchVal?: string, statusVal?: string) => {
+  const fetchProspects = useCallback(async (searchVal?: string, statusVal?: string, isRetry = false) => {
     setLoading(true);
     setError(null);
     try {
       const result = await getCompanies({ search: searchVal || undefined, status: statusVal || undefined });
       if (result.error) { setError(result.error); setProspects([]); }
       else { setProspects(result.data || []); setSelectedIds([]); }
-    } catch { setError("Failed to load prospects"); setProspects([]); }
+    } catch (err) {
+      // Auto-retry once on network errors (e.g. server recompiling)
+      if (!isRetry && err instanceof TypeError) {
+        setTimeout(() => fetchProspects(searchVal, statusVal, true), 1500);
+        return;
+      }
+      setError("Connection error. Please check the server is running and click Retry.");
+      setProspects([]);
+    }
     finally { setLoading(false); }
   }, []);
 
@@ -288,6 +298,15 @@ export default function ProspectsPage() {
 
   // Helper to determine Source Channel strictly
   const getLeadSource = (prospect: any) => {
+    const isLeadEasy =
+      prospect.lead_source?.toLowerCase().includes("leadeasy") ||
+      prospect.notes?.toLowerCase().includes("leadeasy") ||
+      prospect.notes?.toLowerCase().includes("auto scraped");
+
+    if (isLeadEasy) {
+      return { type: 'leadeasy', label: '⚡ LeadEasy Scraped', bg: 'bg-[#174E59]/10 text-[#174E59] border-[#174E59]/30 font-black' };
+    }
+
     const contactLinkedin = prospect.contacts?.[0]?.linkedin_url;
     const companyLinkedin = prospect.linkedin_url;
     const hasValidLinkedinUrl = isValidLinkedInUrl(contactLinkedin) || isValidLinkedInUrl(companyLinkedin);
@@ -335,12 +354,15 @@ export default function ProspectsPage() {
   const filteredProspects = useMemo(() => {
     return prospects.filter(p => {
       if (leadTypeFilter && (p.lead_type || 'Cold') !== leadTypeFilter) return false;
+      if (sourceFilter === 'leadeasy' && getLeadSource(p).type !== 'leadeasy') return false;
       if (sourceFilter === 'linkedin' && getLeadSource(p).type !== 'linkedin') return false;
       if (sourceFilter === 'csv' && getLeadSource(p).type !== 'csv') return false;
       if (!isDateMatch(p.created_at, dateFilter)) return false;
+      if (leadSegment === 'new' && p.lead_source !== 'new_lead') return false;
+      if (leadSegment === 'database' && p.lead_source === 'new_lead') return false;
       return true;
     });
-  }, [prospects, leadTypeFilter, sourceFilter, dateFilter]);
+  }, [prospects, leadTypeFilter, sourceFilter, dateFilter, leadSegment]);
 
   const sortedProspects = useMemo(() => {
     return [...filteredProspects].sort((a, b) => {
@@ -369,6 +391,7 @@ export default function ProspectsPage() {
   }, [filteredProspects, sortBy]);
 
   const totalCount = prospects.length;
+  const leadEasyCount = prospects.filter(p => getLeadSource(p).type === 'leadeasy').length;
   const linkedinCount = prospects.filter(p => getLeadSource(p).type === 'linkedin').length;
   const todayCount = prospects.filter(p => isDateMatch(p.created_at, 'today')).length;
   const hotCount = prospects.filter(p => p.lead_type === 'Hot' || p.status === 'opportunity').length;
@@ -379,216 +402,233 @@ export default function ProspectsPage() {
   };
 
   return (
-    <div className="space-y-6 page-enter pb-24 max-w-[1650px] mx-auto px-2 sm:px-4 font-sans">
+    <div className="space-y-6 page-enter pb-24 max-w-[1850px] w-full mx-auto px-2 sm:px-4 font-sans">
       <ToastContainer />
 
       {/* ── BDM Command Header ────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-3xl bg-slate-900 text-white p-6 sm:p-8 shadow-2xl border border-slate-800">
-        <div className="absolute -right-20 -top-20 h-80 w-80 rounded-full bg-teal-500/10 blur-3xl pointer-events-none" />
-        <div className="absolute right-60 -bottom-20 h-60 w-60 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+      <div className="rounded-3xl bg-white text-slate-900 p-5 sm:p-6 border border-slate-200 shadow-xs space-y-5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-300 text-xs font-bold mb-3">
-              <Zap className="h-3.5 w-3.5 text-teal-400 fill-teal-400" />
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-50 border border-teal-200 text-teal-700 text-xs font-bold mb-2">
+              <Zap className="h-3.5 w-3.5 text-teal-600 fill-teal-600" />
               <span>BDM Outreach Directory</span>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">Prospect & Lead Intelligence</h1>
-            <p className="text-slate-300 text-sm mt-1.5 max-w-2xl font-medium leading-relaxed">
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">Prospect & Lead Intelligence</h1>
+            <p className="text-slate-500 text-xs mt-1 max-w-2xl font-medium leading-relaxed">
               Date distinction, 1-click batch sending to Daily Cadence, verified LinkedIn channel tracking, and automatic Oman (+968) WhatsApp formatting.
             </p>
           </div>
 
           {/* Quick Header Actions */}
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <Link href="/daily-cadence">
-              <Button className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-teal-500/25 text-xs font-bold h-10 rounded-xl px-4 border border-emerald-400/30 transition-all hover:scale-105">
-                <PhoneCall className="h-4 w-4 mr-2" />Open Daily Cadence Workstation
+              <Button className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold h-9 rounded-xl px-4 transition-all cursor-pointer">
+                <PhoneCall className="h-3.5 w-3.5 mr-2 text-teal-400" />Open Daily Cadence
               </Button>
             </Link>
             <Button
               variant="outline"
               size="sm"
               onClick={handleExport}
-              className="bg-white/10 hover:bg-white/20 text-white border-white/20 shadow-sm text-xs font-bold h-10 rounded-xl backdrop-blur-md transition-all"
+              className="bg-white hover:bg-slate-50 text-slate-700 border-slate-200 text-xs font-bold h-9 rounded-xl transition-all cursor-pointer"
             >
-              <Download className="h-4 w-4 mr-2 text-teal-300" />Export CSV
+              <Download className="h-3.5 w-3.5 mr-2 text-slate-500" />Export CSV
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setCsvOpen(true)}
-              className="bg-white/10 hover:bg-white/20 text-white border-white/20 shadow-sm text-xs font-bold h-10 rounded-xl backdrop-blur-md transition-all"
+              className="bg-white hover:bg-slate-50 text-slate-700 border-slate-200 text-xs font-bold h-9 rounded-xl transition-all cursor-pointer"
             >
-              <Upload className="h-4 w-4 mr-2 text-teal-300" />Import Prospects
+              <Upload className="h-3.5 w-3.5 mr-2 text-slate-500" />Import Prospects
             </Button>
           </div>
         </div>
 
         {/* ── Metric Bar Highlights ────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mt-8 pt-6 border-t border-white/10">
-          <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/10 flex items-center gap-3.5">
-            <div className="h-11 w-11 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-300 flex-shrink-0">
-              <Users className="h-5 w-5" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t border-slate-100">
+          
+          {/* Card 1: Total Database */}
+          <div
+            onClick={() => setSourceFilter("")}
+            className={cn(
+              "rounded-2xl p-3.5 border flex items-center gap-3 cursor-pointer transition-all hover:scale-[1.01]",
+              !sourceFilter ? "bg-[#174E59]/10 border-[#174E59]/30 shadow-xs" : "bg-slate-50/70 border-slate-200"
+            )}
+          >
+            <div className="h-9 w-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-700 flex-shrink-0 shadow-xs">
+              <Users className="h-4 w-4 text-[#174E59]" />
             </div>
             <div>
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Database</p>
-              <p className="text-2xl font-black text-white leading-tight mt-0.5">{totalCount}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Database</p>
+              <p className="text-xl font-black text-slate-900 leading-tight mt-0.5">{totalCount}</p>
             </div>
           </div>
 
-          <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/10 flex items-center gap-3.5">
-            <div className="h-11 w-11 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300 flex-shrink-0">
-              <Calendar className="h-5 w-5" />
+          {/* Card 2: ⚡ LeadEasy Scraped (Interactive Clickable Filter!) */}
+          <div
+            onClick={() => setSourceFilter(sourceFilter === "leadeasy" ? "" : "leadeasy")}
+            className={cn(
+              "rounded-2xl p-3.5 border flex items-center gap-3 cursor-pointer transition-all hover:scale-[1.01]",
+              sourceFilter === "leadeasy"
+                ? "bg-[#174E59] text-white border-[#174E59] shadow-md"
+                : "bg-teal-50/60 border-teal-200 hover:bg-teal-50"
+            )}
+          >
+            <div className="h-9 w-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center flex-shrink-0 shadow-xs">
+              <Sparkles className="h-4 w-4 text-[#174E59]" />
             </div>
             <div>
-              <p className="text-[11px] font-bold text-emerald-300 uppercase tracking-wider">Added Today (23 Jul)</p>
-              <p className="text-2xl font-black text-white leading-tight mt-0.5">{todayCount}</p>
+              <div className="flex items-center gap-1">
+                <p className={cn("text-[10px] font-extrabold uppercase tracking-wider", sourceFilter === "leadeasy" ? "text-teal-200" : "text-[#174E59]")}>
+                  ⚡ LeadEasy Scraped
+                </p>
+              </div>
+              <p className={cn("text-xl font-black leading-tight mt-0.5", sourceFilter === "leadeasy" ? "text-white" : "text-slate-900")}>
+                {leadEasyCount} <span className={cn("text-[10px] font-bold", sourceFilter === "leadeasy" ? "text-teal-200" : "text-[#174E59]")}>(Click to Expand)</span>
+              </p>
             </div>
           </div>
 
-          <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/10 flex items-center gap-3.5">
-            <div className="h-11 w-11 rounded-xl bg-blue-600/30 border border-blue-400/50 flex items-center justify-center text-blue-300 flex-shrink-0">
-              <LinkedInIcon size={20} />
+          {/* Card 3: LinkedIn Prospects */}
+          <div
+            onClick={() => setSourceFilter(sourceFilter === "linkedin" ? "" : "linkedin")}
+            className={cn(
+              "rounded-2xl p-3.5 border flex items-center gap-3 cursor-pointer transition-all hover:scale-[1.01]",
+              sourceFilter === "linkedin" ? "bg-blue-600 text-white border-blue-600 shadow-md" : "bg-slate-50/70 border-slate-200"
+            )}
+          >
+            <div className="h-9 w-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-700 flex-shrink-0 shadow-xs">
+              <LinkedInIcon size={16} />
             </div>
             <div>
-              <p className="text-[11px] font-bold text-blue-300 uppercase tracking-wider">LinkedIn Prospects</p>
-              <p className="text-2xl font-black text-white leading-tight mt-0.5">{linkedinCount}</p>
+              <p className={cn("text-[10px] font-bold uppercase tracking-wider", sourceFilter === "linkedin" ? "text-blue-100" : "text-slate-400")}>LinkedIn Prospects</p>
+              <p className={cn("text-xl font-black leading-tight mt-0.5", sourceFilter === "linkedin" ? "text-white" : "text-slate-900")}>{linkedinCount}</p>
             </div>
           </div>
 
-          <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/10 flex items-center justify-between">
+          {/* Card 4: Cadence Workflow */}
+          <div className="bg-slate-50/70 rounded-2xl p-3.5 border border-slate-200 flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-bold text-teal-300 uppercase tracking-wider">Cadence Workflow</p>
-              <p className="text-xs font-bold text-slate-200 mt-1">1-Click Batch Send</p>
+              <p className="text-[10px] font-bold text-[#174E59] uppercase tracking-wider">Cadence Workflow</p>
+              <p className="text-xs font-bold text-slate-800 mt-0.5">1-Click Batch Send</p>
             </div>
-            <PhoneCall className="h-6 w-6 text-teal-400 opacity-80" />
+            <PhoneCall className="h-5 w-5 text-[#174E59] opacity-80" />
           </div>
         </div>
       </div>
 
-      {/* ── BDM Control Bar & Date Filter ────────────────────────────────── */}
-      <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-        {/* Date Distinction Filters */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider pr-2 flex items-center gap-1 flex-shrink-0">
-            <Calendar className="h-3.5 w-3.5" /> Date Added:
-          </span>
-          {[
-            { key: 'all', label: 'All Dates' },
-            { key: 'today', label: '📅 Added Today (23 Jul)' },
-            { key: 'yesterday', label: 'Yesterday' },
-            { key: 'week', label: 'This Week' },
-            { key: 'month', label: 'This Month' },
-          ].map((df) => {
-            const isSelected = dateFilter === df.key;
-            return (
-              <button
-                key={df.key}
-                onClick={() => setDateFilter(df.key)}
-                className={cn(
-                  "px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 border",
-                  isSelected ? "bg-slate-900 text-white border-slate-900 shadow-md" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                )}
-              >
-                <span>{df.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Pipeline Stage Filters */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide pt-1 border-t border-slate-100">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider pr-2 flex items-center gap-1 flex-shrink-0">
-            <Filter className="h-3.5 w-3.5" /> Stage:
-          </span>
-          <button
-            onClick={() => setStatusFilter("")}
-            className={cn(
-              "px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border",
-              statusFilter === "" ? "bg-brand-teal text-white border-brand-teal" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-            )}
-          >
-            All Stages ({prospects.length})
-          </button>
-
-          {statusOrder.map((sKey) => {
-            const style = statusColor[sKey];
-            const isSelected = statusFilter === sKey;
-            const count = prospects.filter(p => p.status === sKey).length;
-            return (
-              <button
-                key={sKey}
-                onClick={() => setStatusFilter(isSelected ? "" : sKey)}
-                className={cn(
-                  "px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 border",
-                  isSelected ? `${style.bg} ${style.text} ${style.border} shadow-sm ring-2 ring-brand-teal/20` : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                )}
-              >
-                <div className={cn("h-2 w-2 rounded-full", style.dot)} />
-                <span>{COMPANY_STATUSES[sKey]?.label}</span>
-                <span className="bg-slate-200/60 text-slate-800 px-1.5 py-0.5 rounded-md text-[10px] font-black">{count}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Search, Sorting & View Toggles */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-slate-100">
+      {/* ── BDM Control Bar & Compact Filters ─────────────────────────────── */}
+      <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs space-y-2.5">
+        {/* Row 1: Search + Sort + View Toggle + Lead Count */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5">
           <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
             <Input
-              placeholder="Search contact person, company, or title..."
+              placeholder="Search contact, company, or title..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 h-10 text-xs w-full bg-slate-50 border-slate-200 rounded-xl focus:bg-white focus-visible:ring-brand-teal font-semibold"
+              className="pl-9 h-8 text-xs w-full bg-slate-50 border-slate-200 rounded-xl focus:bg-white font-semibold"
             />
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-            <div className="relative flex-1 sm:flex-initial">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortOption)}
-                className="appearance-none bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 h-10 pl-9 pr-8 w-full focus:outline-none focus:ring-2 focus:ring-brand-teal cursor-pointer"
-              >
-                <option value="urgency">Sort: 🎯 Action Urgency</option>
-                <option value="newest">Sort: 📅 Date Added (Newest)</option>
-                <option value="oldest">Sort: 📅 Date Added (Oldest)</option>
-                <option value="name">Sort: 👤 Contact Name (A-Z)</option>
-                <option value="status">Sort: 📊 Stage Progression</option>
-              </select>
-              <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
-            </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+            {/* Lead Source Filter Dropdown */}
+            <select
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+              className="bg-[#174E59]/10 border border-[#174E59]/30 rounded-xl text-xs font-black text-[#174E59] h-8 px-2.5 focus:bg-white cursor-pointer"
+            >
+              <option value="">All Sources ({prospects.length})</option>
+              <option value="leadeasy">⚡ LeadEasy Software ({leadEasyCount})</option>
+              <option value="linkedin">💼 LinkedIn Leads ({linkedinCount})</option>
+              <option value="csv">📁 CSV Imports</option>
+            </select>
 
-            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 h-8 px-2.5 focus:bg-white cursor-pointer"
+            >
+              <option value="">All Stages ({prospects.length})</option>
+              {statusOrder.map((sKey) => (
+                <option key={sKey} value={sKey}>
+                  {COMPANY_STATUSES[sKey]?.label} ({prospects.filter(p => p.status === sKey).length})
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              className="bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 h-8 px-2.5 focus:bg-white cursor-pointer"
+            >
+              <option value="urgency">Sort: 🎯 Urgency</option>
+              <option value="newest">Sort: 📅 Newest</option>
+              <option value="oldest">Sort: 📅 Oldest</option>
+              <option value="name">Sort: 👤 Name (A-Z)</option>
+              <option value="status">Sort: 📊 Stage</option>
+            </select>
+
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200">
               <button
                 onClick={() => setViewMode('table')}
-                className={cn("p-2 rounded-lg transition-all text-xs font-bold flex items-center gap-1.5", viewMode === 'table' ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-900")}
-                title="Categorized Table"
+                className={cn("px-2.5 py-1 rounded-lg transition-all text-xs font-bold flex items-center gap-1", viewMode === 'table' ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-900")}
               >
-                <List className="h-4 w-4" />
-                <span className="hidden md:inline">Table</span>
+                <List className="h-3.5 w-3.5" />
+                <span>Table</span>
               </button>
               <button
                 onClick={() => setViewMode('board')}
-                className={cn("p-2 rounded-lg transition-all text-xs font-bold flex items-center gap-1.5", viewMode === 'board' ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-900")}
-                title="Stage Kanban Board"
+                className={cn("px-2.5 py-1 rounded-lg transition-all text-xs font-bold flex items-center gap-1", viewMode === 'board' ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-900")}
               >
-                <LayoutGrid className="h-4 w-4" />
-                <span className="hidden md:inline">Board</span>
-              </button>
-              <button
-                onClick={() => setViewMode('grid')}
-                className={cn("p-2 rounded-lg transition-all text-xs font-bold flex items-center gap-1.5", viewMode === 'grid' ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-900")}
-                title="Prospect Cards"
-              >
-                <Grid className="h-4 w-4" />
-                <span className="hidden md:inline">Cards</span>
+                <LayoutGrid className="h-3.5 w-3.5" />
+                <span>Board</span>
               </button>
             </div>
+            
+            <span className="text-xs text-slate-500 font-extrabold px-2 py-1 bg-slate-100 border border-slate-200 rounded-xl">
+              {sortedProspects.length} shown
+            </span>
           </div>
+        </div>
+
+        {/* Row 2: Compact Date & Segment Pill Bar */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-0.5 pt-1.5 border-t border-slate-100 scrollbar-hide text-xs">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">Filter:</span>
+          
+          {(['all', 'new', 'database'] as const).map(seg => (
+            <button
+              key={seg}
+              onClick={() => setLeadSegment(seg)}
+              className={cn(
+                "px-2.5 py-0.5 rounded-lg text-xs font-bold transition-all border cursor-pointer shrink-0",
+                leadSegment === seg ? "bg-slate-900 text-white border-slate-900 shadow-xs" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+              )}
+            >
+              {seg === 'all' ? 'All Leads' : seg === 'new' ? '🆕 New Leads' : '📦 Database'}
+            </button>
+          ))}
+
+          <span className="text-slate-300">|</span>
+
+          {[
+            { key: 'all', label: 'All Dates' },
+            { key: 'today', label: 'Added Today' },
+            { key: 'yesterday', label: 'Yesterday' },
+            { key: 'week', label: 'This Week' },
+          ].map((df) => (
+            <button
+              key={df.key}
+              onClick={() => setDateFilter(df.key)}
+              className={cn(
+                "px-2.5 py-0.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all border cursor-pointer shrink-0",
+                dateFilter === df.key ? "bg-teal-50 text-teal-700 border-teal-200 shadow-xs" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+              )}
+            >
+              {df.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -705,7 +745,7 @@ export default function ProspectsPage() {
                       {/* Primary Contact Person */}
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-3">
-                          <div className={cn("h-11 w-11 rounded-2xl bg-gradient-to-br flex items-center justify-center text-white font-black shadow-sm flex-shrink-0 text-sm", gradient)}>
+                          <div className="h-9 w-9 rounded-xl bg-slate-100 border border-slate-200 text-slate-800 font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">
                             {primaryName.charAt(0).toUpperCase()}
                           </div>
                           <div className="min-w-0">
@@ -1103,7 +1143,12 @@ export default function ProspectsPage() {
             </div>
 
             {/* Drawer Footer */}
-            <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-2">
+              <Link href={`/prospects/${activeProspect.id}`} className="w-full">
+                <Button className="w-full bg-teal-600 text-white font-bold text-xs h-10 rounded-xl hover:bg-teal-700">
+                  <Bot className="h-4 w-4 mr-2" /> AI Sales Assistant
+                </Button>
+              </Link>
               <Link href={`/prospects/${activeProspect.id}/edit`} className="w-full">
                 <Button className="w-full bg-slate-900 text-white font-bold text-xs h-10 rounded-xl hover:bg-slate-800">
                   <Pencil className="h-4 w-4 mr-2" /> Edit Record
@@ -1112,7 +1157,7 @@ export default function ProspectsPage() {
               <Button
                 variant="outline"
                 onClick={() => handleDelete(activeProspect.id, activeProspect.company_name)}
-                className="bg-white text-red-600 border-red-200 hover:bg-red-50 text-xs font-bold h-10 rounded-xl"
+                className="bg-white text-red-600 border-red-200 hover:bg-red-50 text-xs font-bold h-10 rounded-xl px-3"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>

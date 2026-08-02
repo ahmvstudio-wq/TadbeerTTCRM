@@ -93,7 +93,9 @@ export function CsvImport({ open, onClose, onImport, fields, title = "Import CSV
     setImporting(true);
     try {
       const mappedData = csvRows.map((row) => {
-        const record: Record<string, string> = {};
+        const record: Record<string, string> = {
+          lead_source: mapping["lead_source"] || "LeadEasy Software",
+        };
         fields.forEach((field) => {
           const csvHeader = mapping[field.key];
           if (csvHeader) {
@@ -153,10 +155,27 @@ export function CsvImport({ open, onClose, onImport, fields, title = "Import CSV
 
         {step === "map" && (
           <div className="space-y-4">
+            <div className="p-3.5 rounded-2xl bg-[#174E59]/5 border border-[#174E59]/20 flex items-center justify-between">
+              <div>
+                <label className="text-xs font-black text-[#174E59] block">Source Platform / Lead Generator</label>
+                <p className="text-[11px] text-slate-500 font-medium">Tag all imported prospects with their software origin</p>
+              </div>
+              <select
+                value={mapping["lead_source"] || "LeadEasy Software"}
+                onChange={(e) => setMapping({ ...mapping, lead_source: e.target.value })}
+                className="bg-white border border-[#174E59]/30 text-[#174E59] rounded-xl text-xs font-black h-9 px-3 focus:outline-none focus:ring-2 focus:ring-[#174E59]/30"
+              >
+                <option value="LeadEasy Software">⚡ LeadEasy Software (Auto Scraped)</option>
+                <option value="LinkedIn Sales Navigator">💼 LinkedIn Sales Navigator</option>
+                <option value="WhatsApp Scraper">💬 WhatsApp Scraper</option>
+                <option value="Manual / Website">🌐 Manual / Website Import</option>
+              </select>
+            </div>
+
             <p className="text-sm text-text-secondary">
               Map your CSV columns to the CRM fields. Found <strong>{csvRows.length}</strong> rows.
             </p>
-            <div className="space-y-3 max-h-[400px] overflow-y-auto">
+            <div className="space-y-3 max-h-[350px] overflow-y-auto">
               {fields.map((field) => (
                 <div key={field.key} className="flex items-center gap-3">
                   <label className="w-40 text-sm font-medium text-text-primary flex-shrink-0">

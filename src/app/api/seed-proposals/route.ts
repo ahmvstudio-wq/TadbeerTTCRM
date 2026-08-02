@@ -560,20 +560,212 @@ Ismail`,
       { phaseNum: 2, title: 'Simple Customer Communication Channel', description: 'A simple, opt-in WhatsApp channel for store updates and offers.', timeline: '4-6 weeks', intervention: 'Opt-In WhatsApp Store Update Channel', futureState: 'Increased repeat visit frequency and neighborhood engagement.' },
       { phaseNum: 3, title: 'Basic Inquiry & Feedback Support', description: 'A simple digital touchpoint for store hours, locations, and quick customer feedback.', timeline: '6-8 weeks', intervention: 'Digital Info & Feedback Touchpoint', futureState: 'Reduced basic in-store questions and better customer insights.' },
     ],
-    whatsappMessage: `Assalamu Alaikum Mr Ahmed,
-
-Hope you're doing well.
-
-Following up on our existing connection with Comex, we looked into a few practical ways to improve customer convenience and communication for Supermarket Comex.
-
-We put together some observations just for you. This isn't a sales pitch, just something useful we wanted to share.
-
-We're also offering a free business audit if you'd like us to look deeper.
-
-Ismail`,
+    whatsappMessage: "Assalamu Alaikum Mr Ahmed,\n\nHope you're doing well.\n\nFollowing up on our existing connection with Comex, we looked into a few practical ways to improve customer convenience and communication for Supermarket Comex.\n\nWe put together some observations just for you. This isn't a sales pitch, just something useful we wanted to share.",
     contactName: 'Ahmed Said Alhazi',
     proposalValidUntil: 'August 22, 2026',
   },
+}
+
+export async function runBulkProposalAndCadenceSeeding(userEmail: string = 'w.taufiqq@gmail.com', sessionDate?: string, dryRun: boolean = false) {
+  const targetDate = sessionDate || new Date().toISOString().split('T')[0]
+
+  // 1. Get or find target user
+  let { data: targetUser } = await supabase
+    .from('users')
+    .select('*')
+    .eq('email', userEmail)
+    .maybeSingle()
+
+  if (!targetUser) {
+    const { data: firstUser } = await supabase.from('users').select('*').limit(1).single()
+    targetUser = firstUser
+  }
+
+  if (!targetUser) {
+    return { error: 'No user found in DB' }
+  }
+
+  // 2. Find or create today's daily cadence session
+  let { data: session } = await supabase
+    .from('daily_outreach_sessions')
+    .select('*')
+    .eq('user_id', targetUser.id)
+    .eq('session_date', targetDate)
+    .maybeSingle()
+
+  if (!session) {
+    const { data: newSess, error: sErr } = await supabase
+      .from('daily_outreach_sessions')
+      .insert({
+        user_id: targetUser.id,
+        session_date: targetDate,
+        target_count: 10,
+      })
+      .select()
+      .single()
+
+    if (sErr) return { error: sErr.message }
+    session = newSess
+  }
+
+  // 3. Process each proposal
+  const results: any[] = []
+
+  for (const [rawName, proposal] of Object.entries(PROPOSALS)) {
+    const searchKeyword = rawName.split(' ')[0]
+    const secondKeyword = rawName.split(' ')[1] || searchKeyword
+    const cleanName = rawName.replace(/\+/g, '')
+    const searchPattern = '%' + cleanName + '%'
+
+    let { data: company } = await supabase
+      .from('companies')
+      .select('*, contacts(*)')
+      .ilike('company_name', searchPattern)
+      .maybeSingle()
+
+    if (!company) {
+      const orFilter = 'company_name.ilike.%' + searchKeyword + '%,company_name.ilike.%' + secondKeyword + '%';
+      const { data: fallbackCompany } = await supabase
+        .from('companies')
+        .select('*, contacts(*)')
+        .or(orFilter)
+        .limit(1)
+        .maybeSingle()
+      company = fallbackCompany
+    }
+
+    if (!company) {
+      results.push({ company: rawName, status: 'skipped', reason: 'Company not found in DB' })
+      continue
+    }
+
+    const primaryContact = company.contacts?.[0] || null
+    const recommendedStudies = getRecommendedCaseStudies(proposal.industry, 2)
+    const recommendedLogos = getRecommendedClientLogos(proposal.industry, 6)
+
+    const proposalData = {
+      coverTitleFormat: 'Tadbeer x ' + company.company_name,
+      tagline: proposal.tagline,
+      subtitle: proposal.subtitle,
+      specificObservation: proposal.specificObservation,
+      preparedDate: 'July 2026',
+      aboutTadbeerContext: "Tadbeer Transformation (Tadbeer TT) is Oman's premier system architecture and operational scaling partner based in Madinat Qaboos, Muscat. We empower GCC enterprises to eliminate operational bottlenecks and scale seamlessly by deploying custom software solutions, AI technology & machine learning workflows, data-driven digital marketing, and human capital transformation frameworks. Based on our pre-contact audit of " + company.company_name + "'s operational footprint, Tadbeer TT has structured a deterministic path to system excellence and revenue optimization.",
+      selectedCaseStudies: recommendedStudies,
+      selectedClientLogos: recommendedLogos,
+      executiveSummaryText: proposal.diagnosisIntro,
+      contextualMetrics: proposal.heroStats.map(s => ({
+        value: s.value,
+        label: s.label,
+        context: s.unit + ' achieved through automated system standardization and workflow optimization.',
+        source: 'Operational Intelligence Audit'
+      })),
+      diagnosisCards: proposal.leaks,
+      solutionIntro: proposal.solutionIntro,
+      phaseCards: proposal.phases,
+      whatsappMessage: proposal.whatsappMessage,
+      proposalValidUntil: proposal.proposalValidUntil,
+      contactName: proposal.contactName || primaryContact?.full_name || 'Hiring Manager',
+      contactTitle: primaryContact?.title || 'Decision Maker',
+      contactEmail: primaryContact?.email || company.email || 'contact@tadbeer.com',
+      companyName: company.company_name,
+      companyLocation: company.location || 'Muscat, Oman',
+      pricing: { currency: 'SAR', amount: 150000, terms: 'Net 30 days upon milestone sign-off' },
+      roiSummary: 'Estimated 3.4x ROI within 12 months through margin leak recovery and downtime reduction.'
+    }
+
+    const messageBodyJson = JSON.stringify(proposalData)
+
+    if (dryRun) {
+      results.push({ company: rawName, status: 'dry_run', proposal: proposalData })
+      continue
+    }
+
+    if (proposal.researchNotes) {
+      await supabase
+        .from('companies')
+        .update({ notes: proposal.researchNotes })
+        .eq('id', company.id)
+    }
+
+    const { data: existingPrep } = await supabase
+      .from('outreach_preparations')
+      .select('*')
+      .eq('company_id', company.id)
+      .eq('use_case_summary', 'PROPOSAL')
+      .maybeSingle()
+
+    let prepRecord: any
+    if (existingPrep) {
+      const { data: updated } = await supabase
+        .from('outreach_preparations')
+        .update({
+          contact_id: primaryContact?.id || existingPrep.contact_id,
+          message_body: messageBodyJson,
+          status: 'ready',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingPrep.id)
+        .select()
+        .single()
+      prepRecord = updated
+    } else {
+      const { data: created } = await supabase
+        .from('outreach_preparations')
+        .insert({
+          company_id: company.id,
+          contact_id: primaryContact?.id || null,
+          use_case_summary: 'PROPOSAL',
+          message_body: messageBodyJson,
+          status: 'ready',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single()
+      prepRecord = created
+    }
+
+    const { data: existingItem } = await supabase
+      .from('daily_outreach_items')
+      .select('*')
+      .eq('session_id', session.id)
+      .eq('company_id', company.id)
+      .maybeSingle()
+
+    if (!existingItem) {
+      const { data: maxPos } = await supabase
+        .from('daily_outreach_items')
+        .select('position')
+        .eq('session_id', session.id)
+        .order('position', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      const nextPos = (maxPos?.position || 0) + 1
+
+      await supabase.from('daily_outreach_items').insert({
+        session_id: session.id,
+        company_id: company.id,
+        preparation_id: prepRecord?.id || null,
+        position: nextPos,
+        status: 'prepared',
+      })
+    }
+
+    results.push({
+      company: company.company_name,
+      status: existingPrep ? 'updated' : 'created',
+      contactId: primaryContact?.id,
+    })
+  }
+
+  return {
+    success: true,
+    sessionId: session.id,
+    sessionDate: targetDate,
+    totalItems: results.length,
+    results,
+  }
 }
 
 export async function POST(request: Request) {
@@ -583,219 +775,11 @@ export async function POST(request: Request) {
     const userEmail = body.userEmail || 'w.taufiqq@gmail.com'
     const dryRun = body.dryRun === true
 
-    // 1. Get or find target user
-    let { data: targetUser } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', userEmail)
-      .maybeSingle()
-
-    if (!targetUser) {
-      const { data: firstUser } = await supabase.from('users').select('*').limit(1).single()
-      targetUser = firstUser
+    const result = await runBulkProposalAndCadenceSeeding(userEmail, sessionDate, dryRun)
+    if (result.error) {
+      return NextResponse.json({ error: result.error }, { status: 400 })
     }
-
-    if (!targetUser) {
-      return NextResponse.json({ error: 'No user found in DB' }, { status: 400 })
-    }
-
-    // 2. Find or create today's daily cadence session
-    let { data: session } = await supabase
-      .from('daily_outreach_sessions')
-      .select('*')
-      .eq('user_id', targetUser.id)
-      .eq('session_date', sessionDate)
-      .maybeSingle()
-
-    if (!session) {
-      const { data: newSess, error: sErr } = await supabase
-        .from('daily_outreach_sessions')
-        .insert({
-          user_id: targetUser.id,
-          session_date: sessionDate,
-          target_count: 10,
-        })
-        .select()
-        .single()
-
-      if (sErr) return NextResponse.json({ error: sErr.message }, { status: 500 })
-      session = newSess
-    }
-
-    // 3. Process each proposal
-    const results: any[] = []
-
-    for (const [rawName, proposal] of Object.entries(PROPOSALS)) {
-      // Find company with fallback search terms
-      const searchKeyword = rawName.split(' ')[0] // first word e.g. "Al", "Vertex", "Oman", etc.
-      const secondKeyword = rawName.split(' ')[1] || searchKeyword
-
-      let { data: company } = await supabase
-        .from('companies')
-        .select('*, contacts(*)')
-        .ilike('company_name', `%${rawName.replace(/\+/g, '')}%`)
-        .maybeSingle()
-
-      if (!company) {
-        // Fallback search using primary brand word
-        const { data: fallbackCompany } = await supabase
-          .from('companies')
-          .select('*, contacts(*)')
-          .or(`company_name.ilike.%${searchKeyword}%,company_name.ilike.%${secondKeyword}%`)
-          .limit(1)
-          .maybeSingle()
-        company = fallbackCompany
-      }
-
-      if (!company) {
-        results.push({ company: rawName, status: 'skipped', reason: 'Company not found in DB' })
-        continue
-      }
-
-      const primaryContact = company.contacts?.[0] || null
-
-      const recommendedStudies = getRecommendedCaseStudies(proposal.industry, 2)
-      const recommendedLogos = getRecommendedClientLogos(proposal.industry, 6)
-
-      // Build the rich ProposalData JSON
-      const proposalData = {
-        coverTitleFormat: `Tadbeer × ${company.company_name}`,
-        tagline: proposal.tagline,
-        subtitle: proposal.subtitle,
-        specificObservation: proposal.specificObservation,
-        preparedDate: 'July 2026',
-        
-        aboutTadbeerContext: `Tadbeer Transformation (Tadbeer TT) is Oman's premier system architecture and operational scaling partner based in Madinat Qaboos, Muscat. We empower GCC enterprises to eliminate operational bottlenecks and scale seamlessly by deploying custom software solutions, AI technology & machine learning workflows, data-driven digital marketing, and human capital transformation frameworks. Based on our pre-contact audit of ${company.company_name}'s operational footprint, Tadbeer TT has structured a deterministic path to system excellence and revenue optimization.`,
-        
-        selectedCaseStudies: recommendedStudies,
-        selectedClientLogos: recommendedLogos,
-
-        executiveSummaryText: proposal.diagnosisIntro,
-        contextualMetrics: proposal.heroStats.map(s => ({
-          value: s.value,
-          label: s.label,
-          context: `${s.unit} achieved through automated system standardization and workflow optimization.`,
-          source: 'Operational Intelligence Audit'
-        })),
-
-        heroStats: proposal.heroStats,
-        diagnosisIntro: proposal.diagnosisIntro,
-        leaks: proposal.leaks,
-        solutionIntro: proposal.solutionIntro,
-        phases: proposal.phases,
-        
-        ctaHeading: 'Initiate Strategic Transformation Session',
-        ctaSubtext: 'Schedule a 45-minute deep-dive session to review the diagnostic findings and system architecture.',
-        ctaUrl: 'https://www.tadbeertt.com',
-        ctaPhone: '+968 7630 7656',
-        ctaEmail: 'operation@tadbeertt.com',
-        proposalValidUntil: proposal.proposalValidUntil,
-
-        additionalSections: [
-          {
-            title: 'WhatsApp Message',
-            content: proposal.whatsappMessage.split('\n').filter(l => l.trim()),
-          },
-        ] as Array<{ title: string; content: string[] }>,
-      }
-
-      const messageBodyJson = JSON.stringify(proposalData)
-
-      if (dryRun) {
-        results.push({ company: rawName, status: 'dry_run', proposal: proposalData })
-        continue
-      }
-
-      // Update research notes on the company record if provided
-      if (proposal.researchNotes) {
-        await supabase
-          .from('companies')
-          .update({ notes: proposal.researchNotes })
-          .eq('id', company.id)
-      }
-
-      // Upsert into outreach_preparations
-      const { data: existingPrep } = await supabase
-        .from('outreach_preparations')
-        .select('*')
-        .eq('company_id', company.id)
-        .eq('use_case_summary', 'PROPOSAL')
-        .maybeSingle()
-
-      let prepRecord: any
-      if (existingPrep) {
-        const { data: updated } = await supabase
-          .from('outreach_preparations')
-          .update({
-            contact_id: primaryContact?.id || existingPrep.contact_id,
-            message_body: messageBodyJson,
-            status: 'ready',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', existingPrep.id)
-          .select()
-          .single()
-        prepRecord = updated
-      } else {
-        const { data: created } = await supabase
-          .from('outreach_preparations')
-          .insert({
-            company_id: company.id,
-            contact_id: primaryContact?.id || null,
-            use_case_summary: 'PROPOSAL',
-            outreach_channel: 'email',
-            message_body: messageBodyJson,
-            status: 'ready',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .select()
-          .single()
-        prepRecord = created
-      }
-
-      // Ensure company is in today's daily outreach session
-      const { data: existingItem } = await supabase
-        .from('daily_outreach_items')
-        .select('*')
-        .eq('session_id', session.id)
-        .eq('company_id', company.id)
-        .maybeSingle()
-
-      if (!existingItem) {
-        const { data: maxPos } = await supabase
-          .from('daily_outreach_items')
-          .select('position')
-          .eq('session_id', session.id)
-          .order('position', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-
-        const nextPos = (maxPos?.position || 0) + 1
-
-        await supabase.from('daily_outreach_items').insert({
-          session_id: session.id,
-          company_id: company.id,
-          preparation_id: prepRecord?.id || null,
-          position: nextPos,
-          status: 'prepared',
-        })
-      }
-
-      results.push({
-        company: company.company_name,
-        status: existingPrep ? 'updated' : 'created',
-        contactId: primaryContact?.id,
-      })
-    }
-
-    return NextResponse.json({
-      success: true,
-      sessionId: session.id,
-      sessionDate,
-      totalItems: results.length,
-      results,
-    })
+    return NextResponse.json(result)
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Failed to seed proposals' },

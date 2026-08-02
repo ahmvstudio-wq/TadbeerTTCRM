@@ -13,12 +13,14 @@ import {
   TrendingUp,
   Settings,
   Building2,
-  LogOut,
   Globe2,
+  Bot,
+  Sparkles,
 } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "AI Employee", href: "/ai-employee", icon: Bot, isAi: true },
   { name: "Prospects", href: "/prospects", icon: Users },
   { name: "Daily Cadence", href: "/daily-cadence", icon: Zap },
   { name: "LinkedIn", href: "/linkedin", icon: Globe2 },
@@ -50,14 +52,22 @@ export function Sidebar() {
               key={item.name}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                 isActive
                   ? "bg-white/15 text-white"
-                  : "text-white/70 hover:bg-white/10 hover:text-white"
+                  : "text-white/70 hover:bg-white/10 hover:text-white",
+                item.isAi && !isActive && "bg-indigo-600/20 text-indigo-100 hover:bg-indigo-600/30"
               )}
             >
-              <item.icon className={cn("h-5 w-5", isActive ? "text-brand-gold" : "text-white/50")} />
-              {item.name}
+              <div className="flex items-center gap-3">
+                <item.icon className={cn("h-5 w-5", isActive ? "text-brand-gold" : item.isAi ? "text-indigo-300" : "text-white/50")} />
+                <span>{item.name}</span>
+              </div>
+              {item.isAi && (
+                <span className="flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-slate-900 shadow-2xs">
+                  <Sparkles className="w-2.5 h-2.5 mr-0.5" /> AI
+                </span>
+              )}
             </Link>
           );
         })}
@@ -102,12 +112,20 @@ export function MobileSidebar({ open, onClose }: { open: boolean; onClose: () =>
                 href={item.href}
                 onClick={onClose}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                  isActive ? "bg-white/15 text-white" : "text-white/70 hover:bg-white/10 hover:text-white"
+                  "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                  isActive ? "bg-white/15 text-white" : "text-white/70 hover:bg-white/10 hover:text-white",
+                  item.isAi && !isActive && "bg-indigo-600/20 text-indigo-100"
                 )}
               >
-                <item.icon className={cn("h-5 w-5", isActive ? "text-brand-gold" : "text-white/50")} />
-                {item.name}
+                <div className="flex items-center gap-3">
+                  <item.icon className={cn("h-5 w-5", isActive ? "text-brand-gold" : item.isAi ? "text-indigo-300" : "text-white/50")} />
+                  <span>{item.name}</span>
+                </div>
+                {item.isAi && (
+                  <span className="flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-slate-900">
+                    <Sparkles className="w-2.5 h-2.5 mr-0.5" /> AI
+                  </span>
+                )}
               </Link>
             );
           })}

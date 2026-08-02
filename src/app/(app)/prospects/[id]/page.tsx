@@ -32,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { AISalesAssistant } from "@/components/prospects/ai-sales-assistant";
 import { getCompany, updateCompanyStatus } from "@/lib/actions/companies";
 import { getCompanyActivities } from "@/lib/actions/activity";
 import {
@@ -191,6 +192,7 @@ export default function ProspectDetailPage() {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="activity">Activity Timeline</TabsTrigger>
+          <TabsTrigger value="ai-assistant" className="text-teal-600 data-[state=active]:bg-teal-50 data-[state=active]:text-teal-700">AI Assistant</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -447,6 +449,10 @@ export default function ProspectDetailPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="ai-assistant">
+          <AISalesAssistant company={company} />
         </TabsContent>
       </Tabs>
     </div>

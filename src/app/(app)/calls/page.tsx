@@ -87,19 +87,23 @@ export default function CallsPage() {
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="animate-spin h-8 w-8 text-brand-teal" /></div>;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-[1850px] w-full mx-auto">
       {toast && (
         <div className={`flex items-center gap-2 p-3 rounded-lg text-sm ${toast.type === "success" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
           {toast.message}<button onClick={() => setToast(null)} className="ml-auto"><X className="h-4 w-4" /></button>
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Call Queue</h1>
-          <p className="text-slate-500 mt-1">{calls.length} calls pending</p>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-50 text-teal-700 text-xs font-bold mb-2 border border-teal-200">
+            <Phone className="h-3.5 w-3.5" />
+            <span>Call Queue Workstation</span>
+          </div>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Call Queue</h1>
+          <p className="text-slate-500 text-xs mt-0.5 font-medium">{calls.length} pending calls queued</p>
         </div>
-        <Badge className="bg-brand-teal-light text-brand-teal">{calls.length} Pending</Badge>
+        <Badge className="bg-teal-50 text-teal-700 border-teal-200 text-xs px-3 py-1 font-bold">{calls.length} Pending</Badge>
       </div>
 
       {calls.length > 0 ? (

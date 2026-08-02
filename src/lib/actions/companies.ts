@@ -15,7 +15,23 @@ export async function getCompanies(filters?: CompanyFilters) {
   try {
     let query = supabase.from('companies').select('*, contacts(*)').order('created_at', { ascending: false })
     if (filters?.status) query = query.eq('status', filters.status)
-    if (filters?.search) query = query.or(`company_name.ilike.%${filters.search}%,industry.ilike.%${filters.search}%,contacts(full_name).ilike.%${filters.search}%`)
+    if (filters?.search) {
+      const term = filters.search.trim()
+      if (term) {
+        const { data: matchedContacts } = await supabase
+          .from('contacts')
+          .select('company_id')
+          .ilike('full_name', `%${term}%`)
+        
+        const companyIds = (matchedContacts || []).map(c => c.company_id).filter(Boolean)
+        
+        if (companyIds.length > 0) {
+          query = query.or(`company_name.ilike.%${term}%,industry.ilike.%${term}%,id.in.(${companyIds.join(',')})`)
+        } else {
+          query = query.or(`company_name.ilike.%${term}%,industry.ilike.%${term}%`)
+        }
+      }
+    }
     const { data, error } = await query
     if (error) return { data: null, error: error.message }
     return { data, error: null }
@@ -38,14 +54,42 @@ export async function getCompany(id: string) {
 
 export async function createCompany(data: {
   company_name: string; industry?: string; website?: string; phone?: string; email?: string; country?: string; city?: string; notes?: string;
-  firstContact?: { full_name: string; email?: string; phone?: string; title?: string; whatsapp?: string; linkedin_url?: string; }
+  instagram_url?: string; research_notes?: string; lead_source?: string;
+  firstContact?: { full_name: string; email?: string; phone?: string; title?: string; whatsapp?: string; linkedin_url?: string; instagram_url?: string; }
 }) {
   try {
-    const { firstContact, ...companyData } = data
-    const { data: company, error: companyError } = await supabase.from('companies').insert({ ...companyData, status: 'prospect', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }).select().single()
+    const { firstContact, instagram_url, research_notes, lead_source, ...companyData } = data
+
+    // Gracefully fold extra fields into notes if columns don't exist
+    let enrichedNotes = companyData.notes || ''
+    if (instagram_url) enrichedNotes += `\nInstagram: ${instagram_url}`
+    if (research_notes) enrichedNotes += `\n\nResearch Notes:\n${research_notes}`
+
+    const { data: company, error: companyError } = await supabase
+      .from('companies')
+      .insert({
+        ...companyData,
+        notes: enrichedNotes || undefined,
+        lead_type: lead_source || companyData.notes ? undefined : 'new_lead',
+        status: 'prospect',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single()
     if (companyError) return { data: null, error: companyError.message }
     if (firstContact) {
-      const { error: contactError } = await supabase.from('contacts').insert({ company_id: company.id, full_name: firstContact.full_name, email: firstContact.email, phone: firstContact.phone, title: firstContact.title, whatsapp: firstContact.whatsapp, linkedin_url: firstContact.linkedin_url, is_primary: true, created_at: new Date().toISOString() })
+      const { error: contactError } = await supabase.from('contacts').insert({
+        company_id: company.id,
+        full_name: firstContact.full_name,
+        email: firstContact.email,
+        phone: firstContact.phone,
+        title: firstContact.title,
+        whatsapp: firstContact.whatsapp,
+        linkedin_url: firstContact.linkedin_url,
+        is_primary: true,
+        created_at: new Date().toISOString()
+      })
       if (contactError) return { data: null, error: contactError.message }
     }
     await supabase.from('activities').insert({ company_id: company.id, activity_type: 'company_created', title: 'Company created', description: `New company "${company.company_name}" added to CRM`, created_at: new Date().toISOString() })
@@ -54,6 +98,7 @@ export async function createCompany(data: {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
   }
 }
+
 
 export async function updateCompany(id: string, data: { company_name?: string; industry?: string; website?: string; phone?: string; email?: string; country?: string; city?: string; employee_count?: number; notes?: string }) {
   try {

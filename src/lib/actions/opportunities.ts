@@ -110,14 +110,21 @@ export async function updateOpportunityStage(id: string, stage: string) {
   try {
     const supabase = await createClient()
 
-    const { data: opportunity, error: fetchError } = await supabase
-      .from('opportunities')
-      .select('*')
-      .eq('id', id)
-      .single()
+    let query = supabase.from('opportunities').select('*')
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 
-    if (fetchError) {
-      return { data: null, error: fetchError.message }
+    if (isUuid) {
+      query = query.eq('id', id)
+    } else {
+      // Resolve by name/title if it's a keyword
+      query = query.ilike('title', `%${id}%`).order('created_at', { ascending: false }).limit(1)
+    }
+
+    const { data: fetchResult, error: fetchError } = await query
+    const opportunity = fetchResult?.[0]
+
+    if (fetchError || !opportunity) {
+      return { data: null, error: fetchError?.message || `Opportunity not found matching: ${id}` }
     }
 
     const stageProbabilities: Record<string, number> = {
@@ -143,7 +150,7 @@ export async function updateOpportunityStage(id: string, stage: string) {
     const { data: updated, error: updateError } = await supabase
       .from('opportunities')
       .update(updateData)
-      .eq('id', id)
+      .eq('id', opportunity.id)
       .select()
       .single()
 
@@ -160,7 +167,7 @@ export async function updateOpportunityStage(id: string, stage: string) {
         description: `Stage changed from "${opportunity.stage}" to "${stage}"`,
         contact_id: opportunity.contact_id,
         metadata: {
-          opportunity_id: id,
+          opportunity_id: opportunity.id,
           old_stage: opportunity.stage,
           new_stage: stage,
           estimated_value: opportunity.estimated_value

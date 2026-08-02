@@ -774,18 +774,18 @@ export default function LinkedInPage() {
   }, [prospects, activeStageFilter, selectedDateFilter, search]);
 
   return (
-    <div className="space-y-6 page-enter pb-24 max-w-[1650px] mx-auto px-2 sm:px-4 font-sans">
+    <div className="space-y-6 page-enter pb-24 max-w-[1850px] w-full mx-auto px-2 sm:px-4 font-sans">
       
       {/* ── Top Hero Header ─────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-3xl bg-slate-900 text-white p-6 sm:p-8 shadow-2xl border border-slate-800">
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+      <div className="rounded-3xl bg-white text-slate-900 p-5 sm:p-6 border border-slate-200 shadow-xs">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-bold mb-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-50 border border-teal-200 text-teal-700 text-xs font-bold mb-2">
               <LinkedInIcon size={14} />
               <span>Locked-in 10-Stage LinkedIn BD Process</span>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">LinkedIn Relationship Manager</h1>
-            <p className="text-slate-300 text-sm mt-1.5 max-w-2xl font-medium leading-relaxed">
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">LinkedIn Relationship Manager</h1>
+            <p className="text-slate-500 text-xs mt-1 max-w-2xl font-medium leading-relaxed">
               Track prospects through the 10-stage event-driven BD workflow: Target → Research → Warm Touch → Connect → Human Welcome → Event Nurture → Business Pivot → Problem Fit → Meeting → Sales Pipeline.
             </p>
           </div>
@@ -793,9 +793,9 @@ export default function LinkedInPage() {
           <div className="flex items-center gap-3">
             <Button
               onClick={() => setShowAddModal(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs h-10 rounded-xl px-5 shadow-lg border border-blue-400/30"
+              className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs h-9 rounded-xl px-4 shadow-xs cursor-pointer"
             >
-              <Plus className="h-4 w-4 mr-2" /> Add LinkedIn Lead
+              <Plus className="h-3.5 w-3.5 mr-2 text-teal-400" /> Add LinkedIn Lead
             </Button>
           </div>
         </div>

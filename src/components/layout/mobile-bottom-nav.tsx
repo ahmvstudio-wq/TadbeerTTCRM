@@ -18,14 +18,15 @@ import {
   Settings,
   LogOut,
   ChevronRight,
-  FileText
+  FileText,
+  Send,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
 const mainNav = [
   { name: "Cadence", href: "/daily-cadence", icon: Zap },
   { name: "Prospects", href: "/prospects", icon: Users },
-  { name: "LinkedIn", href: "/linkedin", icon: Globe2 },
+  { name: "Outreach", href: "/outreach", icon: Send },
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
 ]
 
