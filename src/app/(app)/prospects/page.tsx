@@ -9,7 +9,7 @@ import {
   MessageCircle, Download, LayoutGrid, List, ArrowUpDown, 
   TrendingUp, Users, Target, Clock, ArrowRight, Loader2, Activity,
   Sparkles, Flame, UserCheck, X, FileText, Send, CheckCircle2,
-  Grid, Calendar, Filter, Zap, Globe, MapPin, Tag, User, Layers, PhoneCall, Bot
+  Grid, Calendar, Filter, Zap, Globe, MapPin, Tag, User, Layers, PhoneCall, Bot, Camera
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -296,15 +296,21 @@ export default function ProspectsPage() {
     addToast("success", `Exported ${dataToExport.length} prospects`);
   };
 
+  const extractInstagramUrl = (notes?: string | null) => {
+    if (!notes) return null;
+    const match = notes.match(/Instagram:\s*(https?:\/\/(?:www\.)?instagram\.com\/[^\s]+)/i) || notes.match(/Instagram:\s*([^\s\n]+)/i);
+    return match ? match[1] : null;
+  };
+
   // Helper to determine Source Channel strictly
   const getLeadSource = (prospect: any) => {
-    const isLeadEasy =
-      prospect.lead_source?.toLowerCase().includes("leadeasy") ||
-      prospect.notes?.toLowerCase().includes("leadeasy") ||
-      prospect.notes?.toLowerCase().includes("auto scraped");
-
-    if (isLeadEasy) {
-      return { type: 'leadeasy', label: '⚡ LeadEasy Scraped', bg: 'bg-[#174E59]/10 text-[#174E59] border-[#174E59]/30 font-black' };
+    const isInsights =
+      prospect.lead_source?.toLowerCase().includes("insights") ||
+      prospect.notes?.toLowerCase().includes("insights") ||
+      prospect.status === 'insights';
+      
+    if (isInsights) {
+      return { type: 'insights', label: '⚡ Insight Generated Contacts', bg: 'bg-[#174E59]/10 text-[#174E59] border-[#174E59]/30 font-black' };
     }
 
     const contactLinkedin = prospect.contacts?.[0]?.linkedin_url;
@@ -354,7 +360,7 @@ export default function ProspectsPage() {
   const filteredProspects = useMemo(() => {
     return prospects.filter(p => {
       if (leadTypeFilter && (p.lead_type || 'Cold') !== leadTypeFilter) return false;
-      if (sourceFilter === 'leadeasy' && getLeadSource(p).type !== 'leadeasy') return false;
+      if (sourceFilter === 'insights' && getLeadSource(p).type !== 'insights') return false;
       if (sourceFilter === 'linkedin' && getLeadSource(p).type !== 'linkedin') return false;
       if (sourceFilter === 'csv' && getLeadSource(p).type !== 'csv') return false;
       if (!isDateMatch(p.created_at, dateFilter)) return false;
@@ -391,7 +397,7 @@ export default function ProspectsPage() {
   }, [filteredProspects, sortBy]);
 
   const totalCount = prospects.length;
-  const leadEasyCount = prospects.filter(p => getLeadSource(p).type === 'leadeasy').length;
+  const insightsCount = prospects.filter(p => getLeadSource(p).type === 'insights').length;
   const linkedinCount = prospects.filter(p => getLeadSource(p).type === 'linkedin').length;
   const todayCount = prospects.filter(p => isDateMatch(p.created_at, 'today')).length;
   const hotCount = prospects.filter(p => p.lead_type === 'Hot' || p.status === 'opportunity').length;
@@ -465,27 +471,33 @@ export default function ProspectsPage() {
             </div>
           </div>
 
-          {/* Card 2: ⚡ LeadEasy Scraped (Interactive Clickable Filter!) */}
-          <div
-            onClick={() => setSourceFilter(sourceFilter === "leadeasy" ? "" : "leadeasy")}
+          {/* Card 2: ⚡ Insight Generated Contacts (Interactive Clickable Filter!) */}
+          <div 
+            onClick={() => setSourceFilter(sourceFilter === "insights" ? "" : "insights")}
             className={cn(
-              "rounded-2xl p-3.5 border flex items-center gap-3 cursor-pointer transition-all hover:scale-[1.01]",
-              sourceFilter === "leadeasy"
-                ? "bg-[#174E59] text-white border-[#174E59] shadow-md"
-                : "bg-teal-50/60 border-teal-200 hover:bg-teal-50"
+              "rounded-2xl p-4 border transition-all duration-300 cursor-pointer flex flex-col justify-between",
+              sourceFilter === "insights"
+                ? "bg-[#174E59] border-[#174E59] shadow-lg shadow-[#174E59]/20 scale-[1.02] ring-2 ring-white/20"
+                : "bg-white border-slate-200 shadow-sm hover:shadow-md hover:border-[#174E59]/30"
             )}
           >
-            <div className="h-9 w-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center flex-shrink-0 shadow-xs">
-              <Sparkles className="h-4 w-4 text-[#174E59]" />
+            <div className="flex items-center justify-between mb-3">
+              <div className={cn(
+                "p-2.5 rounded-xl transition-colors duration-300",
+                sourceFilter === "insights" ? "bg-white/10" : "bg-[#174E59]/10"
+              )}>
+                <Zap className={cn("w-5 h-5", sourceFilter === "insights" ? "text-teal-300" : "text-[#174E59]")} />
+              </div>
             </div>
+            
             <div>
-              <div className="flex items-center gap-1">
-                <p className={cn("text-[10px] font-extrabold uppercase tracking-wider", sourceFilter === "leadeasy" ? "text-teal-200" : "text-[#174E59]")}>
-                  ⚡ LeadEasy Scraped
+              <div className="flex items-center justify-between">
+                <p className={cn("text-[10px] font-extrabold uppercase tracking-wider", sourceFilter === "insights" ? "text-teal-200" : "text-[#174E59]")}>
+                  ⚡ Insight Generated Contacts
                 </p>
               </div>
-              <p className={cn("text-xl font-black leading-tight mt-0.5", sourceFilter === "leadeasy" ? "text-white" : "text-slate-900")}>
-                {leadEasyCount} <span className={cn("text-[10px] font-bold", sourceFilter === "leadeasy" ? "text-teal-200" : "text-[#174E59]")}>(Click to Expand)</span>
+              <p className={cn("text-xl font-black leading-tight mt-0.5", sourceFilter === "insights" ? "text-white" : "text-slate-900")}>
+                {insightsCount} <span className={cn("text-[10px] font-bold", sourceFilter === "insights" ? "text-teal-200" : "text-[#174E59]")}>(Click to Expand)</span>
               </p>
             </div>
           </div>
@@ -540,7 +552,7 @@ export default function ProspectsPage() {
               className="bg-[#174E59]/10 border border-[#174E59]/30 rounded-xl text-xs font-black text-[#174E59] h-8 px-2.5 focus:bg-white cursor-pointer"
             >
               <option value="">All Sources ({prospects.length})</option>
-              <option value="leadeasy">⚡ LeadEasy Software ({leadEasyCount})</option>
+              <option value="insights">⚡ Insight Generated Contacts ({insightsCount})</option>
               <option value="linkedin">💼 LinkedIn Leads ({linkedinCount})</option>
               <option value="csv">📁 CSV Imports</option>
             </select>
@@ -833,6 +845,16 @@ export default function ProspectsPage() {
                               <LinkedInIcon size={12} />
                             </a>
                           )}
+                          {prospect.website && (
+                            <a href={prospect.website.startsWith('http') ? prospect.website : `https://${prospect.website}`} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white transition-colors" title="Website">
+                              <Globe className="h-3.5 w-3.5" />
+                            </a>
+                          )}
+                          {extractInstagramUrl(prospect.notes) && (
+                            <a href={extractInstagramUrl(prospect.notes)!} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg bg-pink-50 text-pink-600 hover:bg-pink-500 hover:text-white transition-colors" title="Instagram">
+                              <Camera className="h-3.5 w-3.5" />
+                            </a>
+                          )}
                           <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-xl text-slate-400 group-hover:text-brand-teal" onClick={() => openDrawer(prospect)}>
                             <ChevronRight className="h-4 w-4" />
                           </Button>
@@ -887,14 +909,26 @@ export default function ProspectsPage() {
                             </span>
                           )}
 
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={(e) => { e.stopPropagation(); handleSendToCadence(prospect.id, primaryName); }}
-                            className="h-6 text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 rounded-lg"
-                          >
-                            + Cadence
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            {prospect.website && (
+                              <a href={prospect.website.startsWith('http') ? prospect.website : `https://${prospect.website}`} target="_blank" rel="noopener noreferrer" className="p-1 bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white rounded-lg transition-colors" title="Website" onClick={e => e.stopPropagation()}>
+                                <Globe className="h-3.5 w-3.5" />
+                              </a>
+                            )}
+                            {extractInstagramUrl(prospect.notes) && (
+                              <a href={extractInstagramUrl(prospect.notes)!} target="_blank" rel="noopener noreferrer" className="p-1 bg-pink-50 text-pink-600 hover:bg-pink-500 hover:text-white rounded-lg transition-colors" title="Instagram" onClick={e => e.stopPropagation()}>
+                                <Camera className="h-3.5 w-3.5" />
+                              </a>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => { e.stopPropagation(); handleSendToCadence(prospect.id, primaryName); }}
+                              className="h-6 text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 rounded-lg"
+                            >
+                              + Cadence
+                            </Button>
+                          </div>
                         </div>
 
                         <div>
@@ -991,6 +1025,16 @@ export default function ProspectsPage() {
                     {waUrl && (
                       <a href={waUrl} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-colors">
                         <MessageCircle className="h-3.5 w-3.5" />
+                      </a>
+                    )}
+                    {prospect.website && (
+                      <a href={prospect.website.startsWith('http') ? prospect.website : `https://${prospect.website}`} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white transition-colors" title="Website" onClick={e => e.stopPropagation()}>
+                        <Globe className="h-3.5 w-3.5" />
+                      </a>
+                    )}
+                    {extractInstagramUrl(prospect.notes) && (
+                      <a href={extractInstagramUrl(prospect.notes)!} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg bg-pink-50 text-pink-600 hover:bg-pink-500 hover:text-white transition-colors" title="Instagram" onClick={e => e.stopPropagation()}>
+                        <Camera className="h-3.5 w-3.5" />
                       </a>
                     )}
                     <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-xl text-slate-400 group-hover:text-brand-teal" onClick={() => openDrawer(prospect)}>
@@ -1119,6 +1163,18 @@ export default function ProspectsPage() {
                         <a href={linkedinUrl.startsWith("http") ? linkedinUrl : `https://${linkedinUrl}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-slate-200 text-blue-700 font-semibold">
                           <LinkedInIcon size={14} />
                           <span>LinkedIn Profile</span>
+                        </a>
+                      )}
+                      {activeProspect.website && (
+                        <a href={activeProspect.website.startsWith("http") ? activeProspect.website : `https://${activeProspect.website}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-slate-200 text-blue-700 font-semibold hover:border-blue-300">
+                          <Globe className="h-4 w-4 text-blue-500" />
+                          <span className="truncate">Website</span>
+                        </a>
+                      )}
+                      {extractInstagramUrl(activeProspect.notes) && (
+                        <a href={extractInstagramUrl(activeProspect.notes)!} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-slate-200 text-pink-700 font-semibold hover:border-pink-300">
+                          <Camera className="h-4 w-4 text-pink-500" />
+                          <span className="truncate">Instagram</span>
                         </a>
                       )}
                     </div>

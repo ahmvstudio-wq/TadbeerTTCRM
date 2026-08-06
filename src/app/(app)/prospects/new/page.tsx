@@ -13,8 +13,8 @@ import {
   CheckCircle,
   AlertTriangle,
   Globe,
-  Linkedin,
-  Instagram,
+  Link as LinkIcon,
+  Camera,
   Users,
   FileText,
   Zap,
@@ -222,10 +222,10 @@ export default function NewProspectPage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <FormField label="LinkedIn Profile URL" icon={<Linkedin className="h-4 w-4 text-slate-400" />}>
+              <FormField label="LinkedIn Profile URL" icon={<LinkIcon className="h-4 w-4 text-slate-400" />}>
                 <Input name="linkedin" value={form.linkedin} onChange={handleChange} placeholder="https://linkedin.com/in/..." className="pl-9 h-10 text-sm bg-white" />
               </FormField>
-              <FormField label="Instagram URL" icon={<Instagram className="h-4 w-4 text-slate-400" />}>
+              <FormField label="Instagram URL" icon={<Camera className="h-4 w-4 text-slate-400" />}>
                 <Input name="instagram" value={form.instagram} onChange={handleChange} placeholder="https://instagram.com/..." className="pl-9 h-10 text-sm bg-white" />
               </FormField>
             </div>

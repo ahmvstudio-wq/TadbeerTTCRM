@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { config } from 'dotenv';
 config({ path: '.env.local' });
 import { groq } from '@ai-sdk/groq';

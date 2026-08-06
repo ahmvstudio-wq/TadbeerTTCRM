@@ -5,6 +5,7 @@ import { Sparkles, X, ChevronUp, Bot } from 'lucide-react';
 import { AIChatInterface } from './ai-chat-interface';
 
 export function AIDrawer() {
+  const [isOpen, setIsOpen] = useState(false);
   return null;
 
   return (

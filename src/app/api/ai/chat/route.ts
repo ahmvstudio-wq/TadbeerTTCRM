@@ -96,7 +96,6 @@ Available tools:
 - find_and_delete_duplicates: {} (ALWAYS call this when the user asks to delete or remove duplicate entries)
 `,
           messages: cleanedMessages,
-          maxTokens: 1024,
         } as any);
 
         // Parse tool calls
@@ -139,7 +138,6 @@ Available tools:
               ...cleanedMessages,
               ...(toolResultsData.length > 0 ? [{ role: 'assistant', content: `[Raw CRM Tool Data]\n${rawDataStr}` }] : [])
             ] as any,
-            maxTokens: 1024,
           });
           responseContent = finalResult.text;
         } catch (pass2Err) {

@@ -94,7 +94,7 @@ export function CsvImport({ open, onClose, onImport, fields, title = "Import CSV
     try {
       const mappedData = csvRows.map((row) => {
         const record: Record<string, string> = {
-          lead_source: mapping["lead_source"] || "LeadEasy Software",
+          lead_source: mapping["lead_source"] || "Insights",
         };
         fields.forEach((field) => {
           const csvHeader = mapping[field.key];
@@ -161,11 +161,11 @@ export function CsvImport({ open, onClose, onImport, fields, title = "Import CSV
                 <p className="text-[11px] text-slate-500 font-medium">Tag all imported prospects with their software origin</p>
               </div>
               <select
-                value={mapping["lead_source"] || "LeadEasy Software"}
+                value={mapping["lead_source"] || "Insights"}
                 onChange={(e) => setMapping({ ...mapping, lead_source: e.target.value })}
                 className="bg-white border border-[#174E59]/30 text-[#174E59] rounded-xl text-xs font-black h-9 px-3 focus:outline-none focus:ring-2 focus:ring-[#174E59]/30"
               >
-                <option value="LeadEasy Software">⚡ LeadEasy Software (Auto Scraped)</option>
+                <option value="Insights">⚡ Insight Generated Contacts</option>
                 <option value="LinkedIn Sales Navigator">💼 LinkedIn Sales Navigator</option>
                 <option value="WhatsApp Scraper">💬 WhatsApp Scraper</option>
                 <option value="Manual / Website">🌐 Manual / Website Import</option>

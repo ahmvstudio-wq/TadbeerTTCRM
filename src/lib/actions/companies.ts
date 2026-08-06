@@ -53,7 +53,7 @@ export async function getCompany(id: string) {
 }
 
 export async function createCompany(data: {
-  company_name: string; industry?: string; website?: string; phone?: string; email?: string; country?: string; city?: string; notes?: string;
+  company_name: string; industry?: string; website?: string; phone?: string; email?: string; country?: string; city?: string; notes?: string; employee_count?: number;
   instagram_url?: string; research_notes?: string; lead_source?: string;
   firstContact?: { full_name: string; email?: string; phone?: string; title?: string; whatsapp?: string; linkedin_url?: string; instagram_url?: string; }
 }) {
