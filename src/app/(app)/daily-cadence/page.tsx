@@ -23,7 +23,7 @@ const CHANNELS: OutreachChannel[] = [
 ];
 
 const STATUSES: OutreachStatus[] = [
-  "sent", "no_reply", "replied_interested", "replied_objection", "ready_for_call", "called", "meeting_booked"
+  "sent", "no_reply", "reply_received", "replied_interested", "replied_objection", "ready_for_call", "called", "meeting_booked"
 ];
 
 export default function DailyCadenceCalendarPage() {
@@ -90,7 +90,7 @@ export default function DailyCadenceCalendarPage() {
 
   // Selected date metrics
   const total = leads.length;
-  const replied = leads.filter(l => l.status === "replied_interested" || l.status === "replied_objection").length;
+  const replied = leads.filter(l => l.status === "reply_received" || l.status === "replied_interested" || l.status === "replied_objection").length;
   const ready = leads.filter(l => l.status === "ready_for_call").length;
   const booked = leads.filter(l => l.status === "meeting_booked").length;
 

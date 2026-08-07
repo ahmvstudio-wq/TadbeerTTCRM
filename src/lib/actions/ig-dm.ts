@@ -291,10 +291,8 @@ export async function getAllLeadsForPipeline(
       const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7)
       query = query.gte('created_at', weekAgo.toISOString())
     } else if (dateFilter !== 'all' && dateFilter.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      const startDate = new Date(dateFilter)
-      startDate.setHours(0, 0, 0, 0)
-      const endDate = new Date(dateFilter)
-      endDate.setHours(23, 59, 59, 999)
+      const startDate = new Date(`${dateFilter}T00:00:00.000Z`)
+      const endDate = new Date(`${dateFilter}T23:59:59.999Z`)
       query = query.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString())
     }
 
