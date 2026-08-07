@@ -83,7 +83,7 @@ const STATUSES: OutreachStatus[] = [
 export default function OutreachPipelinePage() {
   const [leads, setLeads] = useState<OutreachLead[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
-  const [dateFilter, setDateFilter] = useState<string>("today");
+  const [dateFilter, setDateFilter] = useState<string>("all");
   const [channelFilter, setChannelFilter] = useState<OutreachChannel | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"table" | "kanban">("table");
