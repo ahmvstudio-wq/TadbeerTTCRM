@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, Phone, MessageCircle,
-  Loader2, Trash2, CheckCircle2, RefreshCw, Send, Check, AlertTriangle, BookOpen, Sparkles, Filter
+  Loader2, Trash2, CheckCircle2, RefreshCw, Send, Check, AlertTriangle, BookOpen, Sparkles, Filter, Share2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import {
   type OutreachChannel, type OutreachStatus, type OutreachLead
 } from "@/lib/types/outreach";
 import { ColdCallScriptModal } from "@/components/outreach/cold-call-script-modal";
+import { ShareProgressModal } from "@/components/cadence/share-progress-modal";
 
 const CHANNELS: OutreachChannel[] = [
   "instagram_dm", "linkedin", "whatsapp", "cold_call", "referral", "email", "event", "walk_in"
@@ -37,6 +38,32 @@ export default function DailyCadenceCalendarPage() {
   const [loading, setLoading] = useState(true);
   const [channelFilter, setChannelFilter] = useState<OutreachChannel | "all">("all");
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+
+  // Sync date with URL search params on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const dateParam = params.get("date");
+      if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+        setSelectedDate(dateParam);
+        const [y, m] = dateParam.split("-").map(Number);
+        if (y && m) {
+          setCurrentYear(y);
+          setCurrentMonth(m);
+        }
+      }
+    }
+  }, []);
+
+  const changeSelectedDate = (dateKey: string) => {
+    setSelectedDate(dateKey);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("date", dateKey);
+      window.history.replaceState({}, "", url.toString());
+    }
+  };
 
   // Fetch month counts
   const fetchMonthCounts = useCallback(async () => {
@@ -113,7 +140,7 @@ export default function DailyCadenceCalendarPage() {
           <Input
             type="date"
             value={selectedDate}
-            onChange={e => e.target.value && setSelectedDate(e.target.value)}
+            onChange={e => e.target.value && changeSelectedDate(e.target.value)}
             className="h-9 text-xs font-bold bg-slate-50 border-slate-200 rounded-xl"
           />
           <Button
@@ -179,7 +206,7 @@ export default function DailyCadenceCalendarPage() {
                 return (
                   <button
                     key={dateKey}
-                    onClick={() => setSelectedDate(dateKey)}
+                    onClick={() => changeSelectedDate(dateKey)}
                     className={cn(
                       "h-12 rounded-2xl p-1 flex flex-col items-center justify-between border transition-all cursor-pointer relative",
                       isSelected
@@ -229,9 +256,18 @@ export default function DailyCadenceCalendarPage() {
                   {new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
                 </h2>
               </div>
-              <span className="text-xs font-extrabold px-3 py-1 rounded-xl bg-slate-100 text-slate-700 border border-slate-200">
-                {total} Total Logs
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-extrabold px-3 py-1 rounded-xl bg-slate-100 text-slate-700 border border-slate-200">
+                  {total} Total Logs
+                </span>
+                <Button
+                  onClick={() => setShareModalOpen(true)}
+                  className="h-8 bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs px-3.5 rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
+                >
+                  <Share2 className="h-3.5 w-3.5" />
+                  Share Progress
+                </Button>
+              </div>
             </div>
 
             {/* Metric Pills */}
@@ -302,6 +338,15 @@ export default function DailyCadenceCalendarPage() {
         </div>
 
       </div>
+
+      {shareModalOpen && (
+        <ShareProgressModal
+          date={selectedDate}
+          leads={leads}
+          dailyCounts={dailyCounts}
+          onClose={() => setShareModalOpen(false)}
+        />
+      )}
 
     </div>
   );
