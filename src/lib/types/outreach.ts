@@ -11,6 +11,7 @@ export type OutreachChannel =
 export type OutreachStatus =
   | 'sent'
   | 'no_reply'
+  | 'reply_received'
   | 'replied_interested'
   | 'replied_objection'
   | 'ready_for_call'
@@ -24,6 +25,10 @@ export type OutreachTemplate =
   | 'referral'
   | 'event_followup'
   | 'custom'
+  | 'approach_a'
+  | 'approach_b'
+  | 'approach_c'
+  | 'approach_d'
 
 export const CHANNEL_CONFIG: Record<OutreachChannel, { label: string; emoji: string; placeholder: string; handleLabel: string }> = {
   instagram_dm: { label: 'Instagram DM',  emoji: 'instagram', placeholder: '@username',        handleLabel: 'Instagram Handle' },
@@ -37,8 +42,9 @@ export const CHANNEL_CONFIG: Record<OutreachChannel, { label: string; emoji: str
 }
 
 export const STATUS_CONFIG: Record<OutreachStatus, { label: string; color: string; next?: OutreachStatus }> = {
-  sent:               { label: 'Reached Out',     color: 'blue',    next: 'replied_interested' },
+  sent:               { label: 'Reached Out',     color: 'blue',    next: 'reply_received'    },
   no_reply:           { label: 'No Reply',         color: 'slate',   next: 'sent'              },
+  reply_received:     { label: 'Reply Received',   color: 'indigo',  next: 'replied_interested'},
   replied_interested: { label: 'Interested',       color: 'emerald', next: 'ready_for_call'    },
   replied_objection:  { label: 'Objection',        color: 'amber',   next: 'ready_for_call'    },
   ready_for_call:     { label: 'Ready for Call',   color: 'teal',    next: 'called'            },
@@ -53,6 +59,10 @@ export const TEMPLATE_LABELS: Record<OutreachTemplate, string> = {
   referral:       'Referral Mention',
   event_followup: 'Event Follow-up',
   custom:         'Custom Message',
+  approach_a:     'Approach A (Relationship)',
+  approach_b:     'Approach B (Insight)',
+  approach_c:     'Approach C (Trigger)',
+  approach_d:     'Approach D (Value)',
 }
 
 export interface OutreachLead {

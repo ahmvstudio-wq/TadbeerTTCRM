@@ -1,232 +1,363 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  Phone,
-  Mail,
-  MessageSquare,
-  Calendar,
-  Clock,
-  CheckCircle2,
-  AlertTriangle,
-  Plus,
-  RotateCcw,
-  Building2,
-  User,
-  Trash2,
-  X,
-  Loader2,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { getFollowUps, createFollowUp, completeFollowUp, rescheduleFollowUp } from "@/lib/actions/followups";
-import { deleteFollowUp } from "@/lib/actions/delete";
-import { getCompanies } from "@/lib/actions/companies";
+import { cn } from "@/lib/utils";
+import {
+  Clock, AlertTriangle, CheckCircle2, RefreshCw, X, MessageCircle,
+  Phone, Send, Sparkles, Filter, Search, User, Building, Mail, Calendar, Loader2
+} from "lucide-react";
+import { getAllLeadsForPipeline, updateOutreachStatus, deleteOutreachLog, updateOutreachEntry } from "@/lib/actions/ig-dm";
+import { getFollowUps } from "@/lib/actions/followups";
+import { type OutreachLead, type OutreachStatus, CHANNEL_CONFIG, STATUS_CONFIG } from "@/lib/types/outreach";
+import { ContactDetailDrawer } from "@/components/outreach/contact-detail-drawer";
+import { ColdCallScriptModal } from "@/components/outreach/cold-call-script-modal";
 
-const CHANNEL_ICONS: Record<string, React.ElementType> = { call: Phone, email: Mail, whatsapp: MessageSquare, meeting: Calendar };
-const CHANNEL_COLORS: Record<string, string> = { call: "text-brand-teal", email: "text-amber-600", whatsapp: "text-green-600", linkedin: "text-blue-600", meeting: "text-purple-600" };
+function getDaysElapsed(dateStr: string): number {
+  if (!dateStr) return 0;
+  const sentDate = new Date(dateStr).getTime();
+  if (isNaN(sentDate)) return 0;
+  const diffTime = Math.max(0, Date.now() - sentDate);
+  return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+}
 
 export default function FollowUpsPage() {
-  const [followups, setFollowups] = useState<any[]>([]);
-  const [companies, setCompanies] = useState<any[]>([]);
+  const [outreachLeads, setOutreachLeads] = useState<OutreachLead[]>([]);
+  const [legacyFollowups, setLegacyFollowups] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newDialogOpen, setNewDialogOpen] = useState(false);
-  const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
-  const [selectedFollowup, setSelectedFollowup] = useState<any>(null);
-  const [completeNotes, setCompleteNotes] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<"overdue" | "replies" | "all">("overdue");
+  
+  // Modals & Drawer State
+  const [drawerLead, setDrawerLead] = useState<OutreachLead | null>(null);
+  const [scriptLead, setScriptLead] = useState<OutreachLead | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
-  const [newForm, setNewForm] = useState({ company_id: "", subject: "", description: "", channel: "call", date: "", time: "" });
 
-  const fetchData = async () => {
+  const fetchFollowupsData = useCallback(async () => {
     setLoading(true);
-    const [fuRes, coRes] = await Promise.all([getFollowUps("all"), getCompanies()]);
-    if (fuRes.data) setFollowups(fuRes.data);
-    if (coRes.data) setCompanies(coRes.data);
+    const [outRes, legRes] = await Promise.all([
+      getAllLeadsForPipeline("all"),
+      getFollowUps("all")
+    ]);
+    setOutreachLeads(outRes.data || []);
+    setLegacyFollowups(legRes.data || []);
     setLoading(false);
-  };
+  }, []);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchFollowupsData();
+  }, [fetchFollowupsData]);
 
-  const today = new Date().toISOString().split("T")[0];
-  const dueToday = followups.filter((f) => f.due_date === today && f.status === "pending");
-  const overdue = followups.filter((f) => f.due_date < today && f.status === "pending");
-  const allPending = followups.filter((f) => f.status === "pending");
+  // Outreach Follow-up Categorizations:
+  // Overdue / Due (2-3+ days elapsed with no reply)
+  const overdueFollowups = outreachLeads.filter(l => 
+    (l.status === "sent" || l.status === "no_reply") && getDaysElapsed(l.sent_at) >= 2
+  );
 
-  const handleComplete = async () => {
-    if (!selectedFollowup) return;
-    const result = await completeFollowUp(selectedFollowup.id, completeNotes);
-    if (result.error) { setToast({ type: "error", message: result.error }); return; }
-    setCompleteDialogOpen(false);
-    setSelectedFollowup(null);
-    setCompleteNotes("");
-    setToast({ type: "success", message: "Follow-up completed" });
-    fetchData();
-  };
+  // Replies Received needing review / follow-up
+  const repliesFollowups = outreachLeads.filter(l => 
+    l.status === "reply_received" || l.status === "replied_objection" || l.status === "replied_interested"
+  );
 
-  const handleReschedule = async (id: string) => {
-    const newDate = prompt("Enter new date (YYYY-MM-DD):");
-    if (newDate) {
-      const result = await rescheduleFollowUp(id, newDate);
-      if (result.error) { setToast({ type: "error", message: result.error }); return; }
-      setToast({ type: "success", message: "Rescheduled" });
-      fetchData();
+  // All pending follow-ups
+  const allOutreachFollowups = outreachLeads.filter(l => 
+    l.status !== "called" && l.status !== "meeting_booked"
+  );
+
+  // Filter based on active tab and search query
+  const displayedLeads = (
+    activeTab === "overdue" ? overdueFollowups :
+    activeTab === "replies" ? repliesFollowups :
+    allOutreachFollowups
+  ).filter(l => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+    return (
+      l.company_name.toLowerCase().includes(q) ||
+      (l.handle || "").toLowerCase().includes(q) ||
+      (l.phone || "").toLowerCase().includes(q) ||
+      (l.industry || "").toLowerCase().includes(q)
+    );
+  });
+
+  const handleMarkFollowedUp = async (lead: OutreachLead) => {
+    // Update status to sent with today's date
+    const res = await updateOutreachEntry(lead.id, {
+      status: "sent",
+      outreach_date: new Date().toISOString(),
+      notes: `${lead.notes ? lead.notes + ' | ' : ''}Followed up on ${new Date().toLocaleDateString()}`
+    });
+
+    if (res.error) {
+      setToast({ type: "error", message: res.error });
+    } else {
+      setToast({ type: "success", message: `Marked followed up for ${lead.company_name}` });
+      fetchFollowupsData();
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this follow-up?")) return;
-    const result = await deleteFollowUp(id);
-    if (result.error) { setToast({ type: "error", message: result.error }); return; }
-    setToast({ type: "success", message: "Follow-up deleted" });
-    fetchData();
+  const handleMarkReadyForCall = async (lead: OutreachLead) => {
+    const res = await updateOutreachStatus(lead.id, { status: "ready_for_call" });
+    if (res.error) {
+      setToast({ type: "error", message: res.error });
+    } else {
+      setToast({ type: "success", message: `Moved ${lead.company_name} to Call Queue!` });
+      fetchFollowupsData();
+    }
   };
-
-  const handleNewFollowup = async () => {
-    if (!newForm.company_id || !newForm.subject) return;
-    const result = await createFollowUp({
-      company_id: newForm.company_id,
-      subject: newForm.subject,
-      description: newForm.description || undefined,
-      channel: newForm.channel,
-      due_date: newForm.date || today,
-      due_time: newForm.time || undefined,
-    });
-    if (result.error) { setToast({ type: "error", message: result.error }); return; }
-    setNewDialogOpen(false);
-    setNewForm({ company_id: "", subject: "", description: "", channel: "call", date: "", time: "" });
-    setToast({ type: "success", message: "Follow-up created" });
-    fetchData();
-  };
-
-  const renderFollowupCard = (followup: any) => {
-    const isOverdue = followup.due_date < today && followup.status === "pending";
-    const isDueToday = followup.due_date === today && followup.status === "pending";
-    const Icon = CHANNEL_ICONS[followup.channel] || Phone;
-    const companyName = followup.companies?.company_name || "Unknown";
-    const contactName = followup.contacts?.full_name || "";
-
-    return (
-      <Card key={followup.id} className={cn("mb-3 transition-all hover:shadow-md", isOverdue && "bg-red-50/70 border-red-200", isDueToday && "bg-amber-50/70 border-amber-200")}>
-        <CardContent className="p-3.5 sm:p-4">
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <Building2 className="h-4 w-4 text-text-muted flex-shrink-0" />
-                <span className="font-semibold text-text-primary text-sm truncate max-w-[200px] sm:max-w-none">{companyName}</span>
-                <Badge variant={isOverdue ? "destructive" : isDueToday ? "default" : "secondary"} className="text-[10px]">
-                  {isOverdue ? "Overdue" : isDueToday ? "Due Today" : "Upcoming"}
-                </Badge>
-              </div>
-              {contactName && (
-                <div className="flex items-center gap-1.5 text-xs text-text-secondary mb-1.5">
-                  <User className="h-3 w-3" /> <span>{contactName}</span>
-                </div>
-              )}
-              <p className="text-xs sm:text-sm text-text-primary font-semibold mb-2">{followup.subject}</p>
-              <div className="flex items-center gap-3 text-xs text-text-muted flex-wrap">
-                <div className="flex items-center gap-1"><Calendar className="h-3 w-3" /><span>{followup.due_date}</span></div>
-                {followup.due_time && <div className="flex items-center gap-1"><Clock className="h-3 w-3" /><span>{followup.due_time}</span></div>}
-                <div className={cn("flex items-center gap-1 font-medium", CHANNEL_COLORS[followup.channel])}><Icon className="h-3 w-3" /><span className="capitalize">{followup.channel}</span></div>
-              </div>
-            </div>
-            {followup.status === "pending" && (
-              <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
-                <Button size="sm" variant="outline" className="text-xs px-2.5 h-7" onClick={() => handleReschedule(followup.id)}><RotateCcw className="h-3 w-3 mr-1" /> Reschedule</Button>
-                <Button size="sm" className="bg-brand-teal hover:bg-brand-teal-dark text-white text-xs px-2.5 h-7" onClick={() => { setSelectedFollowup(followup); setCompleteDialogOpen(true); }}><CheckCircle2 className="h-3 w-3 mr-1" /> Complete</Button>
-                <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700 hover:bg-red-50 h-7 w-7 p-0" onClick={() => handleDelete(followup.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-
-  if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="animate-spin h-8 w-8 text-brand-teal" /></div>;
 
   return (
-    <div className="p-3 sm:p-6 max-w-6xl mx-auto space-y-4">
+    <div className="space-y-4 max-w-[1850px] w-full mx-auto font-sans pb-20">
       {toast && (
-        <div className={`flex items-center gap-2 p-3 rounded-lg text-sm mb-4 ${toast.type === "success" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
-          {toast.message}<button onClick={() => setToast(null)} className="ml-auto"><X className="h-4 w-4" /></button>
+        <div className={`flex items-center gap-2 p-3 rounded-xl text-xs font-bold ${toast.type === "success" ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
+          <span>{toast.message}</span>
+          <button onClick={() => setToast(null)} className="ml-auto text-slate-400 hover:text-slate-700">
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Follow-ups</h1>
-          <p className="text-slate-500">Manage your pending follow-ups</p>
+      {/* ── Top Header & Tab Controls ─────────────────────────────────────── */}
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <Clock className="h-5 w-5 text-amber-600" />
+              <span>Outreach Follow-ups Workstation</span>
+            </h1>
+            <p className="text-slate-400 text-xs mt-0.5 font-medium">
+              Tracks 2–3+ day overdue contacts, prospect replies & scheduled follow-ups across all channels.
+            </p>
+          </div>
+
+          <button
+            onClick={fetchFollowupsData}
+            className="p-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors text-xs font-bold flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> Refresh
+          </button>
         </div>
-        <Button className="bg-brand-gold hover:bg-brand-gold/90 text-brand-teal-dark" onClick={() => setNewDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" /> New Follow-up
-        </Button>
+
+        {/* Tabs & Search */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs">
+          {/* Tabs */}
+          <div className="flex bg-slate-100 p-0.5 rounded-xl font-bold border border-slate-200/60 flex-wrap">
+            <button
+              onClick={() => setActiveTab("overdue")}
+              className={cn(
+                "px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5",
+                activeTab === "overdue" ? "bg-white text-amber-800 shadow-2xs font-black" : "text-slate-500 hover:text-slate-900"
+              )}
+            >
+              ⏰ Due / Overdue (2–3+ Days) ({overdueFollowups.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("replies")}
+              className={cn(
+                "px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5",
+                activeTab === "replies" ? "bg-white text-indigo-800 shadow-2xs font-black" : "text-slate-500 hover:text-slate-900"
+              )}
+            >
+              📬 Replies Received ({repliesFollowups.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("all")}
+              className={cn(
+                "px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5",
+                activeTab === "all" ? "bg-white text-slate-900 shadow-2xs font-black" : "text-slate-500 hover:text-slate-900"
+              )}
+            >
+              📆 All Pending ({allOutreachFollowups.length})
+            </button>
+          </div>
+
+          {/* Search Bar */}
+          <div className="relative w-full sm:max-w-xs">
+            <Input
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="🔍 Search prospect, @handle..."
+              className="h-8 text-xs bg-slate-50 border-slate-200 rounded-xl pr-8"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery("")} className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
-      <Tabs defaultValue="today" className="w-full">
-        <TabsList className="mb-4">
-          <TabsTrigger value="today" className="flex items-center gap-2"><Clock className="h-4 w-4" /> Due Today <Badge variant="secondary" className="ml-1">{dueToday.length}</Badge></TabsTrigger>
-          <TabsTrigger value="overdue" className="flex items-center gap-2"><AlertTriangle className="h-4 w-4" /> Overdue <Badge variant="destructive" className="ml-1">{overdue.length}</Badge></TabsTrigger>
-          <TabsTrigger value="all" className="flex items-center gap-2">All <Badge variant="secondary" className="ml-1">{allPending.length}</Badge></TabsTrigger>
-        </TabsList>
-        <TabsContent value="today">{dueToday.length === 0 ? <Card className="bg-slate-50"><CardContent className="p-8 text-center"><CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" /><p className="text-slate-600">No follow-ups due today</p></CardContent></Card> : dueToday.map(renderFollowupCard)}</TabsContent>
-        <TabsContent value="overdue">{overdue.length === 0 ? <Card className="bg-slate-50"><CardContent className="p-8 text-center"><CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" /><p className="text-slate-600">No overdue follow-ups</p></CardContent></Card> : overdue.map(renderFollowupCard)}</TabsContent>
-        <TabsContent value="all">{allPending.map(renderFollowupCard)}</TabsContent>
-      </Tabs>
-
-      <Dialog open={newDialogOpen} onClose={() => setNewDialogOpen(false)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>New Follow-up</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-slate-700 mb-1 block">Company *</label>
-              <Select options={companies.map((c) => ({ value: c.id, label: c.company_name }))} value={newForm.company_id} onChange={(e) => setNewForm({ ...newForm, company_id: e.target.value })} placeholder="Select company" />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700 mb-1 block">Subject *</label>
-              <Input placeholder="Follow-up subject" value={newForm.subject} onChange={(e) => setNewForm({ ...newForm, subject: e.target.value })} />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700 mb-1 block">Description</label>
-              <Textarea placeholder="Additional details..." value={newForm.description} onChange={(e) => setNewForm({ ...newForm, description: e.target.value })} />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700 mb-1 block">Channel</label>
-              <Select options={[{ value: "call", label: "Call" }, { value: "email", label: "Email" }, { value: "whatsapp", label: "WhatsApp" }, { value: "linkedin", label: "LinkedIn" }, { value: "meeting", label: "Meeting" }]} value={newForm.channel} onChange={(e) => setNewForm({ ...newForm, channel: e.target.value })} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><label className="text-sm font-medium text-slate-700 mb-1 block">Date</label><Input type="date" value={newForm.date} onChange={(e) => setNewForm({ ...newForm, date: e.target.value })} /></div>
-              <div><label className="text-sm font-medium text-slate-700 mb-1 block">Time</label><Input type="time" value={newForm.time} onChange={(e) => setNewForm({ ...newForm, time: e.target.value })} /></div>
-            </div>
+      {/* ── Follow-ups Data Table ────────────────────────────────────────── */}
+      {loading ? (
+        <div className="flex items-center justify-center py-24 bg-white rounded-2xl border border-slate-200">
+          <Loader2 className="h-6 w-6 animate-spin text-amber-600" />
+        </div>
+      ) : displayedLeads.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-12 text-center text-slate-400 font-medium">
+          <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto mb-2" />
+          <p className="text-sm font-bold text-slate-700">No pending follow-ups in this section!</p>
+          <p className="text-xs text-slate-400 mt-1">All contacts are up to date.</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden font-sans">
+          <div className="p-3 bg-slate-50/70 border-b border-slate-200 flex items-center justify-between text-xs font-bold text-slate-700">
+            <span>Showing {displayedLeads.length} follow-up contacts</span>
+            <span className="text-slate-400 text-[11px]">Click "Mark Followed Up" after sending a follow-up message</span>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setNewDialogOpen(false)}>Cancel</Button>
-            <Button className="bg-brand-teal hover:bg-brand-teal-dark text-white" onClick={handleNewFollowup}>Create Follow-up</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
-      <Dialog open={completeDialogOpen} onClose={() => setCompleteDialogOpen(false)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Complete Follow-up</DialogTitle></DialogHeader>
-          {selectedFollowup && (
-            <div className="space-y-4">
-              <div className="bg-slate-50 p-3 rounded-lg"><p className="font-medium">{selectedFollowup.companies?.company_name}</p><p className="text-sm text-slate-600">{selectedFollowup.subject}</p></div>
-              <div><label className="text-sm font-medium text-slate-700 mb-1 block">Notes</label><Textarea placeholder="Add completion notes..." value={completeNotes} onChange={(e) => setCompleteNotes(e.target.value)} /></div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCompleteDialogOpen(false)}>Cancel</Button>
-            <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={handleComplete}><CheckCircle2 className="h-4 w-4 mr-2" /> Mark Complete</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-slate-100/70 border-b border-slate-200 text-slate-700 font-black text-[11px]">
+                <tr>
+                  <th className="p-3">Company / Business</th>
+                  <th className="p-3">Channel & Contact</th>
+                  <th className="p-3">Outreach Age</th>
+                  <th className="p-3">Reply / Notes</th>
+                  <th className="p-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                {displayedLeads.map(lead => {
+                  const daysAgo = getDaysElapsed(lead.sent_at);
+                  const phoneNum = lead.phone || (lead.channel === "cold_call" || lead.channel === "whatsapp" ? lead.handle : null);
+                  const waUrl = phoneNum ? `https://wa.me/${phoneNum.replace(/\D/g, "")}` : null;
+                  const channelLabel = CHANNEL_CONFIG[lead.channel]?.label || lead.channel;
+
+                  return (
+                    <tr key={lead.id} className="hover:bg-slate-50/80 transition-colors">
+                      {/* Company Name */}
+                      <td className="p-3">
+                        <span className="font-black text-slate-900 text-xs block truncate max-w-[200px]">
+                          {lead.company_name}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-medium block truncate max-w-[180px]">
+                          {lead.industry || "General"}
+                        </span>
+                      </td>
+
+                      {/* Channel & Contact */}
+                      <td className="p-3">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-slate-700 truncate max-w-[160px]">
+                            {lead.handle || channelLabel}
+                          </span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-bold">
+                            {channelLabel}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Outreach Age */}
+                      <td className="p-3">
+                        {daysAgo >= 3 ? (
+                          <span className="font-extrabold text-red-800 bg-red-50 border border-red-200 px-2 py-0.5 rounded-md text-[11px]">
+                            ⏰ {daysAgo} Days Overdue
+                          </span>
+                        ) : daysAgo === 2 ? (
+                          <span className="font-extrabold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md text-[11px]">
+                            ⏰ 2 Days Due
+                          </span>
+                        ) : (
+                          <span className="text-slate-500 font-mono text-[11px]">
+                            {daysAgo === 0 ? "Today" : `${daysAgo}d ago`}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Reply / Notes */}
+                      <td className="p-3">
+                        {lead.prospect_reply ? (
+                          <span className="text-[11px] font-bold text-indigo-900 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-200 block truncate max-w-[300px]">
+                            💬 "{lead.prospect_reply}"
+                          </span>
+                        ) : (
+                          <span className="text-slate-500 text-[11px] truncate block max-w-[240px]">
+                            {lead.notes || "No reply yet"}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="p-3 text-right">
+                        <div className="inline-flex items-center gap-1 justify-end">
+                          {waUrl && (
+                            <a
+                              href={waUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2 py-1 rounded-md bg-emerald-100 text-emerald-900 text-[10px] font-extrabold hover:bg-emerald-200 transition-colors"
+                            >
+                              WA
+                            </a>
+                          )}
+
+                          <button
+                            onClick={() => handleMarkReadyForCall(lead)}
+                            className="px-2 py-1 rounded-md bg-teal-50 text-teal-800 border border-teal-200 text-[10px] font-bold hover:bg-teal-100 transition-colors cursor-pointer"
+                            title="Move to Call Queue"
+                          >
+                            📞 Ready to Call
+                          </button>
+
+                          <button
+                            onClick={() => handleMarkFollowedUp(lead)}
+                            className="px-2.5 py-1 rounded-md bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-extrabold transition-colors cursor-pointer"
+                          >
+                            ✓ Followed Up
+                          </button>
+
+                          <button
+                            onClick={() => setDrawerLead(lead)}
+                            className="px-2 py-1 rounded-md bg-slate-900 text-white text-[10px] font-extrabold hover:bg-slate-800 transition-colors cursor-pointer"
+                          >
+                            Card →
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Cold Call Script Modal ────────────────────────────────────────── */}
+      {scriptLead && (
+        <ColdCallScriptModal
+          ctx={{
+            companyName: scriptLead.company_name,
+            industry: scriptLead.industry,
+            handle: scriptLead.handle,
+            painPoint: scriptLead.pain_point,
+            prospectReply: scriptLead.prospect_reply,
+            openingLine: scriptLead.call_opening_line,
+          }}
+          onClose={() => setScriptLead(null)}
+        />
+      )}
+
+      {/* ── Standardized Contact Detail Drawer ─────────────────────────────── */}
+      <ContactDetailDrawer
+        isOpen={!!drawerLead}
+        onClose={() => setDrawerLead(null)}
+        lead={drawerLead}
+        onStatusChange={async (id, s) => {
+          await updateOutreachStatus(id, { status: s });
+          fetchFollowupsData();
+        }}
+        onDelete={async (id) => {
+          await deleteOutreachLog(id);
+          fetchFollowupsData();
+        }}
+        onSaveEntry={async (id, data) => {
+          await updateOutreachEntry(id, data);
+          fetchFollowupsData();
+        }}
+      />
     </div>
   );
 }

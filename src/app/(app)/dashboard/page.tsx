@@ -6,6 +6,7 @@ import { getFollowUps } from "@/lib/actions/followups";
 import { getMeetings } from "@/lib/actions/meetings";
 import { getOpportunities } from "@/lib/actions/opportunities";
 import { getLinkedInProspects } from "@/lib/actions/linkedin";
+import { getAllLeadsForPipeline } from "@/lib/actions/ig-dm";
 
 export default async function TealCRMDashboardPage() {
   const [
@@ -16,7 +17,8 @@ export default async function TealCRMDashboardPage() {
     fuRes,
     meetingsRes,
     oppsRes,
-    liRes
+    liRes,
+    outreachRes
   ] = await Promise.all([
     getDashboardStats(),
     getRecentActivity(15),
@@ -25,7 +27,8 @@ export default async function TealCRMDashboardPage() {
     getFollowUps("pending"),
     getMeetings("upcoming"),
     getOpportunities(),
-    getLinkedInProspects()
+    getLinkedInProspects(),
+    getAllLeadsForPipeline("all")
   ]);
 
   const initialData = {
@@ -37,6 +40,7 @@ export default async function TealCRMDashboardPage() {
     meetingsList: meetingsRes.data || [],
     opportunitiesList: oppsRes.data || [],
     linkedinProspects: liRes.data || [],
+    outreachLeads: outreachRes.data || [],
   };
 
   return <TealCRMDashboardClient initialData={initialData} />;

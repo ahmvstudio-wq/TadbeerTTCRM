@@ -75,6 +75,7 @@ export interface DashboardInitialData {
   meetingsList: any[];
   opportunitiesList: any[];
   linkedinProspects: any[];
+  outreachLeads?: any[];
 }
 
 export function TealCRMDashboardClient({ initialData }: { initialData: DashboardInitialData }) {
@@ -86,6 +87,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
   const [meetingsList, setMeetingsList] = useState<any[]>(initialData.meetingsList);
   const [opportunitiesList, setOpportunitiesList] = useState<any[]>(initialData.opportunitiesList);
   const [linkedinProspects, setLinkedinProspects] = useState<any[]>(initialData.linkedinProspects);
+  const [outreachLeads] = useState<any[]>(initialData.outreachLeads || []);
 
   const [loading, setLoading] = useState(false);
   const [chartView, setChartView] = useState<"monthly" | "yearly">("yearly");
@@ -106,6 +108,19 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
       return matchesSearch && matchesStatus;
     });
   }, [companies, searchQuery, statusFilter]);
+
+  // Outreach Follow-ups Remaining (Reached Out 2-3+ Days Ago with No Reply)
+  const outreachFollowupsRemaining = useMemo(() => {
+    const now = Date.now();
+    return outreachLeads.filter(l => {
+      const isPendingReply = l.status === "sent" || l.status === "no_reply";
+      if (!isPendingReply) return false;
+      const sentTime = l.sent_at ? new Date(l.sent_at).getTime() : 0;
+      if (!sentTime || isNaN(sentTime)) return false;
+      const diffDays = Math.max(0, (now - sentTime) / (1000 * 60 * 60 * 24));
+      return diffDays >= 2;
+    });
+  }, [outreachLeads]);
 
   const toggleSelectRow = (id: string) => {
     setSelectedRows(prev => {
@@ -165,7 +180,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
     });
   }, [companies]);
 
-  const [activeWorkstationTab, setActiveWorkstationTab] = useState<"calls" | "followups">("calls");
+  const [activeWorkstationTab, setActiveWorkstationTab] = useState<"calls" | "followups" | "outreach_remaining">("calls");
 
   // Call Ready Leads
   const callReadyLeads = useMemo(() => {
@@ -299,24 +314,24 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
               <h3 className="text-sm font-black text-slate-900 tracking-tight flex items-center gap-2">
                 <BarChart3 className="h-4 w-4 text-teal-600" /> Stage Progression Funnel
               </h3>
-              <p className="text-[11px] text-slate-400 font-medium">Conversion volume across pipeline stages</p>
+              <p className="text-xs text-slate-400 font-medium mt-0.5">Real-time prospect movement</p>
             </div>
-            <span className="text-[10px] font-extrabold px-2 py-1 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
-              {conversionRate}% Velocity
+            <span className="text-xs font-black text-teal-700 bg-teal-50 px-2.5 py-1 rounded-xl border border-teal-200">
+              {conversionRate}% Conv. Rate
             </span>
           </div>
 
           <div className="space-y-3 pt-2">
-            {stageFunnel.map(st => (
-              <div key={st.label} className="space-y-1">
+            {stageFunnel.map((stage, idx) => (
+              <div key={idx} className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs font-bold">
-                  <span className="text-slate-700 text-[11px]">{st.label}</span>
-                  <span className={cn("text-[11px] font-black", st.textColor)}>{st.count} leads ({st.pct}%)</span>
+                  <span className="text-slate-700">{stage.label}</span>
+                  <span className={cn("font-extrabold", stage.textColor)}>{stage.count} <span className="text-[10px] text-slate-400 font-normal">({stage.pct}%)</span></span>
                 </div>
-                <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200/80">
+                <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200/60">
                   <div
-                    style={{ width: `${Math.max(5, st.pct)}%` }}
-                    className={cn("h-full rounded-full transition-all duration-700 shadow-xs", st.color)}
+                    className={cn("h-full rounded-full transition-all duration-1000 ease-out", stage.color)}
+                    style={{ width: `${Math.max(4, stage.pct)}%` }}
                   />
                 </div>
               </div>
@@ -325,53 +340,56 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
         </div>
 
         {/* Graph 2: Lead Acquisition Channel Share Distribution */}
-        <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-xs space-y-4">
+        <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-xs space-y-4 flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-black text-slate-900 tracking-tight flex items-center gap-2">
-                <PieChart className="h-4 w-4 text-teal-600" /> Channel Share Breakdown
+                <PieChart className="h-4 w-4 text-teal-600" /> Lead Channel Breakdown
               </h3>
-              <p className="text-[11px] text-slate-400 font-medium">Distribution of incoming leads by source</p>
+              <p className="text-xs text-slate-400 font-medium mt-0.5">Distribution across acquisition channels</p>
             </div>
-            <span className="text-[10px] font-extrabold px-2 py-1 rounded-lg bg-teal-50 text-teal-700 border border-teal-200">
-              {channelBreakdown.total} Total
+            <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-xl border border-slate-200">
+              {channelBreakdown.total} Leads
             </span>
           </div>
 
-          {/* Multi-segmented Segmented Bar */}
-          <div className="space-y-3 pt-2">
-            <div className="h-4 w-full bg-slate-100 rounded-2xl overflow-hidden flex border border-slate-200 p-0.5">
-              <div style={{ width: `${channelBreakdown.linkedin.pct}%` }} className="bg-blue-600 h-full rounded-l-xl transition-all" title="LinkedIn" />
-              <div style={{ width: `${channelBreakdown.whatsapp.pct}%` }} className="bg-emerald-500 h-full transition-all" title="WhatsApp" />
-              <div style={{ width: `${channelBreakdown.instagram.pct}%` }} className="bg-purple-600 h-full transition-all" title="Instagram DM" />
-              <div style={{ width: `${channelBreakdown.direct.pct}%` }} className="bg-slate-700 h-full rounded-r-xl transition-all" title="Direct CRM" />
+          <div className="space-y-3">
+            <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden flex p-0.5 border border-slate-200/80 gap-0.5">
+              <div className="bg-blue-600 h-full rounded-l-full transition-all duration-700" style={{ width: `${channelBreakdown.linkedin.pct}%` }} title={`LinkedIn: ${channelBreakdown.linkedin.pct}%`} />
+              <div className="bg-teal-600 h-full transition-all duration-700" style={{ width: `${channelBreakdown.whatsapp.pct}%` }} title={`WhatsApp: ${channelBreakdown.whatsapp.pct}%`} />
+              <div className="bg-slate-900 h-full transition-all duration-700" style={{ width: `${channelBreakdown.instagram.pct}%` }} title={`Instagram: ${channelBreakdown.instagram.pct}%`} />
+              <div className="bg-slate-400 h-full rounded-r-full transition-all duration-700" style={{ width: `${channelBreakdown.direct.pct}%` }} title={`Direct: ${channelBreakdown.direct.pct}%`} />
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 text-xs">
-              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
-                  <span className="h-2.5 w-2.5 rounded-full bg-blue-600 shrink-0" /> LinkedIn
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200/80">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                  <div className="h-2.5 w-2.5 rounded-full bg-blue-600 shrink-0" />
+                  <span>LinkedIn Outreach</span>
                 </div>
                 <p className="text-base font-black text-slate-900 mt-1">{channelBreakdown.linkedin.count} <span className="text-[10px] text-slate-400 font-medium">({channelBreakdown.linkedin.pct}%)</span></p>
               </div>
 
-              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
-                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shrink-0" /> WhatsApp
+              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200/80">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                  <div className="h-2.5 w-2.5 rounded-full bg-teal-600 shrink-0" />
+                  <span>WhatsApp Direct</span>
                 </div>
                 <p className="text-base font-black text-slate-900 mt-1">{channelBreakdown.whatsapp.count} <span className="text-[10px] text-slate-400 font-medium">({channelBreakdown.whatsapp.pct}%)</span></p>
               </div>
 
-              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
-                  <span className="h-2.5 w-2.5 rounded-full bg-purple-600 shrink-0" /> Instagram DM
+              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200/80">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                  <div className="h-2.5 w-2.5 rounded-full bg-slate-900 shrink-0" />
+                  <span>Instagram DM</span>
                 </div>
                 <p className="text-base font-black text-slate-900 mt-1">{channelBreakdown.instagram.count} <span className="text-[10px] text-slate-400 font-medium">({channelBreakdown.instagram.pct}%)</span></p>
               </div>
 
-              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
-                  <span className="h-2.5 w-2.5 rounded-full bg-slate-700 shrink-0" /> Direct CRM
+              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200/80">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                  <div className="h-2.5 w-2.5 rounded-full bg-slate-400 shrink-0" />
+                  <span>Direct / Database</span>
                 </div>
                 <p className="text-base font-black text-slate-900 mt-1">{channelBreakdown.direct.count} <span className="text-[10px] text-slate-400 font-medium">({channelBreakdown.direct.pct}%)</span></p>
               </div>
@@ -394,11 +412,11 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
           </div>
 
           {/* Sub-tabs matching user screenshot */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200 gap-1">
+          <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200 gap-1 flex-wrap">
             <button
               onClick={() => setActiveWorkstationTab("calls")}
               className={cn(
-                "px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2",
+                "px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5",
                 activeWorkstationTab === "calls" ? "bg-slate-900 text-white shadow-xs" : "text-slate-500 hover:text-slate-900"
               )}
             >
@@ -407,14 +425,33 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
             </button>
 
             <button
+              onClick={() => setActiveWorkstationTab("outreach_remaining")}
+              className={cn(
+                "px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5",
+                activeWorkstationTab === "outreach_remaining"
+                  ? "bg-amber-500 text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              )}
+            >
+              <Clock className="h-3.5 w-3.5" />
+              <span>Follow-ups Remaining</span>
+              <span className={cn(
+                "text-[10px] font-black px-1.5 py-0.5 rounded-full",
+                activeWorkstationTab === "outreach_remaining" ? "bg-white text-amber-950" : "bg-amber-100 text-amber-900"
+              )}>
+                {outreachFollowupsRemaining.length}
+              </span>
+            </button>
+
+            <button
               onClick={() => setActiveWorkstationTab("followups")}
               className={cn(
-                "px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2",
+                "px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2",
                 activeWorkstationTab === "followups" ? "bg-slate-900 text-white shadow-xs" : "text-slate-500 hover:text-slate-900"
               )}
             >
               <Clock className="h-3.5 w-3.5" />
-              <span>Follow-up Urgency ({followUpsList.length})</span>
+              <span>Tasks ({followUpsList.length})</span>
             </button>
           </div>
         </div>
@@ -481,7 +518,73 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
           </div>
         )}
 
-        {/* Tab 2: FOLLOW-UP URGENCY */}
+        {/* Tab 2: OUTREACH FOLLOW-UPS REMAINING (2-3+ DAYS AGO) */}
+        {activeWorkstationTab === "outreach_remaining" && (
+          <div className="space-y-3">
+            {outreachFollowupsRemaining.length === 0 ? (
+              <div className="text-center py-8 bg-amber-50/40 rounded-2xl border border-amber-200/80 border-dashed">
+                <Clock className="h-6 w-6 text-amber-400 mx-auto mb-1.5" />
+                <p className="text-xs font-bold text-amber-950">No outreach follow-ups overdue!</p>
+                <p className="text-[11px] text-amber-800 mt-0.5">All contacts reached out 2-3+ days ago have received follow-ups or replies.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-amber-200/80 bg-white">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-amber-50/60 border-b border-amber-200/80 text-amber-950 font-extrabold text-[11px]">
+                    <tr>
+                      <th className="p-3">Company / Business</th>
+                      <th className="p-3">Channel & Handle</th>
+                      <th className="p-3">Elapsed Time</th>
+                      <th className="p-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-amber-100/60 font-medium text-slate-800">
+                    {outreachFollowupsRemaining.map((lead) => {
+                      const sentDate = lead.sent_at ? new Date(lead.sent_at).getTime() : Date.now();
+                      const daysAgo = Math.floor((Date.now() - sentDate) / (1000 * 60 * 60 * 24));
+                      const phone = lead.phone || (lead.channel === "cold_call" || lead.channel === "whatsapp" ? lead.handle : null);
+                      const waUrl = phone ? `https://wa.me/${phone.replace(/\D/g, "")}` : null;
+
+                      return (
+                        <tr key={lead.id} className="hover:bg-amber-50/30 transition-colors">
+                          <td className="p-3 font-bold text-slate-900">
+                            {lead.company_name}
+                            <span className="text-[10px] font-normal text-slate-400 block">{lead.industry || 'General'}</span>
+                          </td>
+                          <td className="p-3 text-slate-700 font-medium">
+                            {lead.channel}
+                            <span className="text-[10px] font-mono text-slate-400 block truncate max-w-[140px]">{lead.handle}</span>
+                          </td>
+                          <td className="p-3">
+                            <span className="text-[10px] font-black bg-amber-100 text-amber-950 px-2.5 py-0.5 rounded-md border border-amber-300">
+                              {daysAgo === 0 ? "Today" : `${daysAgo} Days Ago`}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right">
+                            <div className="inline-flex items-center gap-1.5 justify-end">
+                              {waUrl && (
+                                <a href={waUrl} target="_blank" rel="noopener noreferrer" className="px-2 py-1 rounded-lg bg-emerald-100 text-emerald-900 text-[10px] font-bold">
+                                  WA
+                                </a>
+                              )}
+                              <Link href="/outreach">
+                                <Button size="sm" className="h-7 text-[10px] font-extrabold bg-amber-900 hover:bg-amber-950 text-white rounded-lg px-2.5">
+                                  View in Outreach →
+                                </Button>
+                              </Link>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab 3: FOLLOW-UP URGENCY */}
         {activeWorkstationTab === "followups" && (
           <div className="space-y-3">
             {followUpsList.length === 0 ? (

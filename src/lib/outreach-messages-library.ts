@@ -517,3 +517,95 @@ Transformation Lead | Tadbeer Transformation Trading
 Phone: +968 7630 7656 | Email: operation@tadbeertt.com | Web: www.tadbeertt.com`
   }
 }
+
+// ─── Playbook Frameworks ──────────────────────────────────────────────────────
+
+export const PLAYBOOK_TEMPLATES = {
+  approaches: [
+    {
+      id: "approach_a",
+      label: "Approach A — Relationship-Led",
+      description: "Best when there is no urgent commercial trigger.",
+      rule: "No pitch.",
+      template: "\"Assalamu Alaikum [Name], I came across your work with [Company] while looking into businesses in [sector]. I found what you're doing around [specific observation] interesting. Would be good to connect and stay in touch.\"",
+      variables: ["Name", "Company", "sector", "specific observation"]
+    },
+    {
+      id: "approach_b",
+      label: "Approach B — Insight-Led",
+      description: "The objective is curiosity and permission.",
+      rule: "",
+      template: "\"Assalamu Alaikum [Name], I was looking into [Company] and noticed [specific observation]. We've been working quite closely around business operations and transformation, and it reminded me of something we frequently see with companies at this stage. Happy to share the observation if useful.\"",
+      variables: ["Name", "Company", "specific observation"]
+    },
+    {
+      id: "approach_c",
+      label: "Approach C — Trigger-Led",
+      description: "Trigger based on recent news or events.",
+      rule: "",
+      template: "\"Assalamu Alaikum [Name], congratulations on [expansion/hiring/announcement]. I was looking at what [Company] is building and had one thought around [relevant operational area] as businesses scale through this stage. Thought I'd reach out rather than send you a generic introduction.\"",
+      variables: ["Name", "expansion/hiring/announcement", "Company", "relevant operational area"]
+    },
+    {
+      id: "approach_d",
+      label: "Approach D — Value/Audit-Led",
+      description: "Use selectively when genuine analysis exists.",
+      rule: "This can lead into Tadbeer's proposal-generation system.",
+      template: "\"Assalamu Alaikum [Name], I spent some time looking at [Company] and noticed a few areas around [specific process] that may be worth exploring from an operations perspective. I put together a few observations—not a sales proposal. Happy to send them across if they would be useful.\"",
+      variables: ["Name", "Company", "specific process"]
+    }
+  ],
+  objections: [
+    {
+      id: "obj_provider",
+      label: "\"We already have a provider.\"",
+      description: "",
+      template: "\"That makes sense. We're not necessarily looking to replace an existing partner. In some cases we support businesses around specific gaps or transformation initiatives alongside existing providers. Either way, good to stay connected.\"",
+      variables: []
+    },
+    {
+      id: "obj_timing",
+      label: "\"Not right now.\"",
+      description: "Capture the reason and timing.",
+      template: "\"Completely understood. Would it be alright if I reconnect around [appropriate timeframe]?\"",
+      variables: ["appropriate timeframe"]
+    },
+    {
+      id: "obj_what_do_you_do",
+      label: "\"What exactly do you do?\"",
+      description: "Do not list every Tadbeer service. Answer based on context.",
+      template: "\"We work with businesses on improving how their operations and technology work together. In your case, the area that made me reach out was specifically [X].\"",
+      variables: ["X"]
+    },
+    {
+      id: "obj_send_details",
+      label: "\"Send me some details.\"",
+      description: "Don't immediately dump a corporate brochure.",
+      template: "\"Absolutely. To make sure I send something relevant rather than generic company information, is [specific area] the main priority for you currently, or is there another area you're exploring?\"",
+      variables: ["specific area"]
+    },
+    {
+      id: "obj_not_interested",
+      label: "\"We're not interested.\"",
+      description: "",
+      template: "\"Understood, thank you for letting me know. I'll leave it there. Always happy to stay connected, and if anything around [relevant area] becomes a priority in future, feel free to reach out.\"",
+      variables: ["relevant area"]
+    }
+  ],
+  followUps: [
+    {
+      id: "touch_1",
+      label: "Touch 1: Relevant Introduction",
+      description: "A basic sequence",
+      template: "See Approaches (A, B, C, D)",
+      variables: []
+    },
+    {
+      id: "touch_2",
+      label: "Touch 2/3: Execution & Nurture",
+      description: "Additional insight or useful resource.",
+      template: "\"Just came across this while looking further into [topic] and thought it might be relevant to what you're doing at [Company]. Sharing it here in case useful.\"",
+      variables: ["topic", "Company"]
+    }
+  ]
+};

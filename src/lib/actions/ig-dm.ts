@@ -377,3 +377,164 @@ export async function getOutreachCountsForMonth(year: number, month: number) {
     return { data: {}, error: (err as Error).message }
   }
 }
+
+// ─── Import CSV Outreach ──────────────────────────────────────────────────────
+export interface MappedCSVRow {
+  // Supabase companies table
+  company_name?: string
+  industry?: string
+  phone?: string
+  website?: string
+  email?: string
+  linkedin_url?: string
+
+  // Supabase contacts table
+  contact_name?: string
+  contact_title?: string
+  contact_whatsapp?: string
+
+  // Supabase activities table (Outreach Log)
+  handle?: string
+  channel?: OutreachChannel
+  status?: OutreachStatus
+  notes?: string
+  prospect_reply?: string
+  pain_point?: string
+  call_opening_line?: string
+  outreach_date?: string
+}
+
+export async function importCSVOutreach(data: {
+  rows: MappedCSVRow[]
+  defaultChannel: OutreachChannel
+  defaultDate: string
+  defaultTemplate?: OutreachTemplate
+}) {
+  try {
+    if (!data.rows || data.rows.length === 0) {
+      return { count: 0, error: "No rows provided for import" }
+    }
+
+    // 1. Gather all unique company names to resolve or create
+    const companyNames = Array.from(
+      new Set(
+        data.rows
+          .map((r, i) => r.company_name?.trim() || `Prospect #${i + 1}`)
+          .filter(Boolean)
+      )
+    )
+
+    // 2. Fetch existing companies matching these names in Supabase
+    const { data: existingCos } = await supabase
+      .from('companies')
+      .select('id, company_name')
+      .in('company_name', companyNames)
+
+    const companyMap = new Map<string, string>()
+    if (existingCos) {
+      existingCos.forEach(co => {
+        companyMap.set(co.company_name.toLowerCase().trim(), co.id)
+      })
+    }
+
+    // 3. Find names that don't exist yet and insert into `companies` table
+    const missingNames = companyNames.filter(
+      name => !companyMap.has(name.toLowerCase().trim())
+    )
+
+    if (missingNames.length > 0) {
+      const newCompaniesPayload = missingNames.map(name => {
+        const sampleRow = data.rows.find(
+          (r, i) => (r.company_name?.trim() || `Prospect #${i + 1}`).toLowerCase().trim() === name.toLowerCase().trim()
+        )
+        return {
+          company_name: name,
+          industry: sampleRow?.industry?.trim() || 'General',
+          phone: sampleRow?.phone?.trim() || null,
+          website: sampleRow?.website?.trim() || null,
+          email: sampleRow?.email?.trim() || null,
+          linkedin_url: sampleRow?.linkedin_url?.trim() || null,
+          status: 'prospect',
+          notes: sampleRow?.notes?.trim() || 'Imported via CSV',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }
+      })
+
+      const { data: insertedCos, error: coErr } = await supabase
+        .from('companies')
+        .insert(newCompaniesPayload)
+        .select('id, company_name')
+
+      if (coErr) return { count: 0, error: coErr.message }
+
+      if (insertedCos) {
+        insertedCos.forEach(co => {
+          companyMap.set(co.company_name.toLowerCase().trim(), co.id)
+        })
+      }
+    }
+
+    // 4. Create primary contacts in Supabase `contacts` table
+    const contactsPayload: any[] = []
+    data.rows.forEach((row, idx) => {
+      const rawName = row.company_name?.trim() || `Prospect #${idx + 1}`
+      const companyId = companyMap.get(rawName.toLowerCase().trim())
+      if (companyId && (row.contact_name || row.contact_title || row.contact_whatsapp || row.phone || row.email || row.linkedin_url)) {
+        contactsPayload.push({
+          company_id: companyId,
+          full_name: row.contact_name?.trim() || `${rawName} Representative`,
+          title: row.contact_title?.trim() || 'Decision Maker',
+          phone: row.phone?.trim() || null,
+          whatsapp: row.contact_whatsapp?.trim() || row.phone?.trim() || null,
+          email: row.email?.trim() || null,
+          linkedin_url: row.linkedin_url?.trim() || null,
+          is_primary: true,
+          created_at: new Date().toISOString(),
+        })
+      }
+    })
+
+    if (contactsPayload.length > 0) {
+      await supabase.from('contacts').insert(contactsPayload)
+    }
+
+    // 5. Create activity logs in Supabase `activities` table
+    const activityRecords = data.rows.map((row, idx) => {
+      const rawName = row.company_name?.trim() || `Prospect #${idx + 1}`
+      const companyId = companyMap.get(rawName.toLowerCase().trim())
+      const ch = (row.channel || data.defaultChannel) as OutreachChannel
+      const st = (row.status || 'sent') as OutreachStatus
+      const dt = row.outreach_date?.trim() || data.defaultDate
+      const createdAt = dt ? new Date(dt + 'T12:00:00.000Z').toISOString() : new Date().toISOString()
+
+      const payload = {
+        channel: ch,
+        handle: row.handle?.trim() || row.phone?.trim() || row.contact_whatsapp?.trim() || '',
+        template_used: data.defaultTemplate || 'growth_offer',
+        status: st,
+        prospect_reply: row.prospect_reply?.trim() || '',
+        pain_point: row.pain_point?.trim() || '',
+        call_opening_line: row.call_opening_line?.trim() || '',
+        notes: row.notes?.trim() || '',
+      }
+
+      return {
+        company_id: companyId,
+        activity_type: getValidActivityType(ch),
+        title: (CHANNEL_CONFIG[ch]?.label || 'Outreach') + ' — CSV Import',
+        description: JSON.stringify(payload),
+        created_at: createdAt,
+      }
+    })
+
+    const { error: actErr } = await supabase.from('activities').insert(activityRecords)
+    if (actErr) return { count: 0, error: actErr.message }
+
+    return { count: activityRecords.length, error: null }
+  } catch (err) {
+    return { count: 0, error: (err as Error).message }
+  }
+}
+
+
