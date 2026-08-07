@@ -19,6 +19,9 @@ import { getFollowUps } from "@/lib/actions/followups";
 import { getMeetings } from "@/lib/actions/meetings";
 import { getOpportunities } from "@/lib/actions/opportunities";
 import { getLinkedInProspects } from "@/lib/actions/linkedin";
+import { ContactDetailDrawer } from "@/components/outreach/contact-detail-drawer";
+import { updateOutreachStatus, updateOutreachEntry, deleteOutreachLog, getAllLeadsForPipeline } from "@/lib/actions/ig-dm";
+import { type OutreachLead } from "@/lib/types/outreach";
 
 // Semi-Circular Teal Speedometer Gauge for Conversion Rate
 function TealGauge({ percentage = 0 }: { percentage?: number }) {
@@ -94,6 +97,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [drawerLead, setDrawerLead] = useState<OutreachLead | null>(null);
 
   // Data is fetched on the server now
 
@@ -552,26 +556,34 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
                             <span className="text-[10px] font-normal text-slate-400 block">{lead.industry || 'General'}</span>
                           </td>
                           <td className="p-3 text-slate-700 font-medium">
-                            {lead.channel}
-                            <span className="text-[10px] font-mono text-slate-400 block truncate max-w-[140px]">{lead.handle}</span>
+                            <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 bg-amber-100/70 px-2 py-0.5 rounded-md border border-amber-200 inline-block mb-0.5">
+                              {lead.channel}
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-500 block truncate max-w-[140px]">{lead.handle}</span>
                           </td>
                           <td className="p-3">
-                            <span className="text-[10px] font-black bg-amber-100 text-amber-950 px-2.5 py-0.5 rounded-md border border-amber-300">
-                              {daysAgo === 0 ? "Today" : `${daysAgo} Days Ago`}
+                            <span className="text-[10px] font-black bg-amber-100 text-amber-950 px-2.5 py-1 rounded-lg border border-amber-300">
+                              ⏰ {daysAgo === 0 ? "Today" : `${daysAgo} Days Overdue`}
                             </span>
                           </td>
                           <td className="p-3 text-right">
                             <div className="inline-flex items-center gap-1.5 justify-end">
                               {waUrl && (
-                                <a href={waUrl} target="_blank" rel="noopener noreferrer" className="px-2 py-1 rounded-lg bg-emerald-100 text-emerald-900 text-[10px] font-bold">
+                                <a href={waUrl} target="_blank" rel="noopener noreferrer" className="px-2 py-1 rounded-lg bg-emerald-100 text-emerald-900 text-[10px] font-extrabold hover:bg-emerald-200 transition-colors">
                                   WA
                                 </a>
                               )}
-                              <Link href="/outreach">
-                                <Button size="sm" className="h-7 text-[10px] font-extrabold bg-amber-900 hover:bg-amber-950 text-white rounded-lg px-2.5">
-                                  View in Outreach →
-                                </Button>
-                              </Link>
+                              {phone && (
+                                <a href={`tel:${phone}`} className="px-2 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-extrabold hover:bg-slate-800 transition-colors">
+                                  Call
+                                </a>
+                              )}
+                              <button
+                                onClick={() => setDrawerLead(lead as any)}
+                                className="px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-extrabold hover:bg-slate-800 transition-colors cursor-pointer"
+                              >
+                                Card →
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -901,9 +913,23 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
             </tbody>
           </table>
         </div>
-
       </div>
 
+      {/* ── Standardized Contact Detail Drawer ─────────────────────────────── */}
+      <ContactDetailDrawer
+        isOpen={!!drawerLead}
+        onClose={() => setDrawerLead(null)}
+        lead={drawerLead}
+        onStatusChange={async (id, s) => {
+          await updateOutreachStatus(id, { status: s });
+        }}
+        onDelete={async (id) => {
+          await deleteOutreachLog(id);
+        }}
+        onSaveEntry={async (id, data) => {
+          await updateOutreachEntry(id, data);
+        }}
+      />
     </div>
   );
 }
