@@ -262,6 +262,48 @@ export default function ProspectsPage() {
     return "";
   };
 
+  // Strict channel contact validators
+  const hasValidWhatsApp = useCallback((p: any): boolean => {
+    if (!p) return false;
+    const cleanDigits = (val?: any) => {
+      if (!val || typeof val !== 'string') return '';
+      const lower = val.toLowerCase().trim();
+      if (lower === 'n/a' || lower === 'none' || lower === 'null' || lower === 'no number' || lower === 'company lead' || lower === 'undefined') return '';
+      return val.replace(/\D/g, '');
+    };
+
+    const waDigits = cleanDigits(p.contacts?.[0]?.whatsapp || p.whatsapp);
+    if (waDigits.length >= 7) return true;
+
+    const phoneDigits = cleanDigits(p.contacts?.[0]?.phone || p.phone);
+    if (phoneDigits.length >= 7) return true;
+
+    return false;
+  }, []);
+
+  const hasValidPhone = useCallback((p: any): boolean => {
+    if (!p) return false;
+    const cleanDigits = (val?: any) => {
+      if (!val || typeof val !== 'string') return '';
+      const lower = val.toLowerCase().trim();
+      if (lower === 'n/a' || lower === 'none' || lower === 'null' || lower === 'no number' || lower === 'company lead' || lower === 'undefined') return '';
+      return val.replace(/\D/g, '');
+    };
+
+    const phoneDigits = cleanDigits(p.contacts?.[0]?.phone || p.phone || p.contacts?.[0]?.whatsapp || p.whatsapp);
+    return phoneDigits.length >= 7;
+  }, []);
+
+  const hasValidEmail = useCallback((p: any): boolean => {
+    if (!p) return false;
+    const email = p.contacts?.[0]?.email || p.email;
+    if (email && typeof email === 'string') {
+      const lower = email.toLowerCase().trim();
+      if (lower !== 'n/a' && lower !== 'none' && lower !== 'null' && lower.includes('@')) return true;
+    }
+    return false;
+  }, []);
+
   // Helper to determine Source Channel strictly
   const getLeadSource = (prospect: any) => {
     const isInsights =
@@ -304,11 +346,11 @@ export default function ProspectsPage() {
     };
 
     prospects.forEach(p => {
-      const hasWa = Boolean(p.contacts?.[0]?.whatsapp || formatOmanWhatsAppUrl(p.contacts?.[0]?.phone || p.phone));
+      const hasWa = hasValidWhatsApp(p);
       const hasIg = Boolean(extractInstagramUrl(p));
       const hasLi = isValidLinkedInUrl(p.contacts?.[0]?.linkedin_url) || isValidLinkedInUrl(p.linkedin_url) || getLeadSource(p).type === 'linkedin';
-      const hasPh = Boolean(p.contacts?.[0]?.phone || p.phone);
-      const hasEm = Boolean(p.contacts?.[0]?.email || p.email);
+      const hasPh = hasValidPhone(p);
+      const hasEm = hasValidEmail(p);
       const isIns = getLeadSource(p).type === 'insights';
       const isCsv = getLeadSource(p).type === 'csv';
 
@@ -322,7 +364,7 @@ export default function ProspectsPage() {
     });
 
     return counts;
-  }, [prospects]);
+  }, [prospects, hasValidWhatsApp, hasValidPhone, hasValidEmail]);
 
   // Date Filter Matcher
   const isDateMatch = (created_at: string, filter: string): boolean => {
@@ -360,24 +402,20 @@ export default function ProspectsPage() {
 
       // Channel Category Filter
       if (channelFilter === 'whatsapp') {
-        const hasWa = Boolean(p.contacts?.[0]?.whatsapp || formatOmanWhatsAppUrl(p.contacts?.[0]?.phone || p.phone));
-        if (!hasWa) return false;
+        if (!hasValidWhatsApp(p)) return false;
       }
       if (channelFilter === 'instagram') {
-        const hasIg = Boolean(extractInstagramUrl(p));
-        if (!hasIg) return false;
+        if (!extractInstagramUrl(p)) return false;
       }
       if (channelFilter === 'linkedin') {
         const hasLi = isValidLinkedInUrl(p.contacts?.[0]?.linkedin_url) || isValidLinkedInUrl(p.linkedin_url) || getLeadSource(p).type === 'linkedin';
         if (!hasLi) return false;
       }
       if (channelFilter === 'phone') {
-        const hasPh = Boolean(p.contacts?.[0]?.phone || p.phone);
-        if (!hasPh) return false;
+        if (!hasValidPhone(p)) return false;
       }
       if (channelFilter === 'email') {
-        const hasEm = Boolean(p.contacts?.[0]?.email || p.email);
-        if (!hasEm) return false;
+        if (!hasValidEmail(p)) return false;
       }
       if (channelFilter === 'insights') {
         if (getLeadSource(p).type !== 'insights') return false;
@@ -391,7 +429,7 @@ export default function ProspectsPage() {
       if (leadSegment === 'database' && p.lead_source === 'new_lead') return false;
       return true;
     });
-  }, [prospects, leadTypeFilter, sourceFilter, dateFilter, leadSegment, channelFilter]);
+  }, [prospects, leadTypeFilter, sourceFilter, dateFilter, leadSegment, channelFilter, hasValidWhatsApp, hasValidPhone, hasValidEmail]);
 
   const sortedProspects = useMemo(() => {
     return [...filteredProspects].sort((a, b) => {
@@ -728,6 +766,117 @@ export default function ProspectsPage() {
               {df.label}
             </button>
           ))}
+        </div>
+
+        {/* ── Row 3: Dynamic Channel Categories Filter Buttons ────────────────── */}
+        <div className="pt-2.5 border-t border-slate-100 flex flex-wrap items-center gap-1.5 text-xs">
+          <span className="text-[11px] font-black text-slate-400 uppercase tracking-wider mr-1 flex items-center gap-1">
+            <Filter className="h-3.5 w-3.5 text-teal-600" /> Channel Categories:
+          </span>
+          
+          <button
+            onClick={() => setChannelFilter("all")}
+            className={cn(
+              "px-3 py-1 rounded-xl text-xs font-extrabold border transition-all cursor-pointer flex items-center gap-1.5",
+              channelFilter === "all"
+                ? "bg-slate-900 text-white border-slate-900 shadow-2xs font-black"
+                : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900"
+            )}
+          >
+            All Channels ({channelCategoryCounts.all})
+          </button>
+
+          <button
+            onClick={() => setChannelFilter("whatsapp")}
+            className={cn(
+              "px-3 py-1 rounded-xl text-xs font-extrabold border transition-all cursor-pointer flex items-center gap-1.5",
+              channelFilter === "whatsapp"
+                ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs font-black"
+                : "bg-white text-emerald-800 border-emerald-200 hover:bg-emerald-50"
+            )}
+          >
+            <span>💬 WhatsApp</span>
+            <span className={cn("text-[10px] px-1.5 py-0.2 rounded-full font-black", channelFilter === "whatsapp" ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-800")}>
+              {channelCategoryCounts.whatsapp}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setChannelFilter("instagram")}
+            className={cn(
+              "px-3 py-1 rounded-xl text-xs font-extrabold border transition-all cursor-pointer flex items-center gap-1.5",
+              channelFilter === "instagram"
+                ? "bg-pink-600 text-white border-pink-600 shadow-2xs font-black"
+                : "bg-white text-pink-800 border-pink-200 hover:bg-pink-50"
+            )}
+          >
+            <span>📸 Instagram</span>
+            <span className={cn("text-[10px] px-1.5 py-0.2 rounded-full font-black", channelFilter === "instagram" ? "bg-white/20 text-white" : "bg-pink-100 text-pink-800")}>
+              {channelCategoryCounts.instagram}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setChannelFilter("linkedin")}
+            className={cn(
+              "px-3 py-1 rounded-xl text-xs font-extrabold border transition-all cursor-pointer flex items-center gap-1.5",
+              channelFilter === "linkedin"
+                ? "bg-blue-600 text-white border-blue-600 shadow-2xs font-black"
+                : "bg-white text-blue-800 border-blue-200 hover:bg-blue-50"
+            )}
+          >
+            <LinkedInIcon size={12} />
+            <span>LinkedIn</span>
+            <span className={cn("text-[10px] px-1.5 py-0.2 rounded-full font-black", channelFilter === "linkedin" ? "bg-white/20 text-white" : "bg-blue-100 text-blue-800")}>
+              {channelCategoryCounts.linkedin}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setChannelFilter("phone")}
+            className={cn(
+              "px-3 py-1 rounded-xl text-xs font-extrabold border transition-all cursor-pointer flex items-center gap-1.5",
+              channelFilter === "phone"
+                ? "bg-amber-600 text-white border-amber-600 shadow-2xs font-black"
+                : "bg-white text-amber-800 border-amber-200 hover:bg-amber-50"
+            )}
+          >
+            <span>📞 Cold Call / Phone</span>
+            <span className={cn("text-[10px] px-1.5 py-0.2 rounded-full font-black", channelFilter === "phone" ? "bg-white/20 text-white" : "bg-amber-100 text-amber-800")}>
+              {channelCategoryCounts.phone}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setChannelFilter("email")}
+            className={cn(
+              "px-3 py-1 rounded-xl text-xs font-extrabold border transition-all cursor-pointer flex items-center gap-1.5",
+              channelFilter === "email"
+                ? "bg-violet-600 text-white border-violet-600 shadow-2xs font-black"
+                : "bg-white text-violet-800 border-violet-200 hover:bg-violet-50"
+            )}
+          >
+            <span>✉️ Email</span>
+            <span className={cn("text-[10px] px-1.5 py-0.2 rounded-full font-black", channelFilter === "email" ? "bg-white/20 text-white" : "bg-violet-100 text-violet-800")}>
+              {channelCategoryCounts.email}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setChannelFilter("insights")}
+            className={cn(
+              "px-3 py-1 rounded-xl text-xs font-extrabold border transition-all cursor-pointer flex items-center gap-1.5",
+              channelFilter === "insights"
+                ? "bg-[#174E59] text-white border-[#174E59] shadow-2xs font-black"
+                : "bg-white text-[#174E59] border-[#174E59]/30 hover:bg-teal-50"
+            )}
+          >
+            <Zap className="h-3 w-3" />
+            <span>Insights / AI</span>
+            <span className={cn("text-[10px] px-1.5 py-0.2 rounded-full font-black", channelFilter === "insights" ? "bg-white/20 text-white" : "bg-teal-100 text-[#174E59]")}>
+              {channelCategoryCounts.insights}
+            </span>
+          </button>
         </div>
       </div>
 
