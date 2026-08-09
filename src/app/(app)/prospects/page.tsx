@@ -265,18 +265,84 @@ export default function ProspectsPage() {
   // Strict channel contact validators
   const hasValidWhatsApp = useCallback((p: any): boolean => {
     if (!p) return false;
-    const cleanDigits = (val?: any) => {
-      if (!val || typeof val !== 'string') return '';
+
+    // Exclude explicitly user-flagged companies with false / dummy / landline numbers
+    const excludedCompanies = [
+      "sohar plaza",
+      "matalan oman avenues mall",
+      "armada couture muscat oman",
+      "tresore boutique",
+      "middle ages clothing co",
+      "al kauther designer wear",
+      "alwan salalah",
+      "drapes boutique",
+      "r&b sohar city centre",
+      "city centre sohar",
+      "house of s",
+      "first fashion",
+      "american eagle",
+      "famous",
+      "r&b sohar",
+      "sara plaza - city centre muscat",
+      "junaid jamshed",
+      "lamori boutiques",
+      "kashkha",
+      "choice muscat grand mall",
+      "dubai bazaar abaya",
+      "belleza",
+      "en boutique",
+      "mehdi store nizwa",
+      "redtag",
+      "trueno fashion",
+      "sara plaza - sohar",
+      "centrepoint",
+      "oua retail sohar",
+      "sh corner",
+      "sohar market",
+      "nazih beauty",
+      "billorat sohar trad co llc",
+      "luxe haven"
+    ];
+
+    const compName = (p.company_name || '').toLowerCase().trim();
+    if (excludedCompanies.some(ex => compName.includes(ex) || ex.includes(compName))) {
+      return false;
+    }
+
+    const checkMobileWhatsApp = (val?: any): boolean => {
+      if (!val || typeof val !== 'string') return false;
       const lower = val.toLowerCase().trim();
-      if (lower === 'n/a' || lower === 'none' || lower === 'null' || lower === 'no number' || lower === 'company lead' || lower === 'undefined') return '';
-      return val.replace(/\D/g, '');
+      if (lower === 'n/a' || lower === 'none' || lower === 'null' || lower === 'no number' || lower === 'company lead' || lower === 'undefined') return false;
+      
+      const digits = val.replace(/\D/g, '');
+      if (digits.length < 8) return false;
+
+      // Reject dummy sequence digits like 12345678, 00000000, 99999999
+      if (/^(\d)\1+$/.test(digits) || digits === '12345678' || digits === '98765432') return false;
+
+      let localDigits = digits;
+      if (localDigits.startsWith('968')) {
+        localDigits = localDigits.slice(3);
+      }
+
+      // Oman mobile numbers start with 9 or 7 (Landlines start with 2 and do NOT support WhatsApp)
+      if (localDigits.length === 8 && (localDigits.startsWith('9') || localDigits.startsWith('7'))) {
+        return true;
+      }
+
+      // International mobile numbers (>= 10 digits, not starting with Oman landline 9682)
+      if (digits.length >= 10 && !digits.startsWith('9682')) {
+        return true;
+      }
+
+      return false;
     };
 
-    const waDigits = cleanDigits(p.contacts?.[0]?.whatsapp || p.whatsapp);
-    if (waDigits.length >= 7) return true;
+    const waRaw = p.contacts?.[0]?.whatsapp || p.whatsapp;
+    if (checkMobileWhatsApp(waRaw)) return true;
 
-    const phoneDigits = cleanDigits(p.contacts?.[0]?.phone || p.phone);
-    if (phoneDigits.length >= 7) return true;
+    const phoneRaw = p.contacts?.[0]?.phone || p.phone;
+    if (checkMobileWhatsApp(phoneRaw)) return true;
 
     return false;
   }, []);
