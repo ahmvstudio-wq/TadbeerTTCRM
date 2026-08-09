@@ -121,6 +121,7 @@ export default function ProspectsPage() {
   const [leadTypeFilter, setLeadTypeFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("all");
+  const [channelFilter, setChannelFilter] = useState("all");
   const [leadSegment, setLeadSegment] = useState<"all" | "new" | "database">("all");
   const [prospects, setProspects] = useState<any[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -148,7 +149,6 @@ export default function ProspectsPage() {
       if (result.error) { setError(result.error); setProspects([]); }
       else { setProspects(result.data || []); setSelectedIds([]); }
     } catch (err) {
-      // Auto-retry once on network errors (e.g. server recompiling)
       if (!isRetry && err instanceof TypeError) {
         setTimeout(() => fetchProspects(searchVal, statusVal, true), 1500);
         return;
@@ -246,60 +246,20 @@ export default function ProspectsPage() {
     fetchProspects(search, statusFilter);
   };
 
-  const handleExport = () => {
-    const dataToExport = selectedIds.length > 0
-      ? prospects.filter((p) => selectedIds.includes(p.id))
-      : prospects;
-
-    if (dataToExport.length === 0) {
-      addToast("error", "No prospects to export");
-      return;
+  const extractInstagramUrl = (input: any): string => {
+    if (!input) return "";
+    const notes = typeof input === "string" ? input : (input.notes || "");
+    const match = notes.match(/https?:\/\/(?:www\.)?instagram\.com\/[^\s\n"']+/i) ||
+                  notes.match(/Instagram:\s*@?([a-zA-Z0-9_.]+)/i);
+    if (match) {
+      if (match[0].toLowerCase().startsWith("http")) return match[0];
+      if (match[1]) return `https://instagram.com/${match[1].replace(/^@/, '')}`;
     }
-
-    const exportData = dataToExport.map((p) => ({
-      contact_name: p.contacts?.[0]?.full_name || p.company_name,
-      contact_title: p.contacts?.[0]?.title || "",
-      company_name: p.company_name,
-      industry: p.industry || "",
-      lead_source: getLeadSource(p).label,
-      lead_type: p.lead_type || "Cold",
-      email: p.contacts?.[0]?.email || p.email || "",
-      phone: p.contacts?.[0]?.phone || p.phone || "",
-      whatsapp: p.contacts?.[0]?.whatsapp || "",
-      linkedin: isValidLinkedInUrl(p.contacts?.[0]?.linkedin_url) ? p.contacts[0].linkedin_url : (isValidLinkedInUrl(p.linkedin_url) ? p.linkedin_url : ""),
-      website: p.website || "",
-      city: p.city || "",
-      country: p.country || "",
-      status: p.status,
-      date_added: p.created_at ? new Date(p.created_at).toLocaleDateString() : "",
-      notes: p.notes || "",
-    }));
-
-    exportToCsv(exportData, `prospects-bd-export-${new Date().toISOString().split("T")[0]}.csv`, [
-      { key: "contact_name", label: "Primary Contact Name" },
-      { key: "contact_title", label: "Title" },
-      { key: "company_name", label: "Company" },
-      { key: "industry", label: "Industry" },
-      { key: "lead_source", label: "Source Channel" },
-      { key: "lead_type", label: "Categorization" },
-      { key: "email", label: "Email" },
-      { key: "phone", label: "Phone" },
-      { key: "whatsapp", label: "WhatsApp" },
-      { key: "linkedin", label: "LinkedIn" },
-      { key: "website", label: "Website" },
-      { key: "city", label: "City" },
-      { key: "country", label: "Country" },
-      { key: "status", label: "Stage" },
-      { key: "date_added", label: "Date Added" },
-      { key: "notes", label: "Notes" },
-    ]);
-    addToast("success", `Exported ${dataToExport.length} prospects`);
-  };
-
-  const extractInstagramUrl = (notes?: string | null) => {
-    if (!notes) return null;
-    const match = notes.match(/Instagram:\s*(https?:\/\/(?:www\.)?instagram\.com\/[^\s]+)/i) || notes.match(/Instagram:\s*([^\s\n]+)/i);
-    return match ? match[1] : null;
+    if (notes.toLowerCase().includes("instagram") || notes.includes("@")) {
+      const handleMatch = notes.match(/@([a-zA-Z0-9_.]+)/);
+      if (handleMatch) return `https://instagram.com/${handleMatch[1]}`;
+    }
+    return "";
   };
 
   // Helper to determine Source Channel strictly
@@ -329,6 +289,40 @@ export default function ProspectsPage() {
     }
     return { type: 'crm', label: 'Direct CRM', bg: 'bg-slate-50 text-slate-700 border-slate-200' };
   };
+
+  // Channel Category counts derived automatically from DB prospects
+  const channelCategoryCounts = useMemo(() => {
+    const counts = {
+      all: prospects.length,
+      whatsapp: 0,
+      instagram: 0,
+      linkedin: 0,
+      phone: 0,
+      email: 0,
+      insights: 0,
+      csv: 0
+    };
+
+    prospects.forEach(p => {
+      const hasWa = Boolean(p.contacts?.[0]?.whatsapp || formatOmanWhatsAppUrl(p.contacts?.[0]?.phone || p.phone));
+      const hasIg = Boolean(extractInstagramUrl(p));
+      const hasLi = isValidLinkedInUrl(p.contacts?.[0]?.linkedin_url) || isValidLinkedInUrl(p.linkedin_url) || getLeadSource(p).type === 'linkedin';
+      const hasPh = Boolean(p.contacts?.[0]?.phone || p.phone);
+      const hasEm = Boolean(p.contacts?.[0]?.email || p.email);
+      const isIns = getLeadSource(p).type === 'insights';
+      const isCsv = getLeadSource(p).type === 'csv';
+
+      if (hasWa) counts.whatsapp++;
+      if (hasIg) counts.instagram++;
+      if (hasLi) counts.linkedin++;
+      if (hasPh) counts.phone++;
+      if (hasEm) counts.email++;
+      if (isIns) counts.insights++;
+      if (isCsv) counts.csv++;
+    });
+
+    return counts;
+  }, [prospects]);
 
   // Date Filter Matcher
   const isDateMatch = (created_at: string, filter: string): boolean => {
@@ -363,12 +357,41 @@ export default function ProspectsPage() {
       if (sourceFilter === 'insights' && getLeadSource(p).type !== 'insights') return false;
       if (sourceFilter === 'linkedin' && getLeadSource(p).type !== 'linkedin') return false;
       if (sourceFilter === 'csv' && getLeadSource(p).type !== 'csv') return false;
+
+      // Channel Category Filter
+      if (channelFilter === 'whatsapp') {
+        const hasWa = Boolean(p.contacts?.[0]?.whatsapp || formatOmanWhatsAppUrl(p.contacts?.[0]?.phone || p.phone));
+        if (!hasWa) return false;
+      }
+      if (channelFilter === 'instagram') {
+        const hasIg = Boolean(extractInstagramUrl(p));
+        if (!hasIg) return false;
+      }
+      if (channelFilter === 'linkedin') {
+        const hasLi = isValidLinkedInUrl(p.contacts?.[0]?.linkedin_url) || isValidLinkedInUrl(p.linkedin_url) || getLeadSource(p).type === 'linkedin';
+        if (!hasLi) return false;
+      }
+      if (channelFilter === 'phone') {
+        const hasPh = Boolean(p.contacts?.[0]?.phone || p.phone);
+        if (!hasPh) return false;
+      }
+      if (channelFilter === 'email') {
+        const hasEm = Boolean(p.contacts?.[0]?.email || p.email);
+        if (!hasEm) return false;
+      }
+      if (channelFilter === 'insights') {
+        if (getLeadSource(p).type !== 'insights') return false;
+      }
+      if (channelFilter === 'csv') {
+        if (getLeadSource(p).type !== 'csv') return false;
+      }
+
       if (!isDateMatch(p.created_at, dateFilter)) return false;
       if (leadSegment === 'new' && p.lead_source !== 'new_lead') return false;
       if (leadSegment === 'database' && p.lead_source === 'new_lead') return false;
       return true;
     });
-  }, [prospects, leadTypeFilter, sourceFilter, dateFilter, leadSegment]);
+  }, [prospects, leadTypeFilter, sourceFilter, dateFilter, leadSegment, channelFilter]);
 
   const sortedProspects = useMemo(() => {
     return [...filteredProspects].sort((a, b) => {
@@ -396,6 +419,65 @@ export default function ProspectsPage() {
     });
   }, [filteredProspects, sortBy]);
 
+  const handleExport = () => {
+    const dataToExport = selectedIds.length > 0
+      ? sortedProspects.filter((p) => selectedIds.includes(p.id))
+      : sortedProspects;
+
+    if (dataToExport.length === 0) {
+      addToast("error", "No prospects matching the current filter to export");
+      return;
+    }
+
+    const exportData = dataToExport.map((p) => {
+      const waUrl = formatOmanWhatsAppUrl(p.contacts?.[0]?.whatsapp || p.contacts?.[0]?.phone || p.phone) || "";
+      const igUrl = extractInstagramUrl(p);
+
+      return {
+        contact_name: p.contacts?.[0]?.full_name || p.company_name,
+        contact_title: p.contacts?.[0]?.title || "",
+        company_name: p.company_name,
+        industry: p.industry || "",
+        lead_source: getLeadSource(p).label,
+        lead_type: p.lead_type || "Cold",
+        email: p.contacts?.[0]?.email || p.email || "",
+        phone: p.contacts?.[0]?.phone || p.phone || "",
+        whatsapp: p.contacts?.[0]?.whatsapp || "",
+        whatsapp_url: waUrl,
+        instagram_url: igUrl,
+        linkedin: isValidLinkedInUrl(p.contacts?.[0]?.linkedin_url) ? p.contacts[0].linkedin_url : (isValidLinkedInUrl(p.linkedin_url) ? p.linkedin_url : ""),
+        website: p.website || "",
+        city: p.city || "",
+        country: p.country || "",
+        status: COMPANY_STATUSES[p.status as CompanyStatus]?.label || p.status,
+        date_added: p.created_at ? new Date(p.created_at).toLocaleDateString() : "",
+        notes: p.notes || "",
+      };
+    });
+
+    const channelTag = channelFilter !== 'all' ? `${channelFilter}-` : '';
+    exportToCsv(exportData, `prospects-${channelTag}${new Date().toISOString().split("T")[0]}.csv`, [
+      { key: "contact_name", label: "Primary Contact Name" },
+      { key: "contact_title", label: "Title" },
+      { key: "company_name", label: "Company" },
+      { key: "industry", label: "Industry" },
+      { key: "lead_source", label: "Source Channel" },
+      { key: "lead_type", label: "Categorization" },
+      { key: "email", label: "Email" },
+      { key: "phone", label: "Phone" },
+      { key: "whatsapp", label: "WhatsApp Contact" },
+      { key: "whatsapp_url", label: "WhatsApp Direct Link" },
+      { key: "instagram_url", label: "Instagram Profile Link" },
+      { key: "linkedin", label: "LinkedIn Link" },
+      { key: "website", label: "Website" },
+      { key: "city", label: "City" },
+      { key: "country", label: "Country" },
+      { key: "status", label: "Stage" },
+      { key: "date_added", label: "Date Added" },
+      { key: "notes", label: "Notes" },
+    ]);
+    addToast("success", `Exported ${dataToExport.length} prospects to CSV`);
+  };
   const totalCount = prospects.length;
   const insightsCount = prospects.filter(p => getLeadSource(p).type === 'insights').length;
   const linkedinCount = prospects.filter(p => getLeadSource(p).type === 'linkedin').length;
@@ -436,9 +518,10 @@ export default function ProspectsPage() {
               variant="outline"
               size="sm"
               onClick={handleExport}
-              className="bg-white hover:bg-slate-50 text-slate-700 border-slate-200 text-xs font-bold h-9 rounded-xl transition-all cursor-pointer"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 text-xs font-black h-9 rounded-xl transition-all cursor-pointer shadow-2xs flex items-center gap-1.5"
             >
-              <Download className="h-3.5 w-3.5 mr-2 text-slate-500" />Export CSV
+              <Download className="h-4 w-4" />
+              Export {channelFilter !== 'all' ? `${channelFilter.toUpperCase()} ` : ""}CSV ({sortedProspects.length})
             </Button>
             <Button
               variant="outline"
@@ -456,10 +539,10 @@ export default function ProspectsPage() {
           
           {/* Card 1: Total Database */}
           <div
-            onClick={() => setSourceFilter("")}
+            onClick={() => { setSourceFilter(""); setChannelFilter("all"); }}
             className={cn(
               "rounded-2xl p-3.5 border flex items-center gap-3 cursor-pointer transition-all hover:scale-[1.01]",
-              !sourceFilter ? "bg-[#174E59]/10 border-[#174E59]/30 shadow-xs" : "bg-slate-50/70 border-slate-200"
+              !sourceFilter && channelFilter === "all" ? "bg-[#174E59]/10 border-[#174E59]/30 shadow-xs" : "bg-slate-50/70 border-slate-200"
             )}
           >
             <div className="h-9 w-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-700 flex-shrink-0 shadow-xs">
@@ -473,10 +556,18 @@ export default function ProspectsPage() {
 
           {/* Card 2: ⚡ Insight Generated Contacts (Interactive Clickable Filter!) */}
           <div 
-            onClick={() => setSourceFilter(sourceFilter === "insights" ? "" : "insights")}
+            onClick={() => {
+              if (channelFilter === "insights") {
+                setChannelFilter("all");
+                setSourceFilter("");
+              } else {
+                setChannelFilter("insights");
+                setSourceFilter("insights");
+              }
+            }}
             className={cn(
               "rounded-2xl p-4 border transition-all duration-300 cursor-pointer flex flex-col justify-between",
-              sourceFilter === "insights"
+              channelFilter === "insights" || sourceFilter === "insights"
                 ? "bg-[#174E59] border-[#174E59] shadow-lg shadow-[#174E59]/20 scale-[1.02] ring-2 ring-white/20"
                 : "bg-white border-slate-200 shadow-sm hover:shadow-md hover:border-[#174E59]/30"
             )}
@@ -484,38 +575,46 @@ export default function ProspectsPage() {
             <div className="flex items-center justify-between mb-3">
               <div className={cn(
                 "p-2.5 rounded-xl transition-colors duration-300",
-                sourceFilter === "insights" ? "bg-white/10" : "bg-[#174E59]/10"
+                channelFilter === "insights" || sourceFilter === "insights" ? "bg-white/10" : "bg-[#174E59]/10"
               )}>
-                <Zap className={cn("w-5 h-5", sourceFilter === "insights" ? "text-teal-300" : "text-[#174E59]")} />
+                <Zap className={cn("w-5 h-5", channelFilter === "insights" || sourceFilter === "insights" ? "text-teal-300" : "text-[#174E59]")} />
               </div>
             </div>
             
             <div>
               <div className="flex items-center justify-between">
-                <p className={cn("text-[10px] font-extrabold uppercase tracking-wider", sourceFilter === "insights" ? "text-teal-200" : "text-[#174E59]")}>
+                <p className={cn("text-[10px] font-extrabold uppercase tracking-wider", channelFilter === "insights" || sourceFilter === "insights" ? "text-teal-200" : "text-[#174E59]")}>
                   ⚡ Insight Generated Contacts
                 </p>
               </div>
-              <p className={cn("text-xl font-black leading-tight mt-0.5", sourceFilter === "insights" ? "text-white" : "text-slate-900")}>
-                {insightsCount} <span className={cn("text-[10px] font-bold", sourceFilter === "insights" ? "text-teal-200" : "text-[#174E59]")}>(Click to Expand)</span>
+              <p className={cn("text-xl font-black leading-tight mt-0.5", channelFilter === "insights" || sourceFilter === "insights" ? "text-white" : "text-slate-900")}>
+                {insightsCount} <span className={cn("text-[10px] font-bold", channelFilter === "insights" || sourceFilter === "insights" ? "text-teal-200" : "text-[#174E59]")}>(Click to Filter)</span>
               </p>
             </div>
           </div>
 
           {/* Card 3: LinkedIn Prospects */}
           <div
-            onClick={() => setSourceFilter(sourceFilter === "linkedin" ? "" : "linkedin")}
+            onClick={() => {
+              if (channelFilter === "linkedin") {
+                setChannelFilter("all");
+                setSourceFilter("");
+              } else {
+                setChannelFilter("linkedin");
+                setSourceFilter("linkedin");
+              }
+            }}
             className={cn(
               "rounded-2xl p-3.5 border flex items-center gap-3 cursor-pointer transition-all hover:scale-[1.01]",
-              sourceFilter === "linkedin" ? "bg-blue-600 text-white border-blue-600 shadow-md" : "bg-slate-50/70 border-slate-200"
+              channelFilter === "linkedin" || sourceFilter === "linkedin" ? "bg-blue-600 text-white border-blue-600 shadow-md" : "bg-slate-50/70 border-slate-200"
             )}
           >
             <div className="h-9 w-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-700 flex-shrink-0 shadow-xs">
               <LinkedInIcon size={16} />
             </div>
             <div>
-              <p className={cn("text-[10px] font-bold uppercase tracking-wider", sourceFilter === "linkedin" ? "text-blue-100" : "text-slate-400")}>LinkedIn Prospects</p>
-              <p className={cn("text-xl font-black leading-tight mt-0.5", sourceFilter === "linkedin" ? "text-white" : "text-slate-900")}>{linkedinCount}</p>
+              <p className={cn("text-[10px] font-bold uppercase tracking-wider", channelFilter === "linkedin" || sourceFilter === "linkedin" ? "text-blue-100" : "text-slate-400")}>LinkedIn Prospects</p>
+              <p className={cn("text-xl font-black leading-tight mt-0.5", channelFilter === "linkedin" || sourceFilter === "linkedin" ? "text-white" : "text-slate-900")}>{linkedinCount}</p>
             </div>
           </div>
 
@@ -531,7 +630,7 @@ export default function ProspectsPage() {
       </div>
 
       {/* ── BDM Control Bar & Compact Filters ─────────────────────────────── */}
-      <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs space-y-2.5">
+      <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
         {/* Row 1: Search + Sort + View Toggle + Lead Count */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5">
           <div className="relative w-full sm:w-80">
@@ -545,18 +644,6 @@ export default function ProspectsPage() {
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
-            {/* Lead Source Filter Dropdown */}
-            <select
-              value={sourceFilter}
-              onChange={(e) => setSourceFilter(e.target.value)}
-              className="bg-[#174E59]/10 border border-[#174E59]/30 rounded-xl text-xs font-black text-[#174E59] h-8 px-2.5 focus:bg-white cursor-pointer"
-            >
-              <option value="">All Sources ({prospects.length})</option>
-              <option value="insights">⚡ Insight Generated Contacts ({insightsCount})</option>
-              <option value="linkedin">💼 LinkedIn Leads ({linkedinCount})</option>
-              <option value="csv">📁 CSV Imports</option>
-            </select>
-
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -635,7 +722,7 @@ export default function ProspectsPage() {
               onClick={() => setDateFilter(df.key)}
               className={cn(
                 "px-2.5 py-0.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all border cursor-pointer shrink-0",
-                dateFilter === df.key ? "bg-teal-50 text-teal-700 border-teal-200 shadow-xs" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                dateFilter === df.key ? "bg-teal-700 text-white border-teal-700 shadow-xs" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
               )}
             >
               {df.label}
