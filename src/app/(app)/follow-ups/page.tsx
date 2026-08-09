@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
   Clock, AlertTriangle, CheckCircle2, RefreshCw, X, MessageCircle,
-  Phone, Send, Sparkles, Filter, Search, User, Building, Mail, Calendar, Loader2
+  Phone, Send, Sparkles, Filter, Search, User, Building, Mail, Calendar, Loader2, Download
 } from "lucide-react";
 import { getAllLeadsForPipeline, updateOutreachStatus, deleteOutreachLog, updateOutreachEntry } from "@/lib/actions/ig-dm";
 import { getFollowUps } from "@/lib/actions/followups";
@@ -20,6 +20,25 @@ function getDaysElapsed(dateStr: string): number {
   if (isNaN(sentDate)) return 0;
   const diffTime = Math.max(0, Date.now() - sentDate);
   return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+}
+
+function formatInstagramUrl(handle: string | null, channel: string): string {
+  if (!handle) return "";
+  const trimmed = handle.trim();
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed;
+  }
+  const cleanHandle = trimmed.replace(/^@/, "");
+  if (channel === "instagram_dm" || trimmed.startsWith("@")) {
+    return `https://instagram.com/${cleanHandle}`;
+  }
+  return "";
+}
+
+function escapeCSVCell(val: any): string {
+  if (val === null || val === undefined) return '""';
+  const str = String(val).replace(/"/g, '""');
+  return `"${str}"`;
 }
 
 export default function FollowUpsPage() {
@@ -107,6 +126,72 @@ export default function FollowUpsPage() {
     }
   };
 
+  const handleExportCSV = () => {
+    if (displayedLeads.length === 0) {
+      setToast({ type: "error", message: "No follow-up contacts available to export in this tab." });
+      return;
+    }
+
+    const headers = [
+      "Company Name",
+      "Industry",
+      "Channel",
+      "Handle / Contact Info",
+      "Instagram Profile URL",
+      "Phone Number",
+      "WhatsApp URL",
+      "Status",
+      "Template Used",
+      "Outreach Date",
+      "Days Overdue",
+      "Prospect Reply",
+      "Pain Point",
+      "Call Opening Line",
+      "Notes"
+    ];
+
+    const rows = displayedLeads.map(lead => {
+      const daysAgo = getDaysElapsed(lead.sent_at);
+      const igUrl = formatInstagramUrl(lead.handle, lead.channel);
+      const phoneNum = lead.phone || (lead.channel === "cold_call" || lead.channel === "whatsapp" ? lead.handle : null);
+      const waUrl = phoneNum ? `https://wa.me/${phoneNum.replace(/\D/g, "")}` : "";
+
+      return [
+        escapeCSVCell(lead.company_name),
+        escapeCSVCell(lead.industry || "General"),
+        escapeCSVCell(CHANNEL_CONFIG[lead.channel]?.label || lead.channel),
+        escapeCSVCell(lead.handle || ""),
+        escapeCSVCell(igUrl),
+        escapeCSVCell(lead.phone || ""),
+        escapeCSVCell(waUrl),
+        escapeCSVCell(STATUS_CONFIG[lead.status]?.label || lead.status),
+        escapeCSVCell(lead.template_used || ""),
+        escapeCSVCell(lead.sent_at ? lead.sent_at.split("T")[0] : ""),
+        escapeCSVCell(daysAgo),
+        escapeCSVCell(lead.prospect_reply || ""),
+        escapeCSVCell(lead.pain_point || ""),
+        escapeCSVCell(lead.call_opening_line || ""),
+        escapeCSVCell(lead.notes || "")
+      ].join(",");
+    });
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const dateStr = new Date().toISOString().split("T")[0];
+    const filename = `tadbeer-followups-remaining-${activeTab}-${dateStr}.csv`;
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setToast({ type: "success", message: `Exported ${displayedLeads.length} follow-up contacts to ${filename}` });
+  };
+
   return (
     <div className="space-y-4 max-w-[1850px] w-full mx-auto font-sans pb-20">
       {toast && (
@@ -131,12 +216,23 @@ export default function FollowUpsPage() {
             </p>
           </div>
 
-          <button
-            onClick={fetchFollowupsData}
-            className="p-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors text-xs font-bold flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
-          >
-            <RefreshCw className="h-3.5 w-3.5" /> Refresh
-          </button>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <Button
+              onClick={handleExportCSV}
+              disabled={displayedLeads.length === 0}
+              className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs px-3.5 rounded-xl shadow-2xs flex items-center gap-1.5 cursor-pointer transition-all disabled:opacity-50"
+            >
+              <Download className="h-4 w-4" />
+              Export CSV ({displayedLeads.length})
+            </Button>
+
+            <button
+              onClick={fetchFollowupsData}
+              className="p-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Refresh
+            </button>
+          </div>
         </div>
 
         {/* Tabs & Search */}
@@ -202,9 +298,21 @@ export default function FollowUpsPage() {
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden font-sans">
-          <div className="p-3 bg-slate-50/70 border-b border-slate-200 flex items-center justify-between text-xs font-bold text-slate-700">
-            <span>Showing {displayedLeads.length} follow-up contacts</span>
-            <span className="text-slate-400 text-[11px]">Click "Mark Followed Up" after sending a follow-up message</span>
+          <div className="p-3 bg-slate-50/70 border-b border-slate-200 flex items-center justify-between text-xs font-bold text-slate-700 flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span>Showing {displayedLeads.length} follow-up contacts</span>
+              <span className="text-slate-400 text-[11px]">({activeTab === "overdue" ? "Due/Overdue" : activeTab === "replies" ? "Replies Received" : "All Pending"})</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-slate-400 text-[11px] hidden sm:inline">Click "Mark Followed Up" after sending a follow-up message</span>
+              <Button
+                onClick={handleExportCSV}
+                size="sm"
+                className="h-7 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-extrabold px-3 rounded-lg flex items-center gap-1 cursor-pointer transition-all"
+              >
+                <Download className="h-3 w-3" /> Export CSV
+              </Button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
