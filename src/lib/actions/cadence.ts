@@ -874,56 +874,78 @@ export async function getDailyHistory(dateStr: string) {
   }
 }
 
+// Helper to resolve string names/handles to UUIDs for the PostgreSQL schema
+async function resolveUserUuid(userIdentifier?: string): Promise<string> {
+  const isUuid = userIdentifier && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userIdentifier);
+  if (isUuid) return userIdentifier;
+
+  const name = userIdentifier || 'Ramij';
+  const email = name.toLowerCase().includes('ramij') ? 'ramij@tadbeertt.com' : `${name.toLowerCase().replace(/\s+/g, '')}@tadbeertt.com`;
+  
+  const { data: user } = await supabase
+    .from('users')
+    .select('id')
+    .or(`email.eq.${email},full_name.ilike.%${name}%`)
+    .maybeSingle();
+
+  if (user?.id) return user.id;
+
+  return 'd4e5f6a7-b8c9-0123-def0-123456789012';
+}
+
 export async function getOrCreateDailyCallBatch(count = 20, assignedTo = "Ramij") {
   try {
+    const userUuid = await resolveUserUuid(assignedTo);
     const { data: existingBatch } = await supabase
       .from('companies')
       .select('*, contacts(*)')
-      .eq('assigned_to', assignedTo)
+      .eq('assigned_to', userUuid)
       .eq('status', 'ready_for_call')
-      .order('updated_at', { ascending: false })
+      .order('updated_at', { ascending: false });
 
     if (existingBatch && existingBatch.length > 0) {
-      return { data: existingBatch.slice(0, count), error: null }
+      return { data: existingBatch.slice(0, count), error: null };
     }
 
-    return await generateDailyCallBatch(count, assignedTo)
+    return await generateDailyCallBatch(count, assignedTo);
   } catch (error) {
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch daily batch' }
+    return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch daily batch' };
   }
 }
 
 export async function generateDailyCallBatch(count = 20, assignedTo = "Ramij") {
   try {
+    const userUuid = await resolveUserUuid(assignedTo);
     const { data: companies, error } = await supabase
       .from('companies')
       .select('*, contacts(*)')
-      .or(`assigned_to.is.null,assigned_to.eq.${assignedTo}`)
-      .not('status', 'in', '("won","lost","dormant","called","contacted")')
+      .or(`assigned_to.is.null,assigned_to.eq.${userUuid}`)
+      .not('status', 'in', '(won,lost,dormant,called,contacted)')
       .order('created_at', { ascending: false })
-      .limit(200)
+      .limit(200);
 
-    if (error) return { data: null, error: error.message }
+    if (error) return { data: null, error: error.message };
 
     const eligibleLeads = (companies || []).filter(c => {
-      const p = c.phone || (c.contacts && c.contacts.find((cnt: any) => cnt.phone || cnt.whatsapp)?.phone)
-      return Boolean(p && p.trim().length >= 7)
-    }).slice(0, count)
+      const p = c.phone || (c.contacts && c.contacts.find((cnt: any) => cnt.phone || cnt.whatsapp)?.phone);
+      return Boolean(p && String(p).trim().length >= 7);
+    }).slice(0, count);
 
-    const leadIdsToAssign = eligibleLeads.map(c => c.id)
+    const leadIdsToAssign = eligibleLeads.map(c => c.id);
     if (leadIdsToAssign.length > 0) {
       await supabase
         .from('companies')
-        .update({ assigned_to: assignedTo, status: 'ready_for_call', updated_at: new Date().toISOString() })
-        .in('id', leadIdsToAssign)
+        .update({ assigned_to: userUuid, status: 'ready_for_call', updated_at: new Date().toISOString() })
+        .in('id', leadIdsToAssign);
     }
 
-    return { data: eligibleLeads, error: null }
+    return { data: eligibleLeads, error: null };
   } catch (error) {
-    return { data: null, error: error instanceof Error ? error.message : 'Failed to generate call batch' }
+    return { data: null, error: error instanceof Error ? error.message : 'Failed to generate call batch' };
   }
 }
 
 export async function loadMoreCallBatch(count = 20, assignedTo = "Ramij") {
-  return await generateDailyCallBatch(count, assignedTo)
+  return await generateDailyCallBatch(count, assignedTo);
 }
+
