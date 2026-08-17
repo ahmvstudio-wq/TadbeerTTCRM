@@ -225,13 +225,13 @@ export default function ProspectsPage() {
     if (!input) return "";
 
     const textToScan = typeof input === "object"
-      ? `${input.website || ""} ${input.notes || ""} ${input.pain_point || ""} ${(input.contacts || []).map((c: any) => c.notes || '').join(' ')}`
+      ? `${input.company_name || ""} ${input.website || ""} ${input.notes || ""} ${input.pain_point || ""} ${input.lead_source || ""} ${(input.contacts || []).map((c: any) => `${c.notes || ''} ${c.full_name || ''} ${c.linkedin_url || ''}`).join(' ')}`
       : String(input);
 
     // 1. Direct http(s) Instagram URL anywhere in text
-    const directMatch = textToScan.match(/https?:\/\/(?:www\.)?instagram\.com\/[a-zA-Z0-9_.]+(?:\/[^\s\n"']*)?/i);
+    const directMatch = textToScan.match(/https?:\/\/(?:www\.)?instagram\.com\/([a-zA-Z0-9_.]+)(?:\/[^\s\n"']*)?/i);
     if (directMatch) {
-      return directMatch[0].trim().replace(/[,;)]$/, '');
+      return `https://www.instagram.com/${directMatch[1].replace(/\/$/, '')}/`;
     }
 
     // 2. Pattern: Instagram: @handle OR Instagram: handle OR Instagram: https://...
@@ -247,24 +247,20 @@ export default function ProspectsPage() {
       }
     }
 
-    // 3. Pattern: @handle in text
+    // 3. Pattern: @handle in company_name or text
     const atMatch = textToScan.match(/@([a-zA-Z0-9_.]+)/);
     if (atMatch && atMatch[1]) {
       const handle = atMatch[1].trim();
-      if (handle.length >= 3 && !['gmail', 'yahoo', 'hotmail', 'outlook', 'today', 'team', 'gmail.com'].includes(handle.toLowerCase())) {
+      if (handle.length >= 2 && !['gmail', 'yahoo', 'hotmail', 'outlook', 'today', 'team', 'gmail.com', 'tadbeer', 'tadbeertt'].includes(handle.toLowerCase())) {
         return `https://www.instagram.com/${handle}/`;
       }
     }
 
-    // 4. Fallback if source or activities indicate IG DM
+    // 4. Fallback if source indicates Instagram
     if (typeof input === "object") {
       const leadSource = (input.lead_source || "").toLowerCase();
       const isIgSource = leadSource.includes("instagram") || leadSource.includes("ig dm") || leadSource === "ig";
-      const hasIgActivity = (input.activities || []).some(
-        (a: any) => a.activity_type === "ig_dm" || a.channel === "instagram"
-      );
-
-      if (isIgSource || hasIgActivity) {
+      if (isIgSource) {
         const cleanCompName = (input.company_name || 'prospect').toLowerCase().replace(/[^a-z0-9_.]/g, '');
         return `https://www.instagram.com/${cleanCompName}/`;
       }
