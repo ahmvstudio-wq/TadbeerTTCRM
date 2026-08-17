@@ -6,16 +6,9 @@ import { Loader2, AlertTriangle, ShieldCheck, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
 
-// Authorized Tadbeer admin accounts
-const AUTHORIZED_ADMIN_EMAILS = [
-  "operation@tadbeertt.com",
-  "taufiq@tadbeertt.com",
-  "ramij@tadbeertt.com",
-  "admin@tadbeertt.com",
-];
+import { loginAction } from "@/lib/actions/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,45 +22,19 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
 
-    const cleanEmail = email.trim().toLowerCase();
-
     try {
-      let isAuthenticated = false;
-
-      // 1. Attempt Supabase Auth
-      try {
-        const supabase = createClient();
-        const { data, error: authError } = await supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password
-        });
-        if (!authError && data.session) {
-          isAuthenticated = true;
-        }
-      } catch (err) {
-        console.warn("Supabase auth check fallback:", err);
-      }
-
-      // 2. Authorised Admin verification
-      const isAuthorizedEmail = AUTHORIZED_ADMIN_EMAILS.some(a => a.toLowerCase() === cleanEmail);
-
-      if (isAuthenticated || (isAuthorizedEmail && password.length >= 4)) {
-        // Set strict auth cookies
-        document.cookie = `tadbeer-auth=true; path=/; max-age=86400; SameSite=Lax`;
-        document.cookie = `tadbeer-user-email=${cleanEmail}; path=/; max-age=86400; SameSite=Lax`;
-        document.cookie = `tadbeer-user-role=admin; path=/; max-age=86400; SameSite=Lax`;
-
+      const res = await loginAction({ email, password });
+      if (res.success && res.user) {
         if (typeof window !== "undefined") {
           localStorage.setItem(
             "tadbeer_user",
-            JSON.stringify({ email: cleanEmail, role: "admin", authenticatedAt: new Date().toISOString() })
+            JSON.stringify({ email: res.user.email, role: res.user.role, authenticatedAt: new Date().toISOString() })
           );
         }
-
         router.push("/dashboard");
         router.refresh();
       } else {
-        setError("Invalid credentials. Access restricted to authorized Tadbeer administrators.");
+        setError(res.error || "Invalid credentials.");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred during authentication.");
