@@ -93,41 +93,48 @@ export function UnifiedLeadWorkspace({
 
   const fetchLeadData = async () => {
     setLoading(true);
-    const res = await getCompany(companyId);
-    if (res.data) {
-      const data = res.data;
-      setCompany(data);
-      setContacts(data.contacts || []);
-      setActivities(data.activities || []);
-      setPreparations(data.preparations || []);
-      setFollowUps(data.follow_ups || []);
-      setMeetings(data.meetings || []);
-      setTouches(data.outreach_touches || []);
+    try {
+      const res = await getCompany(companyId);
+      if (res.data) {
+        const data = res.data;
+        setCompany(data);
+        setContacts(data.contacts || []);
+        setActivities(data.activities || []);
+        setPreparations(data.preparations || []);
+        setFollowUps(data.follow_ups || []);
+        setMeetings(data.meetings || []);
+        setTouches(data.outreach_touches || []);
 
-      // Populate edit fields
-      setCompanyName(data.company_name || "");
-      setIndustry(data.industry || "");
-      setWebsite(data.website || "");
-      setPhone(data.phone || "");
-      setEmail(data.email || "");
-      setCountry(data.country || "");
-      setCity(data.city || "");
-      setNotes(data.notes || "");
+        // Populate edit fields
+        setCompanyName(data.company_name || "");
+        setIndustry(data.industry || "");
+        setWebsite(data.website || "");
+        setPhone(data.phone || "");
+        setEmail(data.email || "");
+        setCountry(data.country || "");
+        setCity(data.city || "");
+        setNotes(data.notes || "");
 
-      const primary = (data.contacts || []).find((c: Contact) => c.is_primary) || data.contacts[0];
-      if (primary) {
-        setContactName(primary.full_name || "");
-        setContactTitle(primary.title || "");
-        setContactWhatsapp(primary.whatsapp || "");
-        setContactLinkedin(primary.linkedin_url || "");
+        const primary = (data.contacts || []).find((c: Contact) => c.is_primary) || data.contacts[0];
+        if (primary) {
+          setContactName(primary.full_name || "");
+          setContactTitle(primary.title || "");
+          setContactWhatsapp(primary.whatsapp || "");
+          setContactLinkedin(primary.linkedin_url || "");
+        }
       }
+    } catch (err) {
+      console.error("Failed to load lead details:", err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
     if (companyId) {
       fetchLeadData();
+    } else {
+      setLoading(false);
     }
   }, [companyId]);
 

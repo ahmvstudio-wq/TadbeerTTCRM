@@ -26,7 +26,7 @@ export async function getCompanies(filters?: CompanyFilters) {
     
     let query = supabase
       .from('companies')
-      .select('*, contacts(*), activities(*)')
+      .select('*, contacts(*)')
       .order('created_at', { ascending: false })
 
     if (filters?.status) {
@@ -76,40 +76,50 @@ export async function getCompany(id: string) {
 
     const { data: company, error: companyError } = await supabase
       .from('companies')
-      .select('*')
+      .select(`
+        *,
+        contacts (*),
+        activities (*),
+        follow_ups (*),
+        meetings (*),
+        opportunities (*)
+      `)
       .eq('id', cleanId)
       .single()
 
-    if (companyError) return { data: null, error: companyError.message }
-    
-    const [
-      { data: contacts },
-      { data: activities },
-      { data: preparations },
-      { data: follow_ups },
-      { data: meetings },
-      { data: opportunities },
-      { data: touches }
-    ] = await Promise.all([
-      supabase.from('contacts').select('*').eq('company_id', cleanId),
-      supabase.from('activities').select('*').eq('company_id', cleanId).order('created_at', { ascending: false }).limit(100),
-      supabase.from('outreach_preparations').select('*').eq('company_id', cleanId).order('created_at', { ascending: false }),
-      supabase.from('follow_ups').select('*').eq('company_id', cleanId).order('due_date', { ascending: true }),
-      supabase.from('meetings').select('*').eq('company_id', cleanId).order('meeting_date', { ascending: false }),
-      supabase.from('opportunities').select('*').eq('company_id', cleanId).order('created_at', { ascending: false }),
-      supabase.from('outreach_touches').select('*').eq('lead_id', cleanId).order('sent_at', { ascending: false })
-    ])
+    if (companyError) {
+      const { data: fallbackCo, error: fbErr } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('id', cleanId)
+        .single()
+
+      if (fbErr || !fallbackCo) return { data: null, error: fbErr?.message || 'Company not found' }
+      return {
+        data: {
+          ...fallbackCo,
+          contacts: [],
+          activities: [],
+          preparations: [],
+          follow_ups: [],
+          meetings: [],
+          opportunities: [],
+          outreach_touches: []
+        },
+        error: null
+      }
+    }
 
     return {
       data: {
         ...company,
-        contacts: contacts || [],
-        activities: activities || [],
-        preparations: preparations || [],
-        follow_ups: follow_ups || [],
-        meetings: meetings || [],
-        opportunities: opportunities || [],
-        outreach_touches: touches || []
+        contacts: company.contacts || [],
+        activities: (company.activities || []).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 100),
+        preparations: [],
+        follow_ups: (company.follow_ups || []).sort((a: any, b: any) => String(a.due_date || '').localeCompare(String(b.due_date || ''))),
+        meetings: (company.meetings || []).sort((a: any, b: any) => String(b.meeting_date || '').localeCompare(String(a.meeting_date || ''))),
+        opportunities: (company.opportunities || []).sort((a: any, b: any) => String(b.created_at || '').localeCompare(String(a.created_at || ''))),
+        outreach_touches: []
       },
       error: null
     }
