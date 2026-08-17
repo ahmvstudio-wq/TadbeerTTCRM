@@ -67,7 +67,7 @@ export default function LoginPage() {
         router.push("/dashboard");
         router.refresh();
       } else {
-        setError("Invalid credentials. Access restricted to authorized Tadbeer administrators (operation@tadbeertt.com, taufiq@tadbeertt.com).");
+        setError("Invalid credentials. Access restricted to authorized Tadbeer administrators.");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred during authentication.");
@@ -113,7 +113,7 @@ export default function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="operation@tadbeertt.com"
+                  placeholder="admin@tadbeertt.com"
                   required
                   className="bg-slate-900/90 border-slate-700 text-white text-xs h-10 rounded-xl focus:border-teal-500 focus:ring-teal-500"
                 />
@@ -147,10 +147,6 @@ export default function LoginPage() {
                     </>
                   )}
                 </Button>
-              </div>
-
-              <div className="pt-2 text-center border-t border-slate-700/60 text-[11px] text-slate-400">
-                Authorized Admins: <span className="text-teal-400 font-mono">operation@tadbeertt.com</span> • <span className="text-teal-400 font-mono">taufiq@tadbeertt.com</span>
               </div>
             </form>
           </CardContent>
