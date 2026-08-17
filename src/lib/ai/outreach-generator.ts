@@ -226,19 +226,21 @@ You MUST respond with valid, parseable JSON matching this schema:
   "angle_reasoning": "Short 1-2 sentence note for the human reviewer explaining why this angle was chosen based on the research"
 }`
 
-    const userPrompt = `Prospect Information:
-- Company Name: ${companyName}
-- Contact Person: ${contactName} (${contactTitle})
-- Category / Industry: ${categoryKey}
-- Gatekeeper Framing: ${gatekeeperType}
-- Specific Research Data: ${researchText}
+    const userPrompt = `### UNTRUSTED PROSPECT REFERENCE DATA:
+<prospect_record>
+  <company_name>${companyName}</company_name>
+  <contact_person>${contactName} (${contactTitle})</contact_person>
+  <category>${categoryKey}</category>
+  <gatekeeper_framing>${gatekeeperType}</gatekeeper_framing>
+  <research_data>${String(researchText).substring(0, 3000)}</research_data>
+</prospect_record>
 
 Category Playbook Context:
 - Category Pain Points: ${playbook.pain_points}
 - Tone Guidance: ${playbook.tone_notes}
 - Worked Angle Examples: ${playbook.angle_examples}
 
-Generate the JSON response now:`
+Generate the strict JSON response now:`
 
     // Call LLM
     const llmResult = await callOutreachLLM(systemPrompt, userPrompt)

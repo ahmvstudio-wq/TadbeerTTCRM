@@ -1,9 +1,11 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/auth-guard'
 
 export async function getMeetings(filter: 'upcoming' | 'past' | 'all') {
   try {
+    await requireAuth()
     const supabase = await createClient()
 
     let query = supabase
@@ -34,11 +36,7 @@ export async function getMeetings(filter: 'upcoming' | 'past' | 'all') {
     }
 
     const { data, error } = await query
-
-    if (error) {
-      return { data: null, error: error.message }
-    }
-
+    if (error) return { data: null, error: error.message }
     return { data, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -57,6 +55,7 @@ export async function bookMeeting(data: {
   notes?: string
 }) {
   try {
+    await requireAuth()
     const supabase = await createClient()
 
     const { data: meeting, error: meetingError } = await supabase
@@ -77,9 +76,7 @@ export async function bookMeeting(data: {
       .select()
       .single()
 
-    if (meetingError) {
-      return { data: null, error: meetingError.message }
-    }
+    if (meetingError) return { data: null, error: meetingError.message }
 
     const { error: statusError } = await supabase
       .from('companies')
@@ -121,6 +118,7 @@ export async function bookMeeting(data: {
 
 export async function updateMeetingStatus(id: string, status: 'completed' | 'cancelled' | 'no_show') {
   try {
+    await requireAuth()
     const supabase = await createClient()
 
     const { data: meeting, error: fetchError } = await supabase
@@ -129,9 +127,7 @@ export async function updateMeetingStatus(id: string, status: 'completed' | 'can
       .eq('id', id)
       .single()
 
-    if (fetchError) {
-      return { data: null, error: fetchError.message }
-    }
+    if (fetchError) return { data: null, error: fetchError.message }
 
     const { data: updated, error: updateError } = await supabase
       .from('meetings')
@@ -140,9 +136,7 @@ export async function updateMeetingStatus(id: string, status: 'completed' | 'can
       .select()
       .single()
 
-    if (updateError) {
-      return { data: null, error: updateError.message }
-    }
+    if (updateError) return { data: null, error: updateError.message }
 
     const { error: activityError } = await supabase
       .from('activities')

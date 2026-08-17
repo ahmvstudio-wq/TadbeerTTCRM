@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@supabase/supabase-js'
+import { requireAuth } from '@/lib/auth-guard'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -10,6 +11,7 @@ const supabase = createClient(supabaseUrl, supabaseKey)
 
 export async function getOrCreateSession(userId: string, dateStr: string) {
   try {
+    await requireAuth()
     // Auto-heal: Ensure user exists in users table first
     const { data: existingUser } = await supabase
       .from('users')

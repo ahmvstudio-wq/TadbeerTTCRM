@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/auth-guard'
 
 export async function logActivity(data: {
   company_id: string
@@ -12,6 +13,7 @@ export async function logActivity(data: {
   metadata?: Record<string, any>
 }) {
   try {
+    await requireAuth()
     const supabase = await createClient()
 
     const { data: activity, error } = await supabase
@@ -29,10 +31,7 @@ export async function logActivity(data: {
       .select()
       .single()
 
-    if (error) {
-      return { data: null, error: error.message }
-    }
-
+    if (error) return { data: null, error: error.message }
     return { data: activity, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -41,6 +40,7 @@ export async function logActivity(data: {
 
 export async function getCompanyActivities(companyId: string, limit: number = 50) {
   try {
+    await requireAuth()
     const supabase = await createClient()
 
     const { data, error } = await supabase
@@ -54,9 +54,7 @@ export async function getCompanyActivities(companyId: string, limit: number = 50
       .order('created_at', { ascending: false })
       .limit(limit)
 
-    if (error) {
-      return { data: null, error: error.message }
-    }
+    if (error) return { data: null, error: error.message }
 
     const activities = data?.map(activity => ({
       ...activity,

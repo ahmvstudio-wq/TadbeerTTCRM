@@ -1,9 +1,11 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/auth-guard'
 
 export async function getCallQueue(userId?: string) {
   try {
+    await requireAuth()
     const supabase = await createClient()
 
     let query = supabase
@@ -21,11 +23,7 @@ export async function getCallQueue(userId?: string) {
     }
 
     const { data, error } = await query
-
-    if (error) {
-      return { data: null, error: error.message }
-    }
-
+    if (error) return { data: null, error: error.message }
     return { data, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -34,6 +32,7 @@ export async function getCallQueue(userId?: string) {
 
 export async function startCall(callQueueId: string) {
   try {
+    await requireAuth()
     const supabase = await createClient()
 
     const { data, error } = await supabase
@@ -46,10 +45,7 @@ export async function startCall(callQueueId: string) {
       .select()
       .single()
 
-    if (error) {
-      return { data: null, error: error.message }
-    }
-
+    if (error) return { data: null, error: error.message }
     return { data, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -67,6 +63,7 @@ export async function recordCall(data: {
   follow_up_date?: string
 }) {
   try {
+    const user = await requireAuth()
     const supabase = await createClient()
 
     const { data: callRecord, error: callError } = await supabase
@@ -75,7 +72,7 @@ export async function recordCall(data: {
         call_queue_id: data.call_queue_id,
         company_id: data.company_id,
         contact_id: data.contact_id,
-        caller_id: (await supabase.auth.getUser()).data.user?.id,
+        caller_id: (await supabase.auth.getUser()).data.user?.id || user.email,
         duration_seconds: data.duration_seconds,
         outcome: data.outcome,
         notes: data.notes,
@@ -86,9 +83,7 @@ export async function recordCall(data: {
       .select()
       .single()
 
-    if (callError) {
-      return { data: null, error: callError.message }
-    }
+    if (callError) return { data: null, error: callError.message }
 
     if (data.call_queue_id) {
       const { error: queueError } = await supabase
@@ -151,6 +146,7 @@ export async function recordCall(data: {
 
 export async function getCompletedCalls(userId?: string) {
   try {
+    await requireAuth()
     const supabase = await createClient()
 
     let query = supabase
@@ -168,11 +164,7 @@ export async function getCompletedCalls(userId?: string) {
     }
 
     const { data, error } = await query
-
-    if (error) {
-      return { data: null, error: error.message }
-    }
-
+    if (error) return { data: null, error: error.message }
     return { data, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -181,6 +173,7 @@ export async function getCompletedCalls(userId?: string) {
 
 export async function addToCallQueue(companyId: string, contactId?: string, priority = 'medium') {
   try {
+    await requireAuth()
     const supabase = await createClient()
 
     const { data: existing } = await supabase
@@ -207,7 +200,6 @@ export async function addToCallQueue(companyId: string, contactId?: string, prio
       .single()
 
     if (error) {
-      // Fallback: update company status to 'in_call_queue' even if call_queue table constraint trips
       await supabase.from('companies').update({ status: 'in_call_queue', updated_at: new Date().toISOString() }).eq('id', companyId)
       return { data: null, error: error.message }
     }
@@ -225,14 +217,14 @@ export async function addToCallQueue(companyId: string, contactId?: string, prio
 
 export async function addBatchToCallQueue(companyIds: string[]) {
   try {
-    let successCount = 0;
+    await requireAuth()
+    let successCount = 0
     for (const id of companyIds) {
-      const res = await addToCallQueue(id);
-      if (!res.error) successCount++;
+      const res = await addToCallQueue(id)
+      if (!res.error) successCount++
     }
-    return { count: successCount, error: null };
+    return { count: successCount, error: null }
   } catch (error) {
-    return { count: 0, error: error instanceof Error ? error.message : 'An unexpected error occurred' };
+    return { count: 0, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
   }
 }
-

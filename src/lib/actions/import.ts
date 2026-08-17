@@ -2,6 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { generateForNewProspects } from '@/lib/ai/outreach-generator'
+import { requireAuth } from '@/lib/auth-guard'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -9,6 +10,12 @@ const supabase = createClient(supabaseUrl, supabaseKey)
 
 export async function bulkImportCompanies(data: Record<string, string>[]) {
   try {
+    await requireAuth()
+
+    if (!Array.isArray(data) || data.length === 0) {
+      return { imported: 0, failed: 0, total: 0 }
+    }
+
     let imported = 0
     let failed = 0
 
@@ -117,7 +124,7 @@ export async function bulkImportCompanies(data: Record<string, string>[]) {
     }
 
     // Automatically trigger research-grounded outreach draft generation for new prospects
-    generateForNewProspects().catch((err) => console.error("Auto draft generation error post-import:", err));
+    generateForNewProspects().catch((err) => console.error("Auto draft generation error post-import:", err))
 
     return { imported, failed, total: data.length }
   } catch (error) {

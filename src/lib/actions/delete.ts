@@ -1,9 +1,11 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/auth-guard'
 
 export async function deleteCompany(id: string) {
   try {
+    await requireAuth()
     const supabase = await createClient()
     const { error } = await supabase.from('companies').delete().eq('id', id)
     if (error) return { error: error.message }
@@ -15,6 +17,7 @@ export async function deleteCompany(id: string) {
 
 export async function deleteContact(id: string) {
   try {
+    await requireAuth()
     const supabase = await createClient()
     const { error } = await supabase.from('contacts').delete().eq('id', id)
     if (error) return { error: error.message }
@@ -26,6 +29,7 @@ export async function deleteContact(id: string) {
 
 export async function deleteFollowUp(id: string) {
   try {
+    await requireAuth()
     const supabase = await createClient()
     const { error } = await supabase.from('follow_ups').delete().eq('id', id)
     if (error) return { error: error.message }
@@ -37,6 +41,7 @@ export async function deleteFollowUp(id: string) {
 
 export async function deleteMeeting(id: string) {
   try {
+    await requireAuth()
     const supabase = await createClient()
     const { error } = await supabase.from('meetings').delete().eq('id', id)
     if (error) return { error: error.message }
@@ -48,6 +53,7 @@ export async function deleteMeeting(id: string) {
 
 export async function deleteOpportunity(id: string) {
   try {
+    await requireAuth()
     const supabase = await createClient()
     const { error } = await supabase.from('opportunities').delete().eq('id', id)
     if (error) return { error: error.message }
@@ -59,6 +65,7 @@ export async function deleteOpportunity(id: string) {
 
 export async function deleteCall(id: string) {
   try {
+    await requireAuth()
     const supabase = await createClient()
     const { error } = await supabase.from('calls').delete().eq('id', id)
     if (error) return { error: error.message }
@@ -70,6 +77,7 @@ export async function deleteCall(id: string) {
 
 export async function deleteActivity(id: string) {
   try {
+    await requireAuth()
     const supabase = await createClient()
     const { error } = await supabase.from('activities').delete().eq('id', id)
     if (error) return { error: error.message }

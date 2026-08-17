@@ -1,9 +1,11 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/auth-guard'
 
 export async function getOpportunities(filter?: { stage?: string }) {
   try {
+    await requireAuth()
     const supabase = await createClient()
 
     let query = supabase
@@ -21,11 +23,7 @@ export async function getOpportunities(filter?: { stage?: string }) {
     }
 
     const { data, error } = await query
-
-    if (error) {
-      return { data: null, error: error.message }
-    }
-
+    if (error) return { data: null, error: error.message }
     return { data, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -45,6 +43,7 @@ export async function createOpportunity(data: {
   probability?: number
 }) {
   try {
+    await requireAuth()
     const supabase = await createClient()
 
     const { data: opportunity, error: oppError } = await supabase
@@ -64,9 +63,7 @@ export async function createOpportunity(data: {
       .select()
       .single()
 
-    if (oppError) {
-      return { data: null, error: oppError.message }
-    }
+    if (oppError) return { data: null, error: oppError.message }
 
     const { error: statusError } = await supabase
       .from('companies')
@@ -108,15 +105,15 @@ export async function createOpportunity(data: {
 
 export async function updateOpportunityStage(id: string, stage: string) {
   try {
+    await requireAuth()
     const supabase = await createClient()
 
     let query = supabase.from('opportunities').select('*')
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
 
     if (isUuid) {
       query = query.eq('id', id)
     } else {
-      // Resolve by name/title if it's a keyword
       query = query.ilike('title', `%${id}%`).order('created_at', { ascending: false }).limit(1)
     }
 
@@ -154,9 +151,7 @@ export async function updateOpportunityStage(id: string, stage: string) {
       .select()
       .single()
 
-    if (updateError) {
-      return { data: null, error: updateError.message }
-    }
+    if (updateError) return { data: null, error: updateError.message }
 
     const { error: activityError } = await supabase
       .from('activities')
@@ -187,6 +182,7 @@ export async function updateOpportunityStage(id: string, stage: string) {
 
 export async function getPipelineStats() {
   try {
+    await requireAuth()
     const supabase = await createClient()
 
     const { data: opportunities, error } = await supabase
@@ -194,9 +190,7 @@ export async function getPipelineStats() {
       .select('estimated_value, probability, stage')
       .not('stage', 'eq', 'lost')
 
-    if (error) {
-      return { data: null, error: error.message }
-    }
+    if (error) return { data: null, error: error.message }
 
     const stats = {
       total_value: 0,

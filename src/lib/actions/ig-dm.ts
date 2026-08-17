@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@supabase/supabase-js'
+import { requireAuth } from '@/lib/auth-guard'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,6 +36,7 @@ export async function logOutreach(data: {
   outreach_date?: string
 }) {
   try {
+    await requireAuth()
     const { data: existing } = await supabase
       .from('companies')
       .select('id')
@@ -105,6 +107,7 @@ export async function bulkLogOutreach(data: {
   outreach_date?: string
 }) {
   try {
+    await requireAuth()
     const createdAt = data.outreach_date
       ? new Date(data.outreach_date).toISOString()
       : new Date().toISOString()

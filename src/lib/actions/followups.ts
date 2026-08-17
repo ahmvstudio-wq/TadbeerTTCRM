@@ -1,9 +1,11 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/auth-guard'
 
 export async function getFollowUps(filter: 'due_today' | 'overdue' | 'all' | 'pending') {
   try {
+    await requireAuth()
     const supabase = await createClient()
 
     let query = supabase
@@ -39,11 +41,7 @@ export async function getFollowUps(filter: 'due_today' | 'overdue' | 'all' | 'pe
     }
 
     const { data, error } = await query
-
-    if (error) {
-      return { data: null, error: error.message }
-    }
-
+    if (error) return { data: null, error: error.message }
     return { data, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -60,6 +58,7 @@ export async function createFollowUp(data: {
   channel?: string
 }) {
   try {
+    await requireAuth()
     const supabase = await createClient()
 
     const { data: followUp, error } = await supabase
@@ -78,9 +77,7 @@ export async function createFollowUp(data: {
       .select()
       .single()
 
-    if (error) {
-      return { data: null, error: error.message }
-    }
+    if (error) return { data: null, error: error.message }
 
     const { error: activityError } = await supabase
       .from('activities')
@@ -110,6 +107,7 @@ export async function createFollowUp(data: {
 
 export async function completeFollowUp(id: string, notes?: string) {
   try {
+    await requireAuth()
     const supabase = await createClient()
 
     const { data: followUp, error: fetchError } = await supabase
@@ -118,9 +116,7 @@ export async function completeFollowUp(id: string, notes?: string) {
       .eq('id', id)
       .single()
 
-    if (fetchError) {
-      return { data: null, error: fetchError.message }
-    }
+    if (fetchError) return { data: null, error: fetchError.message }
 
     const { data: completed, error: updateError } = await supabase
       .from('follow_ups')
@@ -133,9 +129,7 @@ export async function completeFollowUp(id: string, notes?: string) {
       .select()
       .single()
 
-    if (updateError) {
-      return { data: null, error: updateError.message }
-    }
+    if (updateError) return { data: null, error: updateError.message }
 
     const { error: activityError } = await supabase
       .from('activities')
@@ -161,6 +155,7 @@ export async function completeFollowUp(id: string, notes?: string) {
 
 export async function rescheduleFollowUp(id: string, newDate: string, newTime?: string) {
   try {
+    await requireAuth()
     const supabase = await createClient()
 
     const updateData: Record<string, any> = { due_date: newDate }
@@ -173,10 +168,7 @@ export async function rescheduleFollowUp(id: string, newDate: string, newTime?: 
       .select()
       .single()
 
-    if (updateError) {
-      return { data: null, error: updateError.message }
-    }
-
+    if (updateError) return { data: null, error: updateError.message }
     return { data: updated, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }

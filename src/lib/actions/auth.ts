@@ -1,6 +1,8 @@
 "use server";
 
 import { cookies } from "next/headers";
+import crypto from "crypto";
+import { generateSessionToken } from "@/lib/auth-guard";
 import { createClient } from "@/lib/supabase/client";
 
 // Authorized Tadbeer admin accounts
@@ -29,10 +31,22 @@ export async function loginAction(formData: { email: string; password: string })
     });
 
     if (!authError && data?.session) {
+      const token = await generateSessionToken(cleanEmail, "admin");
       const cookieStore = await cookies();
-      cookieStore.set("tadbeer-auth", "true", { path: "/", maxAge: 86400, sameSite: "lax" });
-      cookieStore.set("tadbeer-user-email", cleanEmail, { path: "/", maxAge: 86400, sameSite: "lax" });
-      cookieStore.set("tadbeer-user-role", "admin", { path: "/", maxAge: 86400, sameSite: "lax" });
+      
+      // Set secure cryptographically signed session cookie (HttpOnly)
+      cookieStore.set("tadbeer-session", token, {
+        path: "/",
+        maxAge: 7 * 24 * 60 * 60,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+      });
+
+      // Backward compatible display cookies
+      cookieStore.set("tadbeer-auth", "true", { path: "/", maxAge: 7 * 24 * 60 * 60, sameSite: "lax" });
+      cookieStore.set("tadbeer-user-email", cleanEmail, { path: "/", maxAge: 7 * 24 * 60 * 60, sameSite: "lax" });
+      cookieStore.set("tadbeer-user-role", "admin", { path: "/", maxAge: 7 * 24 * 60 * 60, sameSite: "lax" });
 
       return { success: true, user: { email: cleanEmail, role: "admin" } };
     }
@@ -40,15 +54,36 @@ export async function loginAction(formData: { email: string; password: string })
     console.warn("Supabase auth check fallback:", err);
   }
 
-  // 2. Hard password verification on backend server
+  // 2. Hard password verification with timing-safe comparison
   const isAuthorizedEmail = AUTHORIZED_ADMIN_EMAILS.some((a) => a.toLowerCase() === cleanEmail);
   const backendAdminPassword = process.env.ADMIN_PASSWORD || "Tadbeer#2026!SecureAdminPass";
 
-  if (isAuthorizedEmail && cleanPassword === backendAdminPassword) {
+  let isPasswordMatch = false;
+  if (backendAdminPassword) {
+    const passBuf = Buffer.from(cleanPassword);
+    const targetBuf = Buffer.from(backendAdminPassword);
+    if (passBuf.length === targetBuf.length && crypto.timingSafeEqual(passBuf, targetBuf)) {
+      isPasswordMatch = true;
+    }
+  }
+
+  if (isAuthorizedEmail && isPasswordMatch) {
+    const token = await generateSessionToken(cleanEmail, "admin");
     const cookieStore = await cookies();
-    cookieStore.set("tadbeer-auth", "true", { path: "/", maxAge: 86400, sameSite: "lax" });
-    cookieStore.set("tadbeer-user-email", cleanEmail, { path: "/", maxAge: 86400, sameSite: "lax" });
-    cookieStore.set("tadbeer-user-role", "admin", { path: "/", maxAge: 86400, sameSite: "lax" });
+    
+    // Set secure cryptographically signed session cookie (HttpOnly)
+    cookieStore.set("tadbeer-session", token, {
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+    });
+
+    // Backward compatible display cookies
+    cookieStore.set("tadbeer-auth", "true", { path: "/", maxAge: 7 * 24 * 60 * 60, sameSite: "lax" });
+    cookieStore.set("tadbeer-user-email", cleanEmail, { path: "/", maxAge: 7 * 24 * 60 * 60, sameSite: "lax" });
+    cookieStore.set("tadbeer-user-role", "admin", { path: "/", maxAge: 7 * 24 * 60 * 60, sameSite: "lax" });
 
     return { success: true, user: { email: cleanEmail, role: "admin" } };
   }
@@ -57,4 +92,13 @@ export async function loginAction(formData: { email: string; password: string })
     success: false,
     error: "Invalid email or password. Access restricted to authorized Tadbeer administrators.",
   };
+}
+
+export async function logoutAction() {
+  const cookieStore = await cookies();
+  cookieStore.delete("tadbeer-session");
+  cookieStore.delete("tadbeer-auth");
+  cookieStore.delete("tadbeer-user-email");
+  cookieStore.delete("tadbeer-user-role");
+  return { success: true };
 }

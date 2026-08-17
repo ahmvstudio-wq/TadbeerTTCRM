@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@supabase/supabase-js'
+import { requireAuth } from '@/lib/auth-guard'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -993,6 +994,7 @@ export async function createOrUpdateDailyLog(log: LinkedInDailyLog): Promise<{ d
 // ── Convert to Pipeline ───────────────────────────────────────────────────────
 export async function convertProspectToPipeline(prospectId: string) {
   try {
+    await requireAuth()
     const { data: prospect, error: fetchError } = await supabase
       .from('linkedin_prospects')
       .select('*')

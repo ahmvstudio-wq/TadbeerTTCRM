@@ -1,76 +1,26 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { createClient } from '@/lib/supabase/server'
 
 export async function GET() {
-  // Try to query the table first
-  const { error: checkErr } = await supabase
-    .from('linkedin_prospects')
-    .select('id')
-    .limit(1)
+  try {
+    const supabase = await createClient()
+    const { error: checkErr } = await supabase
+      .from('linkedin_prospects')
+      .select('id')
+      .limit(1)
 
-  if (!checkErr) {
-    return NextResponse.json({ message: 'Tables already exist and are accessible!', seeded: true })
+    if (!checkErr) {
+      return NextResponse.json({ message: 'LinkedIn prospects table is active and accessible.', seeded: true })
+    }
+
+    return NextResponse.json(
+      { message: 'LinkedIn schema migration pending in database.', seeded: false },
+      { status: 200 }
+    )
+  } catch {
+    return NextResponse.json(
+      { error: 'An internal error occurred while checking LinkedIn schema status.' },
+      { status: 500 }
+    )
   }
-
-  // Table doesn't exist — return SQL for user to run in Supabase dashboard
-  const sql = `
--- 1. Create or update linkedin_prospects table
-CREATE TABLE IF NOT EXISTS public.linkedin_prospects (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  title TEXT,
-  company TEXT,
-  location TEXT,
-  degree TEXT DEFAULT '2nd',
-  connections TEXT,
-  profile_url TEXT,
-  connection_status TEXT NOT NULL DEFAULT 'to_connect',
-  message_status TEXT NOT NULL DEFAULT 'to_send',
-  priority TEXT DEFAULT 'Medium',
-  lead_type TEXT,
-  mutual_connection TEXT,
-  industry TEXT,
-  screenshot_date TEXT DEFAULT CURRENT_DATE::text,
-  notes TEXT,
-  activities JSONB DEFAULT '[]'::jsonb,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Ensure columns exist if table was previously created
-ALTER TABLE public.linkedin_prospects ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'Medium';
-ALTER TABLE public.linkedin_prospects ADD COLUMN IF NOT EXISTS lead_type TEXT;
-ALTER TABLE public.linkedin_prospects ADD COLUMN IF NOT EXISTS activities JSONB DEFAULT '[]'::jsonb;
-
--- 2. Create linkedin_daily_logs table
-CREATE TABLE IF NOT EXISTS public.linkedin_daily_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  log_date DATE UNIQUE NOT NULL DEFAULT CURRENT_DATE,
-  channel TEXT DEFAULT 'LinkedIn',
-  summary TEXT,
-  tasks_completed JSONB DEFAULT '{}'::jsonb,
-  published_article JSONB DEFAULT '{}'::jsonb,
-  metrics JSONB DEFAULT '{}'::jsonb,
-  notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
--- RLS Policies
-ALTER TABLE public.linkedin_prospects ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.linkedin_daily_logs ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Allow all for authenticated" ON public.linkedin_prospects;
-CREATE POLICY "Allow all for authenticated" ON public.linkedin_prospects FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Allow all for authenticated" ON public.linkedin_daily_logs;
-CREATE POLICY "Allow all for authenticated" ON public.linkedin_daily_logs FOR ALL USING (true) WITH CHECK (true);
-  `
-
-  return NextResponse.json({ error: checkErr.message, sql_to_run: sql })
 }
