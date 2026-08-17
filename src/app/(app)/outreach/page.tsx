@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
+import { cn, formatWhatsAppNumber } from "@/lib/utils";
 import {
   logOutreach, updateOutreachStatus, updateOutreachEntry, getAllLeadsForPipeline, deleteOutreachLog, bulkLogOutreach, importCSVOutreach, type MappedCSVRow
 } from "@/lib/actions/ig-dm";
@@ -23,6 +23,7 @@ import { ColdCallScriptModal } from "@/components/outreach/cold-call-script-moda
 import { DMEmailTemplateModal } from "@/components/outreach/dm-email-template-modal";
 import { ContactDetailDrawer } from "@/components/outreach/contact-detail-drawer";
 import { PLAYBOOK_TEMPLATES } from "@/lib/outreach-messages-library";
+import { useUnifiedLead } from "@/context/unified-lead-context";
 
 // ─── Channel Icon Renderer ────────────────────────────────────────────────────
 function ChannelIcon({ channel, size = 14 }: { channel: OutreachChannel; size?: number }) {
@@ -86,6 +87,7 @@ export default function OutreachPipelinePage() {
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [channelFilter, setChannelFilter] = useState<OutreachChannel | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const { openLead } = useUnifiedLead();
   const [viewMode, setViewMode] = useState<"table" | "kanban">("table");
   const [logOpen, setLogOpen] = useState(false);
   const [activeCard, setActiveCard] = useState<string | null>(null);
@@ -309,7 +311,8 @@ export default function OutreachPipelinePage() {
                   {filteredLeads.map(lead => {
                     const daysAgo = getDaysElapsed(lead.sent_at);
                     const phone = lead.phone || (lead.channel === "cold_call" || lead.channel === "whatsapp" ? lead.handle : null);
-                    const waUrl = phone ? `https://wa.me/${phone.replace(/\D/g, "")}` : null;
+                    const waDigits = phone ? formatWhatsAppNumber(phone) : "";
+                    const waUrl = waDigits ? `https://wa.me/${waDigits}` : null;
                     const cleanH = (lead.handle || "").trim();
 
                     return (
@@ -391,10 +394,11 @@ export default function OutreachPipelinePage() {
                               </a>
                             )}
                             <button
-                              onClick={() => setDrawerLead(lead)}
-                              className="px-2 py-1 rounded-md bg-slate-900 text-white text-[10px] font-extrabold hover:bg-slate-800 transition-colors cursor-pointer flex items-center gap-1"
+                              onClick={() => openLead(lead.company_id || lead.id)}
+                              className="px-2.5 py-1 rounded-md bg-teal-600 text-white text-[10px] font-extrabold hover:bg-teal-700 transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
                             >
-                              View Card →
+                              <Sparkles className="h-3 w-3" />
+                              Open Lead Workspace
                             </button>
                           </div>
                         </td>
@@ -521,7 +525,8 @@ function CallReadyCard({ lead, expanded, onToggle, onUpdate }: { lead: OutreachL
   const markCalled = async () => { setMarking(true); await updateOutreachStatus(lead.id, { status: "called" }); await onUpdate(); setMarking(false); };
   const markBooked = async () => { setMarking(true); await updateOutreachStatus(lead.id, { status: "meeting_booked" }); await onUpdate(); setMarking(false); };
   const phone = lead.phone || (lead.channel === "cold_call" || lead.channel === "whatsapp" ? lead.handle : null);
-  const waUrl = phone ? `https://wa.me/${phone.replace(/\D/g, "")}` : null;
+  const waDigits = phone ? formatWhatsAppNumber(phone) : "";
+  const waUrl = waDigits ? `https://wa.me/${waDigits}` : null;
   const channelLabel = CHANNEL_CONFIG[lead.channel]?.label || "Cold Call";
 
   return (
@@ -822,7 +827,7 @@ function OutreachCard({ lead, expanded, onToggle, onUpdate, compact }: { lead: O
 
                 {cleanHandle && (isPhone || channel === 'whatsapp' || channel === 'cold_call') && (
                   <a
-                    href={`https://wa.me/${cleanHandle.replace(/\D/g, '')}${notes ? `?text=${encodeURIComponent(notes)}` : ''}`}
+                    href={`https://wa.me/${formatWhatsAppNumber(cleanHandle)}${notes ? `?text=${encodeURIComponent(notes)}` : ''}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="bg-emerald-100 text-emerald-900 text-[10px] font-bold px-2 py-1 rounded-lg"

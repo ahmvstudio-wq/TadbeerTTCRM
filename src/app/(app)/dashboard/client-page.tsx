@@ -7,11 +7,11 @@ import {
   Building2, ChevronDown, ChevronRight, Sparkles, Zap, Flame, DollarSign,
   Activity, ArrowRight, MessageCircle, Mail, ExternalLink, CheckCircle2,
   BarChart3, PieChart, RefreshCw, ShieldAlert, ArrowUpRight, Plus, Filter,
-  Target, Layers, Compass, Award, Percent, CheckSquare, LineChart, Briefcase, Search
+  Target, Layers, Compass, Award, Percent, CheckSquare, LineChart, Briefcase, Search, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { cn, formatWhatsAppNumber, formatPhoneNumberForDisplay } from "@/lib/utils";
 import { getDashboardStats, getRecentActivity } from "@/lib/actions/dashboard";
 import { getCompanies } from "@/lib/actions/companies";
 import { getCallQueue } from "@/lib/actions/calls";
@@ -22,6 +22,9 @@ import { getLinkedInProspects } from "@/lib/actions/linkedin";
 import { ContactDetailDrawer } from "@/components/outreach/contact-detail-drawer";
 import { updateOutreachStatus, updateOutreachEntry, deleteOutreachLog, getAllLeadsForPipeline } from "@/lib/actions/ig-dm";
 import { type OutreachLead } from "@/lib/types/outreach";
+import { useUnifiedLead } from "@/context/unified-lead-context";
+import { generateDailyCallBatch, getOrCreateDailyCallBatch } from "@/lib/actions/cadence";
+import { ToCallListDrawer } from "@/components/dashboard/to-call-list-drawer";
 
 // Semi-Circular Teal Speedometer Gauge for Conversion Rate
 function TealGauge({ percentage = 0 }: { percentage?: number }) {
@@ -91,8 +94,32 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
   const [opportunitiesList, setOpportunitiesList] = useState<any[]>(initialData.opportunitiesList);
   const [linkedinProspects, setLinkedinProspects] = useState<any[]>(initialData.linkedinProspects);
   const [outreachLeads] = useState<any[]>(initialData.outreachLeads || []);
-
+  const { openLead } = useUnifiedLead();
   const [loading, setLoading] = useState(false);
+  const [generatingBatch, setGeneratingBatch] = useState(false);
+  const [dailyBatchLeads, setDailyBatchLeads] = useState<any[]>([]);
+  const [isToCallDrawerOpen, setIsToCallDrawerOpen] = useState(false);
+  const [dailyCallBatch, setDailyCallBatch] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function loadBatch() {
+      const res = await getOrCreateDailyCallBatch(20, "Ramij");
+      if (res.data && res.data.length > 0) {
+        setDailyCallBatch(res.data);
+      }
+    }
+    loadBatch();
+  }, []);
+
+  const handleGenerateCallBatch = async () => {
+    setGeneratingBatch(true);
+    const res = await generateDailyCallBatch(20, "Ramij");
+    if (res.data) {
+      setDailyBatchLeads(res.data);
+      setDailyCallBatch(res.data);
+    }
+    setGeneratingBatch(false);
+  };
   const [chartView, setChartView] = useState<"monthly" | "yearly">("yearly");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -101,6 +128,15 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
 
   // Data is fetched on the server now
 
+  // Verified Uncontacted & Ready Leads with Phone/WhatsApp
+  const callReadyLeads = useMemo(() => {
+    return companies.filter(c => {
+      if (c.status === "won" || c.status === "lost" || c.status === "dormant") return false;
+      const phoneNum = c.phone || (c.contacts && c.contacts.find((cnt: any) => cnt.phone || cnt.whatsapp)?.phone) || (c.contacts && c.contacts.find((cnt: any) => cnt.whatsapp)?.whatsapp);
+      return Boolean(phoneNum && String(phoneNum).trim().length >= 7);
+    });
+  }, [companies]);
+
   // Filtered CRM Companies
   const filteredCompanies = useMemo(() => {
     return companies.filter(c => {
@@ -108,7 +144,14 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
         c.company_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.industry?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.status?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus = statusFilter === "all" || c.status === statusFilter;
+      
+      let matchesStatus = true;
+      if (statusFilter === "call_ready") {
+        const phoneNum = c.phone || (c.contacts && c.contacts.find((cnt: any) => cnt.phone || cnt.whatsapp)?.phone) || (c.contacts && c.contacts.find((cnt: any) => cnt.whatsapp)?.whatsapp);
+        matchesStatus = Boolean(phoneNum && String(phoneNum).trim().length >= 7) && c.status !== "won" && c.status !== "lost" && c.status !== "dormant";
+      } else if (statusFilter !== "all") {
+        matchesStatus = c.status === statusFilter;
+      }
       return matchesSearch && matchesStatus;
     });
   }, [companies, searchQuery, statusFilter]);
@@ -186,11 +229,6 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
 
   const [activeWorkstationTab, setActiveWorkstationTab] = useState<"calls" | "followups" | "outreach_remaining">("calls");
 
-  // Call Ready Leads
-  const callReadyLeads = useMemo(() => {
-    return companies.filter(c => c.status === "ready_for_call" || c.status === "replied_interested" || c.status === "replied_objection" || c.status === "contacted");
-  }, [companies]);
-
   // Real Channel Distribution Data
   const channelBreakdown = useMemo(() => {
     let li = linkedinProspects.length;
@@ -254,22 +292,32 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
           <p className="text-[10px] sm:text-xs text-slate-400 font-medium truncate">Database CRM Records</p>
         </div>
 
-        {/* KPI 2: To Call Queue */}
-        <div className="bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 border border-slate-200 shadow-xs hover:shadow-md transition-all flex flex-col justify-between">
+        {/* KPI 2: To Call Queue (Limited Daily 20 Call Batch) */}
+        <div 
+          onClick={() => setIsToCallDrawerOpen(true)}
+          className="bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 border border-slate-200 shadow-xs hover:shadow-md transition-all flex flex-col justify-between cursor-pointer group hover:border-[#174E59]/40"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] sm:text-xs font-bold text-slate-500 flex items-center gap-1.5 truncate">
+            <span className="text-[11px] sm:text-xs font-bold text-slate-500 flex items-center gap-1.5 truncate group-hover:text-[#174E59]">
               <Phone className="h-3.5 w-3.5 text-[#174E59] shrink-0" /> To Call List
             </span>
-            <span className="text-[9px] text-amber-700 font-extrabold bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200">Action</span>
+            <span className="text-[9px] text-amber-700 font-extrabold bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200">
+              Daily 20 Limit
+            </span>
           </div>
           <div className="my-2 sm:my-3 flex items-baseline justify-between">
-            <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{callReadyLeads.length}</h3>
+            <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              {dailyCallBatch.length > 0 ? dailyCallBatch.length : 20}
+            </h3>
             {/* Sparkline Graphic */}
             <svg className="h-6 w-14 text-[#174E59]" viewBox="0 0 50 20" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M 0 18 Q 12 16, 25 8 T 50 2" strokeLinecap="round" />
             </svg>
           </div>
-          <p className="text-[10px] sm:text-xs text-[#174E59] font-extrabold truncate">Ready for Phone/WA</p>
+          <p className="text-[10px] sm:text-xs text-[#174E59] font-extrabold truncate flex items-center justify-between">
+            <span>Daily Call Queue</span>
+            <span className="text-[9px] bg-[#174E59] text-white px-1.5 py-0.5 rounded font-mono font-bold">Open Window</span>
+          </p>
         </div>
 
         {/* KPI 3: Active Pipeline */}
@@ -403,243 +451,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
 
       </div>
 
-      {/* ── WORKSTATION SECTION: To Call List & Follow-up Urgency ────────── */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-          <div>
-            <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
-              <span>BDM Workstation</span>
-            </h2>
-            <p className="text-xs text-slate-400 font-medium mt-0.5">
-              Prospects requiring phone/WhatsApp calls and follow-up urgency tracking.
-            </p>
-          </div>
 
-          {/* Sub-tabs matching user screenshot */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200 gap-1 flex-wrap">
-            <button
-              onClick={() => setActiveWorkstationTab("calls")}
-              className={cn(
-                "px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5",
-                activeWorkstationTab === "calls" ? "bg-slate-900 text-white shadow-xs" : "text-slate-500 hover:text-slate-900"
-              )}
-            >
-              <Phone className="h-3.5 w-3.5" />
-              <span>Calls ({callReadyLeads.length})</span>
-            </button>
-
-            <button
-              onClick={() => setActiveWorkstationTab("outreach_remaining")}
-              className={cn(
-                "px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5",
-                activeWorkstationTab === "outreach_remaining"
-                  ? "bg-amber-500 text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              )}
-            >
-              <Clock className="h-3.5 w-3.5" />
-              <span>Follow-ups Remaining</span>
-              <span className={cn(
-                "text-[10px] font-black px-1.5 py-0.5 rounded-full",
-                activeWorkstationTab === "outreach_remaining" ? "bg-white text-amber-950" : "bg-amber-100 text-amber-900"
-              )}>
-                {outreachFollowupsRemaining.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setActiveWorkstationTab("followups")}
-              className={cn(
-                "px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2",
-                activeWorkstationTab === "followups" ? "bg-slate-900 text-white shadow-xs" : "text-slate-500 hover:text-slate-900"
-              )}
-            >
-              <Clock className="h-3.5 w-3.5" />
-              <span>Tasks ({followUpsList.length})</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Tab 1: TO CALL LIST */}
-        {activeWorkstationTab === "calls" && (
-          <div className="space-y-3">
-            {callReadyLeads.length === 0 ? (
-              <div className="text-center py-12 bg-slate-50 rounded-2xl border border-slate-200 border-dashed">
-                <Phone className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-xs font-bold text-slate-700">No prospects currently queued for calling.</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Leads marked "Ready for Call" or "Replied" will appear here.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {callReadyLeads.map((c) => {
-                  const contact = c.contacts?.[0];
-                  const primaryName = contact?.full_name || c.company_name;
-                  const phone = contact?.phone || c.phone || contact?.whatsapp || c.whatsapp;
-                  const waUrl = phone ? `https://wa.me/968${phone.replace(/[^0-9]/g, "").slice(-8)}` : null;
-
-                  return (
-                    <div key={c.id} className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200 flex flex-col justify-between space-y-3 hover:border-teal-300 transition-all shadow-2xs">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-teal-100 text-teal-800 border border-teal-200 uppercase tracking-wider">
-                            {c.status === "ready_for_call" ? "Ready to Call" : c.status}
-                          </span>
-                          <h4 className="text-sm font-black text-slate-900 mt-2 truncate">{primaryName}</h4>
-                          <p className="text-xs text-slate-500 font-medium truncate">{contact?.title ? `${contact.title} @ ` : ''}{c.company_name}</p>
-                        </div>
-                      </div>
-
-                      <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between gap-2 text-xs">
-                        <div className="text-[11px] font-bold text-slate-600 font-mono">
-                          {phone || "No phone listed"}
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          {phone && (
-                            <a
-                              href={`tel:${phone}`}
-                              className="px-2.5 py-1 rounded-xl bg-slate-900 text-white font-bold text-[11px] hover:bg-slate-800 transition-all flex items-center gap-1"
-                            >
-                              <Phone className="h-3 w-3" /> Call
-                            </a>
-                          )}
-                          {waUrl && (
-                            <a
-                              href={waUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="px-2.5 py-1 rounded-xl bg-teal-50 text-teal-700 border border-teal-200 font-bold text-[11px] hover:bg-teal-100 transition-all flex items-center gap-1"
-                            >
-                              <MessageCircle className="h-3 w-3" /> WA
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Tab 2: OUTREACH FOLLOW-UPS REMAINING (2-3+ DAYS AGO) */}
-        {activeWorkstationTab === "outreach_remaining" && (
-          <div className="space-y-3">
-            {outreachFollowupsRemaining.length === 0 ? (
-              <div className="text-center py-8 bg-amber-50/40 rounded-2xl border border-amber-200/80 border-dashed">
-                <Clock className="h-6 w-6 text-amber-400 mx-auto mb-1.5" />
-                <p className="text-xs font-bold text-amber-950">No outreach follow-ups overdue!</p>
-                <p className="text-[11px] text-amber-800 mt-0.5">All contacts reached out 2-3+ days ago have received follow-ups or replies.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto rounded-2xl border border-amber-200/80 bg-white">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-amber-50/60 border-b border-amber-200/80 text-amber-950 font-extrabold text-[11px]">
-                    <tr>
-                      <th className="p-3">Company / Business</th>
-                      <th className="p-3">Channel & Handle</th>
-                      <th className="p-3">Elapsed Time</th>
-                      <th className="p-3 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-amber-100/60 font-medium text-slate-800">
-                    {outreachFollowupsRemaining.map((lead) => {
-                      const sentDate = lead.sent_at ? new Date(lead.sent_at).getTime() : Date.now();
-                      const daysAgo = Math.floor((Date.now() - sentDate) / (1000 * 60 * 60 * 24));
-                      const phone = lead.phone || (lead.channel === "cold_call" || lead.channel === "whatsapp" ? lead.handle : null);
-                      const waUrl = phone ? `https://wa.me/${phone.replace(/\D/g, "")}` : null;
-
-                      return (
-                        <tr key={lead.id} className="hover:bg-amber-50/30 transition-colors">
-                          <td className="p-3 font-bold text-slate-900">
-                            {lead.company_name}
-                            <span className="text-[10px] font-normal text-slate-400 block">{lead.industry || 'General'}</span>
-                          </td>
-                          <td className="p-3 text-slate-700 font-medium">
-                            <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 bg-amber-100/70 px-2 py-0.5 rounded-md border border-amber-200 inline-block mb-0.5">
-                              {lead.channel}
-                            </span>
-                            <span className="text-[10px] font-mono text-slate-500 block truncate max-w-[140px]">{lead.handle}</span>
-                          </td>
-                          <td className="p-3">
-                            <span className="text-[10px] font-black bg-amber-100 text-amber-950 px-2.5 py-1 rounded-lg border border-amber-300">
-                              ⏰ {daysAgo === 0 ? "Today" : `${daysAgo} Days Overdue`}
-                            </span>
-                          </td>
-                          <td className="p-3 text-right">
-                            <div className="inline-flex items-center gap-1.5 justify-end">
-                              {waUrl && (
-                                <a href={waUrl} target="_blank" rel="noopener noreferrer" className="px-2 py-1 rounded-lg bg-emerald-100 text-emerald-900 text-[10px] font-extrabold hover:bg-emerald-200 transition-colors">
-                                  WA
-                                </a>
-                              )}
-                              {phone && (
-                                <a href={`tel:${phone}`} className="px-2 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-extrabold hover:bg-slate-800 transition-colors">
-                                  Call
-                                </a>
-                              )}
-                              <button
-                                onClick={() => setDrawerLead(lead as any)}
-                                className="px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-extrabold hover:bg-slate-800 transition-colors cursor-pointer"
-                              >
-                                Card →
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Tab 3: FOLLOW-UP URGENCY */}
-        {activeWorkstationTab === "followups" && (
-          <div className="space-y-3">
-            {followUpsList.length === 0 ? (
-              <div className="text-center py-12 bg-slate-50 rounded-2xl border border-slate-200 border-dashed">
-                <Clock className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-xs font-bold text-slate-700">All follow-ups are up to date!</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {followUpsList.map((fu, idx) => {
-                  const urgencyLabel = idx % 3 === 0 ? "HIGH URGENCY" : idx % 3 === 1 ? "MEDIUM URGENCY" : "NORMAL";
-                  const urgencyClass = idx % 3 === 0 ? "bg-red-50 text-red-700 border-red-200" : idx % 3 === 1 ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-teal-50 text-teal-700 border-teal-200";
-
-                  return (
-                    <div key={fu.id || idx} className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200 flex flex-col justify-between space-y-3 shadow-2xs">
-                      <div className="flex items-center justify-between">
-                        <span className={cn("text-[10px] font-black px-2 py-0.5 rounded-md border uppercase tracking-wider", urgencyClass)}>
-                          {urgencyLabel}
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-400">Due Today</span>
-                      </div>
-
-                      <div>
-                        <h4 className="text-sm font-black text-slate-900 truncate">{fu.companies?.company_name || fu.title || "Follow-up Prospect"}</h4>
-                        <p className="text-xs text-slate-500 font-medium truncate mt-0.5">{fu.notes || fu.description || "Follow up on previous proposal touchpoint."}</p>
-                      </div>
-
-                      <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-slate-400">Action Needed</span>
-                        <Link href="/outreach">
-                          <Button size="sm" className="h-7 text-[11px] font-extrabold bg-teal-600 hover:bg-teal-700 text-white rounded-xl px-2.5">
-                            Take Action
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
 
       {/* ── Middle Grid: Outreach Velocity Timeline + Teal Speedometer ───── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -783,135 +595,70 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
 
       </div>
 
-      {/* ── Bottom Section: Recent Real CRM Pipeline Activity Table ──────── */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-5">
-        
-        {/* Table Header Controls */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* ── Bottom Section: Executive CRM Quick Access Hub ───────────────── */}
+      <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
           <div>
-            <h2 className="text-lg font-black text-slate-900 tracking-tight">Recent CRM Pipeline Activity</h2>
-            <p className="text-xs text-slate-400 font-medium">Real-time prospects and outreach activities from your database.</p>
-          </div>
-          
-          <div className="flex items-center gap-3 flex-wrap">
-            {/* Search */}
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
-              <Input
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search CRM prospects..."
-                className="pl-9 text-xs bg-slate-50 border-slate-200 rounded-2xl h-9 focus:bg-white"
-              />
-            </div>
-
-            {/* Status Select */}
-            <select
-              value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value)}
-              className="text-xs bg-slate-50 border border-slate-200 rounded-2xl h-9 px-3 font-bold text-slate-700 focus:bg-white cursor-pointer"
-            >
-              <option value="all">All Statuses</option>
-              <option value="prospect">Prospect</option>
-              <option value="contacted">Contacted</option>
-              <option value="ready_for_call">Call Ready</option>
-              <option value="meeting_booked">Meeting Booked</option>
-              <option value="opportunity">Opportunity</option>
-            </select>
-
-            <Link href="/prospects">
-              <Button className="h-9 text-xs font-bold rounded-2xl bg-slate-900 hover:bg-slate-800 text-white">
-                <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Prospect
-              </Button>
-            </Link>
+            <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <Compass className="h-5 w-5 text-teal-700" />
+              <span>CRM Module Workspaces</span>
+            </h2>
+            <p className="text-xs text-slate-400 font-medium mt-0.5">
+              Access full contact records, call queues, follow-ups, and sales pipelines in their dedicated views.
+            </p>
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                <th className="py-3 px-3 w-10">
-                  <input
-                    type="checkbox"
-                    checked={selectedRows.size > 0 && selectedRows.size === filteredCompanies.length}
-                    onChange={toggleSelectAll}
-                    className="rounded border-slate-300 text-teal-600 focus:ring-teal-500 cursor-pointer"
-                  />
-                </th>
-                <th className="py-3 px-3">Lead ID</th>
-                <th className="py-3 px-3">Date Added</th>
-                <th className="py-3 px-3">Company / Prospect</th>
-                <th className="py-3 px-3">Industry</th>
-                <th className="py-3 px-3">Pipeline Status</th>
-                <th className="py-3 px-3">Contact / Handle</th>
-                <th className="py-3 px-3 text-right">Est. Value</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-400 font-medium">
-                    Loading CRM Pipeline...
-                  </td>
-                </tr>
-              ) : filteredCompanies.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-400 font-medium">
-                    No prospects found in database.
-                  </td>
-                </tr>
-              ) : (
-                filteredCompanies.slice(0, 10).map((c) => {
-                  const isChecked = selectedRows.has(c.id);
-                  const shortId = `#${c.id.slice(0, 6)}`;
-                  const dateStr = c.created_at ? new Date(c.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "Today";
-                  
-                  const isWon = c.status === "meeting_booked" || c.status === "opportunity" || c.status === "won";
-                  const isReady = c.status === "ready_for_call" || c.status === "replied_interested";
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Link href="/prospects">
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 hover:border-slate-400 transition-all cursor-pointer group">
+              <div className="flex items-center justify-between">
+                <div className="h-10 w-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold">
+                  <Users className="h-5 w-5 text-teal-400" />
+                </div>
+                <ArrowRight className="h-4 w-4 text-slate-400 group-hover:translate-x-1 transition-transform" />
+              </div>
+              <h3 className="text-sm font-black text-slate-900 mt-3">Prospects View</h3>
+              <p className="text-xs text-slate-500 mt-0.5">All {totalProspects} prospect companies and contacts in database.</p>
+            </div>
+          </Link>
 
-                  return (
-                    <tr key={c.id} className="hover:bg-slate-50/70 transition-colors font-medium">
-                      <td className="py-3.5 px-3">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleSelectRow(c.id)}
-                          className="rounded border-slate-300 text-teal-600 focus:ring-teal-500 cursor-pointer"
-                        />
-                      </td>
-                      <td className="py-3.5 px-3 font-mono text-slate-400">{shortId}</td>
-                      <td className="py-3.5 px-3 text-slate-500">{dateStr}</td>
-                      <td className="py-3.5 px-3 font-extrabold text-slate-900">{c.company_name}</td>
-                      <td className="py-3.5 px-3 text-slate-600">{c.industry || "General Enterprise"}</td>
-                      <td className="py-3.5 px-3">
-                        {isWon ? (
-                          <span className="text-[11px] font-extrabold px-3 py-1 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
-                            {c.status === "meeting_booked" ? "Meeting Booked" : c.status}
-                          </span>
-                        ) : isReady ? (
-                          <span className="text-[11px] font-extrabold px-3 py-1 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
-                            Call Ready
-                          </span>
-                        ) : (
-                          <span className="text-[11px] font-extrabold px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                            {c.status || "Prospect"}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-3 text-slate-600 font-mono">
-                        {c.phone || c.email || (c.website ? c.website.replace("https://", "") : "—")}
-                      </td>
-                      <td className="py-3.5 px-3 text-right font-black text-slate-900">
-                        {c.estimated_value ? `OMR ${c.estimated_value.toLocaleString()}` : "OMR 0"}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+          <div onClick={() => setIsToCallDrawerOpen(true)} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 hover:border-teal-400 transition-all cursor-pointer group">
+            <div className="flex items-center justify-between">
+              <div className="h-10 w-10 rounded-xl bg-teal-700 text-white flex items-center justify-center font-bold">
+                <Phone className="h-5 w-5 text-teal-200" />
+              </div>
+              <span className="text-[10px] font-black bg-teal-100 text-teal-800 px-2 py-0.5 rounded-full border border-teal-200">Daily 20</span>
+            </div>
+            <h3 className="text-sm font-black text-slate-900 mt-3">To Call List Drawer</h3>
+            <p className="text-xs text-slate-500 mt-0.5">{callReadyLeads.length} verified phone leads in daily batch queue.</p>
+          </div>
+
+          <Link href="/follow-ups">
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 hover:border-amber-400 transition-all cursor-pointer group">
+              <div className="flex items-center justify-between">
+                <div className="h-10 w-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold">
+                  <Clock className="h-5 w-5" />
+                </div>
+                <ArrowRight className="h-4 w-4 text-slate-400 group-hover:translate-x-1 transition-transform" />
+              </div>
+              <h3 className="text-sm font-black text-slate-900 mt-3">Follow-ups View</h3>
+              <p className="text-xs text-slate-500 mt-0.5">{outreachFollowupsRemaining.length} outreach touches awaiting reply.</p>
+            </div>
+          </Link>
+
+          <Link href="/pipeline">
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 hover:border-blue-400 transition-all cursor-pointer group">
+              <div className="flex items-center justify-between">
+                <div className="h-10 w-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold">
+                  <Layers className="h-5 w-5" />
+                </div>
+                <ArrowRight className="h-4 w-4 text-slate-400 group-hover:translate-x-1 transition-transform" />
+              </div>
+              <h3 className="text-sm font-black text-slate-900 mt-3">Pipeline View</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Kanban board & deal tracking stages.</p>
+            </div>
+          </Link>
         </div>
       </div>
 
@@ -929,6 +676,14 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
         onSaveEntry={async (id, data) => {
           await updateOutreachEntry(id, data);
         }}
+      />
+
+      {/* ── Dedicated Slide-Over Window for Daily To Call List ──────────── */}
+      <ToCallListDrawer
+        isOpen={isToCallDrawerOpen}
+        onClose={() => setIsToCallDrawerOpen(false)}
+        initialLeads={dailyCallBatch.length > 0 ? dailyCallBatch : callReadyLeads.slice(0, 20)}
+        totalPoolCount={callReadyLeads.length}
       />
     </div>
   );

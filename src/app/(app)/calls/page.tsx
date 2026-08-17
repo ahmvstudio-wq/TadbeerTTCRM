@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
+import { cn, formatWhatsAppNumber } from "@/lib/utils";
 import {
   Phone, CheckCircle2, Loader2, Trash2, X, RefreshCw,
   Search, MessageCircle, Sparkles, AlertCircle, PhoneCall,
@@ -15,6 +15,7 @@ import { getAllLeadsForPipeline, updateOutreachStatus, deleteOutreachLog, update
 import { type OutreachLead, type OutreachStatus } from "@/lib/types/outreach";
 import { ContactDetailDrawer } from "@/components/outreach/contact-detail-drawer";
 import { ColdCallScriptModal } from "@/components/outreach/cold-call-script-modal";
+import { useUnifiedLead } from "@/context/unified-lead-context";
 
 const outcomeOptions = [
   { value: "connected", label: "Connected / Discussed" },
@@ -25,6 +26,7 @@ const outcomeOptions = [
 ];
 
 export default function CallsPage() {
+  const { openLead } = useUnifiedLead();
   const [outreachLeads, setOutreachLeads] = useState<OutreachLead[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -65,7 +67,7 @@ export default function CallsPage() {
   );
 
   const readyToCallLeads = outreachLeads.filter(l => 
-    l.status === "ready_for_call" || (l.channel === "cold_call" && (l.status === "sent" || l.status === "no_reply"))
+    l.status === "ready_for_call" || (l.channel === "cold_call" && (l.status === "sent" || l.status === "no_reply")) || Boolean(l.phone && l.phone.trim().length >= 7)
   );
 
   const completedCallsLeads = outreachLeads.filter(l => 
@@ -238,15 +240,19 @@ export default function CallsPage() {
               <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
                 {displayedLeads.map(lead => {
                   const phoneNum = lead.phone || (lead.channel === "cold_call" || lead.channel === "whatsapp" ? lead.handle : null);
-                  const waUrl = phoneNum ? `https://wa.me/${phoneNum.replace(/\D/g, "")}` : null;
+                  const waDigits = phoneNum ? formatWhatsAppNumber(phoneNum) : "";
+                  const waUrl = waDigits ? `https://wa.me/${waDigits}` : null;
 
                   return (
                     <tr key={lead.id} className="hover:bg-slate-50/80 transition-colors">
                       {/* Company Name */}
                       <td className="p-3">
-                        <span className="font-black text-slate-900 text-xs block truncate max-w-[200px]">
+                        <button
+                          onClick={() => openLead(lead.company_id || lead.id)}
+                          className="font-black text-slate-900 text-xs block truncate max-w-[200px] hover:text-teal-700 hover:underline cursor-pointer text-left"
+                        >
                           {lead.company_name}
-                        </span>
+                        </button>
                         <span className="text-[10px] text-slate-400 font-medium block truncate max-w-[180px]">
                           {lead.industry || "General"}
                         </span>

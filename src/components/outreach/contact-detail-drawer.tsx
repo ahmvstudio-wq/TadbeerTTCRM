@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   X, Phone, MessageCircle, Mail, Globe, Sparkles, Pencil,
   Trash2, Calendar, Building, User, Clock, CheckCircle2,
-  FileText, ExternalLink, Loader2, AlertCircle, Send
+  FileText, ExternalLink, Loader2, AlertCircle, AlertTriangle, Send
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import {
 } from "@/lib/types/outreach";
 import { ColdCallScriptModal } from "./cold-call-script-modal";
 import { DMEmailTemplateModal } from "./dm-email-template-modal";
+import { formatWhatsAppNumber, formatPhoneNumberForDisplay } from "@/lib/utils";
 
 interface ContactDetailDrawerProps {
   isOpen: boolean;
@@ -92,7 +93,9 @@ export function ContactDetailDrawer({
   };
 
   const phone = lead.phone || (lead.channel === "cold_call" || lead.channel === "whatsapp" ? lead.handle : null);
-  const waUrl = phone ? `https://wa.me/${phone.replace(/\D/g, "")}` : null;
+  const waDigits = phone ? formatWhatsAppNumber(phone) : "";
+  const waUrl = waDigits ? `https://wa.me/${waDigits}` : null;
+  const displayPhone = phone ? formatPhoneNumberForDisplay(phone) : null;
   const channelLabel = CHANNEL_CONFIG[lead.channel]?.label || lead.channel;
   const statusCfg = STATUS_CONFIG[lead.status] || STATUS_CONFIG.sent;
 
@@ -188,7 +191,7 @@ export function ContactDetailDrawer({
                   className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-slate-200/90 text-slate-900 font-bold hover:border-slate-400 transition-all"
                 >
                   <Phone className="h-4 w-4 text-slate-700" />
-                  <span className="truncate">{phone}</span>
+                  <span className="truncate">{displayPhone}</span>
                 </a>
               )}
               {waUrl && (
@@ -263,7 +266,15 @@ export function ContactDetailDrawer({
             )}
 
             {!lead.prospect_reply && !lead.pain_point && !lead.notes && (
-              <p className="text-xs text-slate-400 italic text-center py-2">No additional call notes or replies recorded yet.</p>
+              <div className="p-3 rounded-xl bg-amber-50/90 border border-amber-200 text-amber-900 text-xs font-medium space-y-1">
+                <div className="flex items-center gap-1.5 font-extrabold text-amber-950">
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-700 shrink-0" />
+                  <span>Limited Research Details Available</span>
+                </div>
+                <p className="text-[11px] leading-snug text-amber-900/90">
+                  There is currently not a lot of research details on this company due to lack of initial inputs.
+                </p>
+              </div>
             )}
           </div>
 

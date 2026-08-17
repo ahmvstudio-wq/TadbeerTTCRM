@@ -15,6 +15,7 @@ import { deleteOpportunity } from "@/lib/actions/delete";
 import { getCompanies } from "@/lib/actions/companies";
 import { OPPORTUNITY_STAGES } from "@/lib/constants";
 import { formatCurrency } from "@/lib/utils";
+import { useUnifiedLead } from "@/context/unified-lead-context";
 
 const STAGE_COLORS: Record<string, string> = {
   qualified: "bg-blue-100 text-blue-700",
@@ -26,6 +27,7 @@ const STAGE_COLORS: Record<string, string> = {
 };
 
 export default function PipelinePage() {
+  const { openLead } = useUnifiedLead();
   const [opportunities, setOpportunities] = useState<any[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,7 +129,14 @@ export default function PipelinePage() {
                   {activeOpps.map((opp) => (
                     <tr key={opp.id} className="border-b border-border-light hover:bg-surface-hover">
                       <td className="py-3 px-4 text-sm font-medium text-text-primary">{opp.title}</td>
-                      <td className="py-3 px-4 text-sm text-text-secondary">{opp.companies?.company_name || "Unknown"}</td>
+                      <td className="py-3 px-4 text-sm text-text-secondary">
+                        <button
+                          onClick={() => opp.company_id && openLead(opp.company_id)}
+                          className="font-extrabold text-teal-700 hover:underline cursor-pointer text-left"
+                        >
+                          {opp.companies?.company_name || "Unknown Company"} →
+                        </button>
+                      </td>
                       <td className="py-3 px-4">
                         <select
                           value={opp.stage}

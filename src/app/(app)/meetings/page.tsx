@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { getMeetings, bookMeeting, updateMeetingStatus } from "@/lib/actions/meetings";
 import { deleteMeeting } from "@/lib/actions/delete";
 import { getCompanies } from "@/lib/actions/companies";
+import { useUnifiedLead } from "@/context/unified-lead-context";
 
 const STATUS_COLORS: Record<string, string> = {
   scheduled: "bg-purple-100 text-purple-700 border-purple-200",
@@ -22,6 +23,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function MeetingsPage() {
+  const { openLead } = useUnifiedLead();
   const [meetings, setMeetings] = useState<any[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,7 +93,12 @@ export default function MeetingsPage() {
                     {meeting.status.charAt(0).toUpperCase() + meeting.status.slice(1).replace("_", " ")}
                   </Badge>
                 </div>
-                <p className="text-xs sm:text-sm text-text-secondary truncate">{meeting.companies?.company_name || "Unknown"}</p>
+                <button
+                  onClick={() => meeting.company_id && openLead(meeting.company_id)}
+                  className="text-xs sm:text-sm font-bold text-teal-700 hover:underline truncate cursor-pointer text-left block"
+                >
+                  {meeting.companies?.company_name || "Unknown Company"} →
+                </button>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-xs sm:text-sm">

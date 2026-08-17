@@ -18,6 +18,8 @@ import {
 } from "@/lib/types/outreach";
 import { ColdCallScriptModal } from "@/components/outreach/cold-call-script-modal";
 import { ShareProgressModal } from "@/components/cadence/share-progress-modal";
+import { useUnifiedLead } from "@/context/unified-lead-context";
+import { generateDailyCallBatch } from "@/lib/actions/cadence";
 
 const CHANNELS: OutreachChannel[] = [
   "instagram_dm", "linkedin", "whatsapp", "cold_call", "referral", "email", "event", "walk_in"
@@ -364,6 +366,7 @@ function CalendarLeadCard({
   onToggle: () => void;
   onUpdate: () => void;
 }) {
+  const { openLead } = useUnifiedLead();
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [scriptModalOpen, setScriptModalOpen] = useState(false);
@@ -636,6 +639,15 @@ function CalendarLeadCard({
                 ✏️ Edit Entry
               </button>
             )}
+
+            <button
+              type="button"
+              onClick={() => openLead(lead.company_id)}
+              className="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-extrabold px-3 py-2 rounded-xl transition-all cursor-pointer shadow-2xs"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Open Lead Workspace
+            </button>
 
             <button
               type="button"

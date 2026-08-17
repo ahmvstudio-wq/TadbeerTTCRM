@@ -9,20 +9,21 @@ import {
   MessageCircle, Download, LayoutGrid, List, ArrowUpDown, 
   TrendingUp, Users, Target, Clock, ArrowRight, Loader2, Activity,
   Sparkles, Flame, UserCheck, X, FileText, Send, CheckCircle2,
-  Grid, Calendar, Filter, Zap, Globe, MapPin, Tag, User, Layers, PhoneCall, Bot, Camera
+  Grid, Calendar, Filter, Zap, Globe, MapPin, Tag, User, Layers, PhoneCall, Bot, Camera, Copy
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatWhatsAppNumber, formatPhoneNumberForDisplay } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CsvImport } from "@/components/ui/csv-import";
 import { ToastContainer, addToast } from "@/components/ui/toast";
 import { COMPANY_STATUSES, type CompanyStatus } from "@/lib/constants";
-import { getCompanies, updateCompanyStatus, updateCompanyLeadType, addCompanyActivity } from "@/lib/actions/companies";
+import { getCompanies, updateCompanyStatus, updateCompanyLeadType, addCompanyActivity, triggerDraftGeneration, triggerBatchDraftGeneration } from "@/lib/actions/companies";
 import { addToCallQueue, addBatchToCallQueue } from "@/lib/actions/calls";
 import { deleteCompany } from "@/lib/actions/delete";
 import { bulkImportCompanies } from "@/lib/actions/import";
 import { exportToCsv } from "@/lib/export-csv";
+import { useUnifiedLead } from "@/context/unified-lead-context";
 
 // Inline LinkedIn Icon
 function LinkedInIcon({ size = 12 }: { size?: number }) {
@@ -36,14 +37,8 @@ function LinkedInIcon({ size = 12 }: { size?: number }) {
 // Oman WhatsApp Helper Function
 export function formatOmanWhatsAppUrl(phone?: string, message?: string): string | null {
   if (!phone || typeof phone !== 'string') return null;
-  let digits = phone.replace(/\D/g, "");
+  const digits = formatWhatsAppNumber(phone);
   if (!digits) return null;
-  
-  if (digits.length === 8 && (digits.startsWith("9") || digits.startsWith("7") || digits.startsWith("2"))) {
-    digits = "968" + digits;
-  } else if (!digits.startsWith("968") && digits.length <= 9) {
-    digits = "968" + digits;
-  }
 
   const baseUrl = `https://wa.me/${digits}`;
   if (message) {
@@ -128,14 +123,11 @@ export default function ProspectsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [csvOpen, setCsvOpen] = useState(false);
-  
-  // Drawer Workstation State
-  const [activeProspect, setActiveProspect] = useState<any | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'action' | 'activity' | 'category'>('action');
-  const [activityNote, setActivityNote] = useState("");
-  const [activityType, setActivityType] = useState("call");
-  const [savingNote, setSavingNote] = useState(false);
+  const { openLead } = useUnifiedLead();
+
+  // AI Outreach Draft State
+  const [generatingDraftId, setGeneratingDraftId] = useState<string | null>(null);
+  const [batchGenerating, setBatchGenerating] = useState(false);
 
   // UI Modes
   const [viewMode, setViewMode] = useState<ViewMode>('table');
@@ -175,7 +167,6 @@ export default function ProspectsPage() {
     else { 
       addToast("success", `"${name}" deleted`); 
       fetchProspects(search, statusFilter); 
-      if (activeProspect?.id === id) setDrawerOpen(false);
     }
   };
 
@@ -185,9 +176,6 @@ export default function ProspectsPage() {
     else {
       addToast("success", `Status updated to ${COMPANY_STATUSES[newStatus as CompanyStatus]?.label}`);
       setProspects(prev => prev.map(p => p.id === id ? { ...p, status: newStatus } : p));
-      if (activeProspect?.id === id) {
-        setActiveProspect((prev: any) => prev ? { ...prev, status: newStatus } : null);
-      }
     }
   };
 
@@ -195,9 +183,6 @@ export default function ProspectsPage() {
     const res = await addToCallQueue(id);
     addToast("success", `"${name}" added to Daily Cadence Call Queue!`);
     setProspects(prev => prev.map(p => p.id === id ? { ...p, status: 'in_call_queue' } : p));
-    if (activeProspect?.id === id) {
-      setActiveProspect((prev: any) => prev ? { ...prev, status: 'in_call_queue' } : null);
-    }
   };
 
   const handleBatchSendToCadence = async () => {
@@ -213,25 +198,6 @@ export default function ProspectsPage() {
     else {
       addToast("success", `Categorized as ${newType}`);
       setProspects(prev => prev.map(p => p.id === id ? { ...p, lead_type: newType } : p));
-      if (activeProspect?.id === id) {
-        setActiveProspect((prev: any) => prev ? { ...prev, lead_type: newType } : null);
-      }
-    }
-  };
-
-  const handleAddActivityNote = async () => {
-    if (!activeProspect || !activityNote.trim()) return;
-    setSavingNote(true);
-    const title = activityType === 'call' ? 'Call Logged' : activityType === 'email' ? 'Email Sent' : 'BDM Note';
-    const res = await addCompanyActivity(activeProspect.id, title, activityNote, activityType);
-    setSavingNote(false);
-    if (res.error) {
-      addToast("error", res.error);
-    } else {
-      addToast("success", "Activity logged successfully");
-      setActivityNote("");
-      const newAct = res.data;
-      setActiveProspect((prev: any) => prev ? { ...prev, activities: [newAct, ...(prev.activities || [])] } : null);
     }
   };
 
@@ -248,17 +214,53 @@ export default function ProspectsPage() {
 
   const extractInstagramUrl = (input: any): string => {
     if (!input) return "";
-    const notes = typeof input === "string" ? input : (input.notes || "");
-    const match = notes.match(/https?:\/\/(?:www\.)?instagram\.com\/[^\s\n"']+/i) ||
-                  notes.match(/Instagram:\s*@?([a-zA-Z0-9_.]+)/i);
-    if (match) {
-      if (match[0].toLowerCase().startsWith("http")) return match[0];
-      if (match[1]) return `https://instagram.com/${match[1].replace(/^@/, '')}`;
+
+    const textToScan = typeof input === "object"
+      ? `${input.website || ""} ${input.notes || ""} ${input.pain_point || ""} ${(input.contacts || []).map((c: any) => c.notes || '').join(' ')}`
+      : String(input);
+
+    // 1. Direct http(s) Instagram URL anywhere in text
+    const directMatch = textToScan.match(/https?:\/\/(?:www\.)?instagram\.com\/[a-zA-Z0-9_.]+(?:\/[^\s\n"']*)?/i);
+    if (directMatch) {
+      return directMatch[0].trim().replace(/[,;)]$/, '');
     }
-    if (notes.toLowerCase().includes("instagram") || notes.includes("@")) {
-      const handleMatch = notes.match(/@([a-zA-Z0-9_.]+)/);
-      if (handleMatch) return `https://instagram.com/${handleMatch[1]}`;
+
+    // 2. Pattern: Instagram: @handle OR Instagram: handle OR Instagram: https://...
+    const handleMatch = textToScan.match(/Instagram:\s*@?([a-zA-Z0-9_./:]+)/i);
+    if (handleMatch && handleMatch[1]) {
+      const val = handleMatch[1].trim();
+      if (val.toLowerCase().startsWith("http")) {
+        return val;
+      }
+      const handle = val.replace(/^@/, '').replace(/\/$/, '');
+      if (handle && handle.length >= 2) {
+        return `https://www.instagram.com/${handle}/`;
+      }
     }
+
+    // 3. Pattern: @handle in text
+    const atMatch = textToScan.match(/@([a-zA-Z0-9_.]+)/);
+    if (atMatch && atMatch[1]) {
+      const handle = atMatch[1].trim();
+      if (handle.length >= 3 && !['gmail', 'yahoo', 'hotmail', 'outlook', 'today', 'team', 'gmail.com'].includes(handle.toLowerCase())) {
+        return `https://www.instagram.com/${handle}/`;
+      }
+    }
+
+    // 4. Fallback if source or activities indicate IG DM
+    if (typeof input === "object") {
+      const leadSource = (input.lead_source || "").toLowerCase();
+      const isIgSource = leadSource.includes("instagram") || leadSource.includes("ig dm") || leadSource === "ig";
+      const hasIgActivity = (input.activities || []).some(
+        (a: any) => a.activity_type === "ig_dm" || a.channel === "instagram"
+      );
+
+      if (isIgSource || hasIgActivity) {
+        const cleanCompName = (input.company_name || 'prospect').toLowerCase().replace(/[^a-z0-9_.]/g, '');
+        return `https://www.instagram.com/${cleanCompName}/`;
+      }
+    }
+
     return "";
   };
 
@@ -379,6 +381,15 @@ export default function ProspectsPage() {
       
     if (isInsights) {
       return { type: 'insights', label: '⚡ Insight Generated Contacts', bg: 'bg-[#174E59]/10 text-[#174E59] border-[#174E59]/30 font-black' };
+    }
+
+    const isInstagramSource =
+      prospect.lead_source?.toLowerCase().includes("instagram") ||
+      prospect.lead_source?.toLowerCase().includes("ig dm") ||
+      (prospect.activities || []).some((a: any) => a.activity_type === "ig_dm" || a.channel === "instagram");
+
+    if (isInstagramSource) {
+      return { type: 'instagram', label: 'Instagram DM Lead', bg: 'bg-pink-50 text-pink-700 border-pink-200 font-bold' };
     }
 
     const contactLinkedin = prospect.contacts?.[0]?.linkedin_url;
@@ -534,25 +545,35 @@ export default function ProspectsPage() {
     }
 
     const exportData = dataToExport.map((p) => {
-      const waUrl = formatOmanWhatsAppUrl(p.contacts?.[0]?.whatsapp || p.contacts?.[0]?.phone || p.phone) || "";
-      const igUrl = extractInstagramUrl(p);
+      const primaryContact = p.contacts?.[0];
+      const rawPhone = primaryContact?.phone || p.phone || primaryContact?.whatsapp || p.whatsapp || "";
+      const displayPhone = rawPhone ? formatPhoneNumberForDisplay(rawPhone) : "";
+      const waUrl = formatOmanWhatsAppUrl(rawPhone) || "";
+
+      let igUrl = extractInstagramUrl(p);
+      if (!igUrl && p.website && p.website.toLowerCase().includes("instagram.com")) {
+        igUrl = p.website;
+      }
+
+      const liUrl = isValidLinkedInUrl(primaryContact?.linkedin_url)
+        ? primaryContact!.linkedin_url
+        : (isValidLinkedInUrl(p.linkedin_url) ? p.linkedin_url : "");
 
       return {
-        contact_name: p.contacts?.[0]?.full_name || p.company_name,
-        contact_title: p.contacts?.[0]?.title || "",
-        company_name: p.company_name,
-        industry: p.industry || "",
-        lead_source: getLeadSource(p).label,
-        lead_type: p.lead_type || "Cold",
-        email: p.contacts?.[0]?.email || p.email || "",
-        phone: p.contacts?.[0]?.phone || p.phone || "",
-        whatsapp: p.contacts?.[0]?.whatsapp || "",
+        company_name: p.company_name || "",
+        contact_name: primaryContact?.full_name || p.company_name || "",
+        contact_title: primaryContact?.title || "Decision Maker",
+        phone: displayPhone,
+        whatsapp: primaryContact?.whatsapp || p.whatsapp || displayPhone,
         whatsapp_url: waUrl,
         instagram_url: igUrl,
-        linkedin: isValidLinkedInUrl(p.contacts?.[0]?.linkedin_url) ? p.contacts[0].linkedin_url : (isValidLinkedInUrl(p.linkedin_url) ? p.linkedin_url : ""),
+        linkedin: liUrl,
+        email: primaryContact?.email || p.email || "",
+        industry: p.industry || "General Enterprise",
+        city: p.city ? `${p.city}, Oman` : "Muscat, Oman",
         website: p.website || "",
-        city: p.city || "",
-        country: p.country || "",
+        lead_source: getLeadSource(p).label,
+        lead_type: p.lead_type || "Cold",
         status: COMPANY_STATUSES[p.status as CompanyStatus]?.label || p.status,
         date_added: p.created_at ? new Date(p.created_at).toLocaleDateString() : "",
         notes: p.notes || "",
@@ -560,27 +581,26 @@ export default function ProspectsPage() {
     });
 
     const channelTag = channelFilter !== 'all' ? `${channelFilter}-` : '';
-    exportToCsv(exportData, `prospects-${channelTag}${new Date().toISOString().split("T")[0]}.csv`, [
-      { key: "contact_name", label: "Primary Contact Name" },
-      { key: "contact_title", label: "Title" },
-      { key: "company_name", label: "Company" },
-      { key: "industry", label: "Industry" },
-      { key: "lead_source", label: "Source Channel" },
-      { key: "lead_type", label: "Categorization" },
-      { key: "email", label: "Email" },
-      { key: "phone", label: "Phone" },
-      { key: "whatsapp", label: "WhatsApp Contact" },
+    exportToCsv(exportData, `tadbeer-prospects-${channelTag}${new Date().toISOString().split("T")[0]}.csv`, [
+      { key: "company_name", label: "Company Name" },
+      { key: "contact_name", label: "Primary Contact Person" },
+      { key: "contact_title", label: "Title / Role" },
+      { key: "phone", label: "Phone Number" },
+      { key: "whatsapp", label: "WhatsApp Number" },
       { key: "whatsapp_url", label: "WhatsApp Direct Link" },
       { key: "instagram_url", label: "Instagram Profile Link" },
-      { key: "linkedin", label: "LinkedIn Link" },
+      { key: "linkedin", label: "LinkedIn Profile Link" },
+      { key: "email", label: "Email Address" },
+      { key: "industry", label: "Industry" },
+      { key: "city", label: "Location / City" },
       { key: "website", label: "Website" },
-      { key: "city", label: "City" },
-      { key: "country", label: "Country" },
-      { key: "status", label: "Stage" },
+      { key: "lead_source", label: "Source Channel" },
+      { key: "lead_type", label: "Categorization" },
+      { key: "status", label: "Pipeline Stage" },
       { key: "date_added", label: "Date Added" },
-      { key: "notes", label: "Notes" },
+      { key: "notes", label: "Research Notes" },
     ]);
-    addToast("success", `Exported ${dataToExport.length} prospects to CSV`);
+    addToast("success", `Exported ${dataToExport.length} prospects to CSV with Instagram & WhatsApp links`);
   };
   const totalCount = prospects.length;
   const insightsCount = prospects.filter(p => getLeadSource(p).type === 'insights').length;
@@ -589,8 +609,7 @@ export default function ProspectsPage() {
   const hotCount = prospects.filter(p => p.lead_type === 'Hot' || p.status === 'opportunity').length;
 
   const openDrawer = (prospect: any) => {
-    setActiveProspect(prospect);
-    setDrawerOpen(true);
+    openLead(prospect.id);
   };
 
   return (
@@ -613,6 +632,27 @@ export default function ProspectsPage() {
 
           {/* Quick Header Actions */}
           <div className="flex items-center gap-2.5 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                setBatchGenerating(true);
+                const results = await triggerBatchDraftGeneration();
+                setBatchGenerating(false);
+                const ready = results.filter(r => r.status === 'ready_to_send').length;
+                if (ready > 0) {
+                  addToast("success", `Generated ${ready} autonomous outreach drafts!`);
+                } else {
+                  addToast("error", "No pending prospects with research data found.");
+                }
+                fetchProspects(search, statusFilter);
+              }}
+              disabled={batchGenerating}
+              className="bg-teal-700 hover:bg-teal-800 text-white border-teal-700 text-xs font-black h-9 rounded-xl transition-all cursor-pointer shadow-2xs flex items-center gap-1.5"
+            >
+              {batchGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 text-teal-300" />}
+              Generate AI Drafts
+            </Button>
             <Link href="/daily-cadence">
               <Button className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold h-9 rounded-xl px-4 transition-all cursor-pointer">
                 <PhoneCall className="h-3.5 w-3.5 mr-2 text-teal-400" />Open Daily Cadence
@@ -1347,180 +1387,6 @@ export default function ProspectsPage() {
               </div>
             );
           })}
-        </div>
-      )}
-
-      {/* ── BDM WORKSTATION DRAWER (Right Inspector Panel) ────────────────── */}
-      {drawerOpen && activeProspect && (
-        <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/40 backdrop-blur-xs animate-fade-in flex justify-end">
-          <div
-            className="w-full max-w-lg bg-white h-full shadow-2xl flex flex-col border-l border-slate-200 animate-slide-in-right"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Drawer Header */}
-            <div className="p-6 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white font-black flex items-center justify-center text-xl shadow-lg">
-                  {(activeProspect.contacts?.[0]?.full_name || activeProspect.company_name).charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold leading-tight text-white">
-                    {activeProspect.contacts?.[0]?.full_name || activeProspect.company_name}
-                  </h2>
-                  <p className="text-xs text-teal-300 font-medium">
-                    {activeProspect.contacts?.[0]?.title ? `${activeProspect.contacts[0].title} @ ` : ''}{activeProspect.company_name}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setDrawerOpen(false)}
-                className="h-8 w-8 rounded-xl bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Quick Action Ribbon */}
-            <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-400 uppercase">Stage:</span>
-                <select
-                  value={activeProspect.status}
-                  onChange={(e) => handleStatusChange(activeProspect.id, e.target.value)}
-                  className="bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 px-3 py-1.5 focus:ring-2 focus:ring-brand-teal cursor-pointer shadow-xs"
-                >
-                  {statusOrder.map(s => (
-                    <option key={s} value={s}>{COMPANY_STATUSES[s]?.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <Button
-                size="sm"
-                onClick={() => handleSendToCadence(activeProspect.id, activeProspect.contacts?.[0]?.full_name || activeProspect.company_name)}
-                className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs h-8 px-3 rounded-xl shadow-sm flex items-center gap-1.5"
-              >
-                <PhoneCall className="h-3.5 w-3.5" /> Send to Daily Cadence
-              </Button>
-            </div>
-
-            {/* Workstation Content */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {/* Source Banner inside Drawer */}
-              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Source & Channel</span>
-                  {getLeadSource(activeProspect).type === 'linkedin' ? (
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
-                      <LinkedInIcon size={12} /> Verified LinkedIn Lead
-                    </span>
-                  ) : (
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                      {getLeadSource(activeProspect).label}
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-slate-600">
-                  Added on {activeProspect.created_at ? new Date(activeProspect.created_at).toLocaleDateString() : 'N/A'}.
-                </p>
-              </div>
-
-              {/* Primary Contact Card & Outlets */}
-              {(() => {
-                const contact = activeProspect.contacts?.[0];
-                const email = contact?.email || activeProspect.email;
-                const phone = contact?.phone || activeProspect.phone;
-                const waPhone = contact?.whatsapp || contact?.phone || activeProspect.whatsapp || activeProspect.phone;
-                const linkedinUrl = isValidLinkedInUrl(contact?.linkedin_url) ? contact.linkedin_url : (isValidLinkedInUrl(activeProspect.linkedin_url) ? activeProspect.linkedin_url : null);
-                const waUrl = formatOmanWhatsAppUrl(waPhone);
-
-                return (
-                  <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-3">
-                    <div className="border-b border-slate-200/80 pb-2.5">
-                      <p className="text-xs font-bold text-slate-400 uppercase">Primary Contact / Account</p>
-                      <p className="text-base font-bold text-slate-900 mt-0.5">{contact?.full_name || activeProspect.company_name}</p>
-                      <p className="text-xs text-slate-500 font-medium">{contact?.title ? `${contact.title} @ ` : ''}{activeProspect.company_name}</p>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                      {email && (
-                        <a href={`mailto:${email}`} className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-slate-200 text-slate-800 hover:border-brand-teal font-semibold">
-                          <Mail className="h-4 w-4 text-brand-teal" />
-                          <span className="truncate">{email}</span>
-                        </a>
-                      )}
-                      {phone && (
-                        <a href={`tel:${phone}`} className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-slate-200 text-slate-800 hover:border-brand-teal font-semibold">
-                          <Phone className="h-4 w-4 text-brand-teal" />
-                          <span>{phone}</span>
-                        </a>
-                      )}
-                      {waUrl && (
-                        <a href={waUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-slate-200 text-emerald-700 font-semibold">
-                          <MessageCircle className="h-4 w-4 text-emerald-500" />
-                          <span>WhatsApp (+968)</span>
-                        </a>
-                      )}
-                      {linkedinUrl && (
-                        <a href={linkedinUrl.startsWith("http") ? linkedinUrl : `https://${linkedinUrl}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-slate-200 text-blue-700 font-semibold">
-                          <LinkedInIcon size={14} />
-                          <span>LinkedIn Profile</span>
-                        </a>
-                      )}
-                      {activeProspect.website && (
-                        <a href={activeProspect.website.startsWith("http") ? activeProspect.website : `https://${activeProspect.website}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-slate-200 text-blue-700 font-semibold hover:border-blue-300">
-                          <Globe className="h-4 w-4 text-blue-500" />
-                          <span className="truncate">Website</span>
-                        </a>
-                      )}
-                      {extractInstagramUrl(activeProspect.notes) && (
-                        <a href={extractInstagramUrl(activeProspect.notes)!} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-slate-200 text-pink-700 font-semibold hover:border-pink-300">
-                          <Camera className="h-4 w-4 text-pink-500" />
-                          <span className="truncate">Instagram</span>
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Firmographic Specs */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Company Categorization</h4>
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div className="bg-white p-3 rounded-xl border border-slate-200">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Company Name</span>
-                    <span className="font-bold text-slate-800">{activeProspect.company_name}</span>
-                  </div>
-                  <div className="bg-white p-3 rounded-xl border border-slate-200">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Industry Classification</span>
-                    <span className="font-bold text-slate-800">{activeProspect.industry || 'Corporate'}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Drawer Footer */}
-            <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-2">
-              <Link href={`/prospects/${activeProspect.id}`} className="w-full">
-                <Button className="w-full bg-teal-600 text-white font-bold text-xs h-10 rounded-xl hover:bg-teal-700">
-                  <Bot className="h-4 w-4 mr-2" /> AI Sales Assistant
-                </Button>
-              </Link>
-              <Link href={`/prospects/${activeProspect.id}/edit`} className="w-full">
-                <Button className="w-full bg-slate-900 text-white font-bold text-xs h-10 rounded-xl hover:bg-slate-800">
-                  <Pencil className="h-4 w-4 mr-2" /> Edit Record
-                </Button>
-              </Link>
-              <Button
-                variant="outline"
-                onClick={() => handleDelete(activeProspect.id, activeProspect.company_name)}
-                className="bg-white text-red-600 border-red-200 hover:bg-red-50 text-xs font-bold h-10 rounded-xl px-3"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
         </div>
       )}
 

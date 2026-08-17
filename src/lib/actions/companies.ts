@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@supabase/supabase-js'
+import { generateOutreachMessage } from '@/lib/ai/outreach-generator'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -13,7 +14,7 @@ interface CompanyFilters {
 
 export async function getCompanies(filters?: CompanyFilters) {
   try {
-    let query = supabase.from('companies').select('*, contacts(*)').order('created_at', { ascending: false })
+    let query = supabase.from('companies').select('*, contacts(*), activities(*)').order('created_at', { ascending: false })
     if (filters?.status) query = query.eq('status', filters.status)
     if (filters?.search) {
       const term = filters.search.trim()
@@ -44,9 +45,38 @@ export async function getCompany(id: string) {
   try {
     const { data: company, error: companyError } = await supabase.from('companies').select('*').eq('id', id).single()
     if (companyError) return { data: null, error: companyError.message }
-    const { data: contacts } = await supabase.from('contacts').select('*').eq('company_id', id)
-    const { data: activities } = await supabase.from('activities').select('*').eq('company_id', id).order('created_at', { ascending: false }).limit(50)
-    return { data: { ...company, contacts: contacts || [], activities: activities || [] }, error: null }
+    
+    const [
+      { data: contacts },
+      { data: activities },
+      { data: preparations },
+      { data: follow_ups },
+      { data: meetings },
+      { data: opportunities },
+      { data: touches }
+    ] = await Promise.all([
+      supabase.from('contacts').select('*').eq('company_id', id),
+      supabase.from('activities').select('*').eq('company_id', id).order('created_at', { ascending: false }).limit(100),
+      supabase.from('outreach_preparations').select('*').eq('company_id', id).order('created_at', { ascending: false }),
+      supabase.from('follow_ups').select('*').eq('company_id', id).order('due_date', { ascending: true }),
+      supabase.from('meetings').select('*').eq('company_id', id).order('meeting_date', { ascending: false }),
+      supabase.from('opportunities').select('*').eq('company_id', id).order('created_at', { ascending: false }),
+      supabase.from('outreach_touches').select('*').eq('lead_id', id).order('sent_at', { ascending: false })
+    ])
+
+    return {
+      data: {
+        ...company,
+        contacts: contacts || [],
+        activities: activities || [],
+        preparations: preparations || [],
+        follow_ups: follow_ups || [],
+        meetings: meetings || [],
+        opportunities: opportunities || [],
+        outreach_touches: touches || []
+      },
+      error: null
+    }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
   }
@@ -93,6 +123,12 @@ export async function createCompany(data: {
       if (contactError) return { data: null, error: contactError.message }
     }
     await supabase.from('activities').insert({ company_id: company.id, activity_type: 'company_created', title: 'Company created', description: `New company "${company.company_name}" added to CRM`, created_at: new Date().toISOString() })
+
+    // Auto-generate research-grounded outreach message draft if research notes provided
+    if (enrichedNotes || research_notes) {
+      generateOutreachMessage(company.id).catch(err => console.error("Auto draft error:", err));
+    }
+
     return { data: company, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -142,6 +178,49 @@ export async function addCompanyActivity(company_id: string, title: string, desc
     }).select().single()
     if (error) return { data: null, error: error.message }
     return { data: activity, error: null }
+  } catch (error) {
+    return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
+  }
+}
+
+export async function triggerDraftGeneration(prospectId: string) {
+  return await generateOutreachMessage(prospectId);
+}
+
+export async function triggerBatchDraftGeneration() {
+  const { generateForNewProspects } = await import('@/lib/ai/outreach-generator');
+  return await generateForNewProspects();
+}
+
+export async function assignCompanyLead(id: string, assigned_to: string | null) {
+  try {
+    const { data: company, error } = await supabase.from('companies').update({ assigned_to, updated_at: new Date().toISOString() }).eq('id', id).select().single()
+    if (error) return { data: null, error: error.message }
+    await supabase.from('activities').insert({
+      company_id: id,
+      activity_type: 'lead_assigned',
+      title: 'Lead Assignment Updated',
+      description: assigned_to ? `Assigned to ${assigned_to}` : 'Unassigned (Available)',
+      metadata: { assigned_to },
+      created_at: new Date().toISOString()
+    })
+    return { data: company, error: null }
+  } catch (error) {
+    return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
+  }
+}
+
+export async function upsertCompanyContact(companyId: string, contactData: { id?: string; full_name: string; title?: string; email?: string; phone?: string; whatsapp?: string; linkedin_url?: string; is_primary?: boolean }) {
+  try {
+    if (contactData.id) {
+      const { data, error } = await supabase.from('contacts').update({ ...contactData }).eq('id', contactData.id).select().single()
+      if (error) return { data: null, error: error.message }
+      return { data, error: null }
+    } else {
+      const { data, error } = await supabase.from('contacts').insert({ company_id: companyId, ...contactData, is_primary: contactData.is_primary ?? true, created_at: new Date().toISOString() }).select().single()
+      if (error) return { data: null, error: error.message }
+      return { data, error: null }
+    }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
   }

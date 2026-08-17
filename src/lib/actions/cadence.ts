@@ -871,3 +871,57 @@ export async function getDailyHistory(dateStr: string) {
     return { data: null, error: error instanceof Error ? error.message : 'History query failed' }
   }
 }
+
+export async function getOrCreateDailyCallBatch(count = 20, assignedTo = "Ramij") {
+  try {
+    const { data: existingBatch } = await supabase
+      .from('companies')
+      .select('*, contacts(*)')
+      .eq('assigned_to', assignedTo)
+      .eq('status', 'ready_for_call')
+      .order('updated_at', { ascending: false })
+
+    if (existingBatch && existingBatch.length > 0) {
+      return { data: existingBatch.slice(0, count), error: null }
+    }
+
+    return await generateDailyCallBatch(count, assignedTo)
+  } catch (error) {
+    return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch daily batch' }
+  }
+}
+
+export async function generateDailyCallBatch(count = 20, assignedTo = "Ramij") {
+  try {
+    const { data: companies, error } = await supabase
+      .from('companies')
+      .select('*, contacts(*)')
+      .or(`assigned_to.is.null,assigned_to.eq.${assignedTo}`)
+      .not('status', 'in', '("won","lost","dormant","called","contacted")')
+      .order('created_at', { ascending: false })
+      .limit(200)
+
+    if (error) return { data: null, error: error.message }
+
+    const eligibleLeads = (companies || []).filter(c => {
+      const p = c.phone || (c.contacts && c.contacts.find((cnt: any) => cnt.phone || cnt.whatsapp)?.phone)
+      return Boolean(p && p.trim().length >= 7)
+    }).slice(0, count)
+
+    const leadIdsToAssign = eligibleLeads.map(c => c.id)
+    if (leadIdsToAssign.length > 0) {
+      await supabase
+        .from('companies')
+        .update({ assigned_to: assignedTo, status: 'ready_for_call', updated_at: new Date().toISOString() })
+        .in('id', leadIdsToAssign)
+    }
+
+    return { data: eligibleLeads, error: null }
+  } catch (error) {
+    return { data: null, error: error instanceof Error ? error.message : 'Failed to generate call batch' }
+  }
+}
+
+export async function loadMoreCallBatch(count = 20, assignedTo = "Ramij") {
+  return await generateDailyCallBatch(count, assignedTo)
+}

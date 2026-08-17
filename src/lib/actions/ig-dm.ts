@@ -329,11 +329,12 @@ export async function getAllLeadsForPipeline(
       } as OutreachLead
     })
 
+    let combined = parsed;
     if (channelFilter) {
-      parsed = parsed.filter(l => l.channel === channelFilter)
+      combined = combined.filter(l => l.channel === channelFilter)
     }
 
-    return { data: parsed, error: null }
+    return { data: combined, error: null }
   } catch (err) {
     return { data: null, error: (err as Error).message }
   }

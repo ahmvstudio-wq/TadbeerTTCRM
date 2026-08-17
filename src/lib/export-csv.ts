@@ -6,8 +6,12 @@ export function exportToCsv(data: Record<string, any>[], filename: string, colum
   const rows = data.map((row) =>
     cols.map((c) => {
       const val = row[c.key] ?? "";
-      const str = String(val);
-      return str.includes(",") || str.includes('"') || str.includes("\n") ? `"${str.replace(/"/g, '""')}"` : str;
+      // Replace internal newlines with " | " so multiline notes never break CSV spreadsheet row alignment
+      let str = String(val).replace(/\r\n/g, " | ").replace(/\n/g, " | ").trim();
+      if (str.includes(",") || str.includes('"') || str.includes(";")) {
+        str = `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
     })
   );
 

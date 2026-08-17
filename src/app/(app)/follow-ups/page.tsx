@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { cn, formatWhatsAppNumber } from "@/lib/utils";
 import {
   Clock, AlertTriangle, CheckCircle2, RefreshCw, X, MessageCircle,
   Phone, Send, Sparkles, Filter, Search, User, Building, Mail, Calendar, Loader2, Download
@@ -13,6 +13,7 @@ import { getFollowUps } from "@/lib/actions/followups";
 import { type OutreachLead, type OutreachStatus, type OutreachChannel, CHANNEL_CONFIG, STATUS_CONFIG } from "@/lib/types/outreach";
 import { ContactDetailDrawer } from "@/components/outreach/contact-detail-drawer";
 import { ColdCallScriptModal } from "@/components/outreach/cold-call-script-modal";
+import { useUnifiedLead } from "@/context/unified-lead-context";
 
 function getDaysElapsed(dateStr: string): number {
   if (!dateStr) return 0;
@@ -42,6 +43,7 @@ function escapeCSVCell(val: any): string {
 }
 
 export default function FollowUpsPage() {
+  const { openLead } = useUnifiedLead();
   const [outreachLeads, setOutreachLeads] = useState<OutreachLead[]>([]);
   const [legacyFollowups, setLegacyFollowups] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -398,7 +400,8 @@ export default function FollowUpsPage() {
                 {displayedLeads.map(lead => {
                   const daysAgo = getDaysElapsed(lead.sent_at);
                   const phoneNum = lead.phone || (lead.channel === "cold_call" || lead.channel === "whatsapp" ? lead.handle : null);
-                  const waUrl = phoneNum ? `https://wa.me/${phoneNum.replace(/\D/g, "")}` : null;
+                  const waDigits = phoneNum ? formatWhatsAppNumber(phoneNum) : "";
+                  const waUrl = waDigits ? `https://wa.me/${waDigits}` : null;
                   const channelLabel = CHANNEL_CONFIG[lead.channel]?.label || lead.channel;
 
                   return (
