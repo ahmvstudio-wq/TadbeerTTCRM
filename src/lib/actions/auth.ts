@@ -34,20 +34,17 @@ export async function loginAction(formData: { email: string; password: string })
       const token = await generateSessionToken(cleanEmail, "admin");
       const cookieStore = await cookies();
 
-      // ── SESSION-ONLY cookies: no maxAge / expires means they die when the browser closes.
-      // Every new device or new browser session MUST re-authenticate.
       cookieStore.set("tadbeer-session", token, {
         path: "/",
         httpOnly: true,
+        maxAge: 24 * 60 * 60,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
-        // NO maxAge — session cookie only
       });
 
-      // Display cookies (non-httpOnly for UI hydration — also session-scoped)
-      cookieStore.set("tadbeer-auth", "true", { path: "/", sameSite: "lax" });
-      cookieStore.set("tadbeer-user-email", cleanEmail, { path: "/", sameSite: "lax" });
-      cookieStore.set("tadbeer-user-role", "admin", { path: "/", sameSite: "lax" });
+      cookieStore.set("tadbeer-auth", "true", { path: "/", maxAge: 24 * 60 * 60, sameSite: "lax" });
+      cookieStore.set("tadbeer-user-email", cleanEmail, { path: "/", maxAge: 24 * 60 * 60, sameSite: "lax" });
+      cookieStore.set("tadbeer-user-role", "admin", { path: "/", maxAge: 24 * 60 * 60, sameSite: "lax" });
 
       return { success: true, user: { email: cleanEmail, role: "admin" } };
     }
@@ -72,20 +69,17 @@ export async function loginAction(formData: { email: string; password: string })
     const token = await generateSessionToken(cleanEmail, "admin");
     const cookieStore = await cookies();
 
-    // ── SESSION-ONLY cookies: no maxAge / expires means they die when the browser closes.
-    // Every new device or new browser session MUST re-authenticate.
     cookieStore.set("tadbeer-session", token, {
       path: "/",
       httpOnly: true,
+      maxAge: 24 * 60 * 60,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      // NO maxAge — session cookie only
     });
 
-    // Display cookies (non-httpOnly for UI hydration — also session-scoped)
-    cookieStore.set("tadbeer-auth", "true", { path: "/", sameSite: "lax" });
-    cookieStore.set("tadbeer-user-email", cleanEmail, { path: "/", sameSite: "lax" });
-    cookieStore.set("tadbeer-user-role", "admin", { path: "/", sameSite: "lax" });
+    cookieStore.set("tadbeer-auth", "true", { path: "/", maxAge: 24 * 60 * 60, sameSite: "lax" });
+    cookieStore.set("tadbeer-user-email", cleanEmail, { path: "/", maxAge: 24 * 60 * 60, sameSite: "lax" });
+    cookieStore.set("tadbeer-user-role", "admin", { path: "/", maxAge: 24 * 60 * 60, sameSite: "lax" });
 
     return { success: true, user: { email: cleanEmail, role: "admin" } };
   }

@@ -34,6 +34,10 @@ export default function MeetingsPage() {
   const fetchData = async () => {
     setLoading(true);
     const [mRes, cRes] = await Promise.all([getMeetings("all"), getCompanies()]);
+    if ((mRes.error && mRes.error.includes("Unauthorized")) || (cRes.error && cRes.error.includes("Unauthorized"))) {
+      window.location.href = "/login";
+      return;
+    }
     if (mRes.data) setMeetings(mRes.data);
     if (cRes.data) setCompanies(cRes.data);
     setLoading(false);

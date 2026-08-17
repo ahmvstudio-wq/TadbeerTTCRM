@@ -100,6 +100,10 @@ export default function OutreachPipelinePage() {
       dateFilter,
       channelFilter === "all" ? undefined : channelFilter
     );
+    if (result.error && (result.error.includes("Unauthorized") || result.error.includes("session"))) {
+      window.location.href = "/login";
+      return;
+    }
     setLeads(result.data || []);
     setInitialLoading(false);
   }, [dateFilter, channelFilter]);

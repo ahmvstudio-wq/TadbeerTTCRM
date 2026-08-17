@@ -62,6 +62,10 @@ export default function FollowUpsPage() {
       getAllLeadsForPipeline("all"),
       getFollowUps("all")
     ]);
+    if ((outRes.error && outRes.error.includes("Unauthorized")) || (legRes.error && legRes.error.includes("Unauthorized"))) {
+      window.location.href = "/login";
+      return;
+    }
     setOutreachLeads(outRes.data || []);
     setLegacyFollowups(legRes.data || []);
     setLoading(false);

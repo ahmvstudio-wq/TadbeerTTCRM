@@ -138,8 +138,17 @@ export default function ProspectsPage() {
     setError(null);
     try {
       const result = await getCompanies({ search: searchVal || undefined, status: statusVal || undefined });
-      if (result.error) { setError(result.error); setProspects([]); }
-      else { setProspects(result.data || []); setSelectedIds([]); }
+      if (result.error) {
+        if (result.error.includes("Unauthorized") || result.error.includes("session")) {
+          window.location.href = "/login";
+          return;
+        }
+        setError(result.error);
+        setProspects([]);
+      } else {
+        setProspects(result.data || []);
+        setSelectedIds([]);
+      }
     } catch (err) {
       if (!isRetry && err instanceof TypeError) {
         setTimeout(() => fetchProspects(searchVal, statusVal, true), 1500);

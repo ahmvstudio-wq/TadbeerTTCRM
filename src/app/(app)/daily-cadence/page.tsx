@@ -77,6 +77,10 @@ export default function DailyCadenceCalendarPage() {
   const fetchDateLeads = useCallback(async () => {
     setLoading(true);
     const res = await getAllLeadsForPipeline(selectedDate, channelFilter === "all" ? undefined : channelFilter);
+    if (res.error && (res.error.includes("Unauthorized") || res.error.includes("session"))) {
+      window.location.href = "/login";
+      return;
+    }
     setLeads(res.data || []);
     setLoading(false);
   }, [selectedDate, channelFilter]);
