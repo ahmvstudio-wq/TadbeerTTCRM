@@ -16,22 +16,14 @@ export async function middleware(request: NextRequest) {
 
   // 2. Validate cryptographically signed session token
   const sessionToken = request.cookies.get("tadbeer-session")?.value;
-  const legacyAuthCookie = request.cookies.get("tadbeer-auth")?.value;
-  const userEmail = request.cookies.get("tadbeer-user-email")?.value;
   const sbAccessToken = request.cookies.get("sb-access-token")?.value;
   const sbAuthToken = request.cookies.getAll().find((c) => c.name.includes("auth-token"))?.value;
 
   const verifiedUser = await verifySessionToken(sessionToken);
-  const isAuthenticated = Boolean(
-    verifiedUser ||
-    (legacyAuthCookie === "true" && userEmail) ||
-    sbAccessToken ||
-    sbAuthToken
-  );
+  const isAuthenticated = Boolean(verifiedUser || sbAccessToken || sbAuthToken);
 
   // 3. Protect internal API routes
   if (pathname.startsWith("/api")) {
-    // Whitelist public webhook paths if added in the future
     const isPublicApi = pathname.startsWith("/api/public") || pathname.startsWith("/api/webhooks");
     if (!isPublicApi && !isAuthenticated) {
       return NextResponse.json(
@@ -42,13 +34,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 4. Redirect logged-in users away from login page
+  // 4. Always allow the login page — no auto-redirect even if cookies exist.
+  // Every new browser session or device MUST present credentials explicitly.
   if (pathname.startsWith("/login")) {
-    if (isAuthenticated) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
-      return NextResponse.redirect(url);
-    }
     return NextResponse.next();
   }
 

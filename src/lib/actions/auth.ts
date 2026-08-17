@@ -33,20 +33,21 @@ export async function loginAction(formData: { email: string; password: string })
     if (!authError && data?.session) {
       const token = await generateSessionToken(cleanEmail, "admin");
       const cookieStore = await cookies();
-      
-      // Set secure cryptographically signed session cookie (HttpOnly)
+
+      // ── SESSION-ONLY cookies: no maxAge / expires means they die when the browser closes.
+      // Every new device or new browser session MUST re-authenticate.
       cookieStore.set("tadbeer-session", token, {
         path: "/",
-        maxAge: 7 * 24 * 60 * 60,
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
+        // NO maxAge — session cookie only
       });
 
-      // Backward compatible display cookies
-      cookieStore.set("tadbeer-auth", "true", { path: "/", maxAge: 7 * 24 * 60 * 60, sameSite: "lax" });
-      cookieStore.set("tadbeer-user-email", cleanEmail, { path: "/", maxAge: 7 * 24 * 60 * 60, sameSite: "lax" });
-      cookieStore.set("tadbeer-user-role", "admin", { path: "/", maxAge: 7 * 24 * 60 * 60, sameSite: "lax" });
+      // Display cookies (non-httpOnly for UI hydration — also session-scoped)
+      cookieStore.set("tadbeer-auth", "true", { path: "/", sameSite: "lax" });
+      cookieStore.set("tadbeer-user-email", cleanEmail, { path: "/", sameSite: "lax" });
+      cookieStore.set("tadbeer-user-role", "admin", { path: "/", sameSite: "lax" });
 
       return { success: true, user: { email: cleanEmail, role: "admin" } };
     }
@@ -70,20 +71,21 @@ export async function loginAction(formData: { email: string; password: string })
   if (isAuthorizedEmail && isPasswordMatch) {
     const token = await generateSessionToken(cleanEmail, "admin");
     const cookieStore = await cookies();
-    
-    // Set secure cryptographically signed session cookie (HttpOnly)
+
+    // ── SESSION-ONLY cookies: no maxAge / expires means they die when the browser closes.
+    // Every new device or new browser session MUST re-authenticate.
     cookieStore.set("tadbeer-session", token, {
       path: "/",
-      maxAge: 7 * 24 * 60 * 60,
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
+      // NO maxAge — session cookie only
     });
 
-    // Backward compatible display cookies
-    cookieStore.set("tadbeer-auth", "true", { path: "/", maxAge: 7 * 24 * 60 * 60, sameSite: "lax" });
-    cookieStore.set("tadbeer-user-email", cleanEmail, { path: "/", maxAge: 7 * 24 * 60 * 60, sameSite: "lax" });
-    cookieStore.set("tadbeer-user-role", "admin", { path: "/", maxAge: 7 * 24 * 60 * 60, sameSite: "lax" });
+    // Display cookies (non-httpOnly for UI hydration — also session-scoped)
+    cookieStore.set("tadbeer-auth", "true", { path: "/", sameSite: "lax" });
+    cookieStore.set("tadbeer-user-email", cleanEmail, { path: "/", sameSite: "lax" });
+    cookieStore.set("tadbeer-user-role", "admin", { path: "/", sameSite: "lax" });
 
     return { success: true, user: { email: cleanEmail, role: "admin" } };
   }

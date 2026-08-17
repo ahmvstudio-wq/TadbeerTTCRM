@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { getRecommendedCaseStudies, getRecommendedClientLogos } from '@/lib/credibility-library'
 
 const supabase = createClient(
@@ -7,7 +7,24 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// ── Proposal data for each company (from public/proposal details in md/) ──────
+// ── Internal-only seed route — protected by a server secret ──────────────────
+// The middleware already enforces session auth on all /api routes.
+// This extra check ensures the endpoint cannot be called even by authenticated
+// users accidentally; it requires the explicit SEED_SECRET env var.
+const SEED_SECRET = process.env.SEED_SECRET;
+
+function checkSeedSecret(request: NextRequest): NextResponse | null {
+  if (!SEED_SECRET) {
+    return NextResponse.json({ error: "Seed endpoint disabled in this environment." }, { status: 403 });
+  }
+  const authHeader = request.headers.get("x-seed-secret");
+  if (!authHeader || authHeader !== SEED_SECRET) {
+    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  }
+  return null;
+}
+
+
 const PROPOSALS: Record<string, {
   tagline: string
   subtitle: string
@@ -768,7 +785,16 @@ export async function runBulkProposalAndCadenceSeeding(userEmail: string = 'w.ta
   }
 }
 
-export async function POST(request: Request) {
+export async function GET(request: NextRequest) {
+  const denied = checkSeedSecret(request);
+  if (denied) return denied;
+  return NextResponse.json({ message: 'Seed endpoint ready. Use POST to run seeding.' });
+}
+
+export async function POST(request: NextRequest) {
+  const denied = checkSeedSecret(request);
+  if (denied) return denied;
+
   try {
     const body = await request.json().catch(() => ({}))
     const sessionDate = body.sessionDate || new Date().toISOString().split('T')[0]
