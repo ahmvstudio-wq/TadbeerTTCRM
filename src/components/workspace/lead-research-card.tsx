@@ -19,7 +19,7 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { Company, Contact, OutreachPreparation } from "@/lib/types/database";
-import { formatPhoneNumberForDisplay, formatWhatsAppNumber } from "@/lib/utils";
+import { formatPhoneNumberForDisplay, formatWhatsAppNumber, parseLeadNotes, getCleanObservation, getCleanDraftMessage, getCleanDisplayNotes } from "@/lib/utils";
 
 interface LeadResearchCardProps {
   company: Company;
@@ -35,7 +35,7 @@ export function LeadResearchCard({
   onSaveResearchNotes
 }: LeadResearchCardProps) {
   const [editing, setEditing] = useState(false);
-  const [researchText, setResearchText] = useState(company.notes || "");
+  const [researchText, setResearchText] = useState(getCleanDisplayNotes(company.notes) || company.notes || "");
   const [saving, setSaving] = useState(false);
 
   const prep = preparations[0];
@@ -45,29 +45,10 @@ export function LeadResearchCard({
   const displayPhone = rawPhone ? formatPhoneNumberForDisplay(rawPhone) : null;
   const waDigits = rawPhone ? formatWhatsAppNumber(rawPhone) : "";
 
-  // Helper to extract research signals and talking points from notes text
-  const parseNotes = (text: string | null) => {
-    if (!text) return { summary: "", painPoints: [], talkingPoints: [] };
-
-    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
-    const painPoints: string[] = [];
-    const talkingPoints: string[] = [];
-    let summary = "";
-
-    lines.forEach(line => {
-      if (line.toLowerCase().includes("pain") || line.toLowerCase().includes("issue") || line.toLowerCase().includes("problem")) {
-        painPoints.push(line);
-      } else if (line.toLowerCase().includes("talking point") || line.toLowerCase().includes("angle") || line.toLowerCase().includes("offer")) {
-        talkingPoints.push(line);
-      } else {
-        if (!summary) summary = line;
-      }
-    });
-
-    return { summary: summary || text, painPoints, talkingPoints };
-  };
-
-  const parsed = parseNotes(company.notes);
+  const parsedNotes = parseLeadNotes(company.notes);
+  const cleanObs = getCleanObservation(company);
+  const cleanNotes = getCleanDisplayNotes(company.notes);
+  const staged = parsedNotes.staged_sequence;
 
   const handleSave = async () => {
     if (!onSaveResearchNotes) return;
@@ -92,7 +73,7 @@ export function LeadResearchCard({
                 About Prospect & Research Intelligence
               </h3>
               <span className="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-                <ShieldCheck className="h-3 w-3 text-emerald-600" /> Verified Data
+                <ShieldCheck className="h-3 w-3 text-emerald-600" /> Verified Playbook
               </span>
             </div>
             <p className="text-xs text-slate-400 font-medium mt-0.5">
@@ -101,87 +82,74 @@ export function LeadResearchCard({
           </div>
         </div>
 
-        {onSaveResearchNotes && !editing && (
+        {!editing && (
           <button
             onClick={() => {
-              setResearchText(company.notes || "");
+              setResearchText(cleanNotes || cleanObs || "");
               setEditing(true);
             }}
-            className="text-xs font-extrabold text-teal-700 hover:text-teal-900 flex items-center gap-1.5 cursor-pointer bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-xl border border-teal-200 transition-all"
+            className="px-3.5 py-1.5 bg-slate-900 text-white font-extrabold text-xs rounded-xl shadow-2xs hover:bg-slate-800 flex items-center gap-1.5 transition cursor-pointer"
           >
-            <Pencil className="h-3.5 w-3.5" /> Edit Research Notes
+            <Pencil className="h-3.5 w-3.5 text-teal-400" /> Edit Research Notes
           </button>
         )}
       </div>
 
-      {/* ── Section 1: ABOUT PROSPECT & KEY DECISION MAKER (NEW BLOCK) ───── */}
-      <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-3xl p-5 shadow-md space-y-4 border border-slate-700">
-        <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
-          <span className="text-xs font-black text-teal-300 uppercase tracking-wider flex items-center gap-2">
-            <User className="h-4 w-4 text-teal-400" /> About Prospect & Primary Contact
-          </span>
-          <span className="text-[10px] font-bold text-slate-400 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">
-            Decision Maker Record
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+      {/* ── Section 1: Executive Profile ──────────────────────────────────── */}
+      <div className="bg-slate-900 text-white rounded-2xl p-5 shadow-sm space-y-3">
+        <span className="text-[10px] font-black text-teal-400 uppercase tracking-wider block">
+          Target Executive Profile
+        </span>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           
-          {/* Decision Maker Persona */}
-          <div className="bg-slate-800/80 p-4 rounded-2xl border border-slate-700/80 space-y-2">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Decision Maker Persona</span>
-            <p className="text-sm font-black text-white">
-              {contact?.full_name || "Primary Business Contact"}
-            </p>
-            <p className="text-xs text-teal-300 font-bold">
-              {contact?.title || "Owner / Managing Director"}
-            </p>
-            <p className="text-[11px] text-slate-300 leading-relaxed pt-1">
-              Key stakeholder responsible for operational decisions, vendor partnerships, and digital growth in Oman.
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-sm text-white">{contact?.full_name || company.company_name}</span>
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/30">
+                {contact?.title || "Decision Maker"}
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 font-medium">
+              Primary stakeholder responsible for customer engagement, operational tools, and revenue conversions.
             </p>
           </div>
 
-          {/* Verified Contact Details Grid */}
-          <div className="bg-slate-800/80 p-4 rounded-2xl border border-slate-700/80 space-y-2.5">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Verified Channels & Footprint</span>
-            
-            <div className="space-y-2 font-mono">
+          <div className="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700/80 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-400 flex items-center gap-1.5">
+                <Phone className="h-3.5 w-3.5 text-teal-400" /> Phone:
+              </span>
+              <span className="font-bold text-white">{displayPhone || "No phone listed"}</span>
+            </div>
+
+            {waDigits && (
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-400 flex items-center gap-1.5">
-                  <Phone className="h-3.5 w-3.5 text-teal-400" /> Phone:
+                  <MessageCircle className="h-3.5 w-3.5 text-emerald-400" /> WhatsApp:
                 </span>
-                <span className="font-bold text-white">{displayPhone || "No phone listed"}</span>
+                <a
+                  href={`https://wa.me/${waDigits}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-bold text-emerald-400 hover:underline flex items-center gap-1"
+                >
+                  +{waDigits} <span className="text-[10px] font-normal text-emerald-300">(Click Chat)</span>
+                </a>
               </div>
+            )}
 
-              {waDigits && (
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400 flex items-center gap-1.5">
-                    <MessageCircle className="h-3.5 w-3.5 text-emerald-400" /> WhatsApp:
-                  </span>
-                  <a
-                    href={`https://wa.me/${waDigits}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-bold text-emerald-400 hover:underline flex items-center gap-1"
-                  >
-                    +${waDigits} <span className="text-[10px] font-normal text-emerald-300">(Click Chat)</span>
-                  </a>
-                </div>
-              )}
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-400 flex items-center gap-1.5">
+                <Building className="h-3.5 w-3.5 text-teal-400" /> Industry:
+              </span>
+              <span className="font-bold text-teal-200">{company.industry || "General Enterprise"}</span>
+            </div>
 
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400 flex items-center gap-1.5">
-                  <Building className="h-3.5 w-3.5 text-teal-400" /> Industry:
-                </span>
-                <span className="font-bold text-teal-200">{company.industry || "General Enterprise"}</span>
-              </div>
-
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400 flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5 text-teal-400" /> Location:
-                </span>
-                <span className="font-bold text-slate-200">{company.city ? `${company.city}, Oman` : "Muscat, Oman"}</span>
-              </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-400 flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5 text-teal-400" /> Location:
+              </span>
+              <span className="font-bold text-slate-200">{company.city ? `${company.city}, Oman` : "Muscat, Oman"}</span>
             </div>
           </div>
 
@@ -218,98 +186,85 @@ export function LeadResearchCard({
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-4">
           
-          {/* Research Block 1: Business Overview & Intelligence */}
-          <div className="bg-slate-50/90 rounded-2xl p-4 border border-slate-200/90 space-y-2">
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-              <Building className="h-3.5 w-3.5 text-slate-700" /> Business Overview & Digital Footprint
+          {/* Research Block 1: Pre-Researched Observation */}
+          <div className="bg-amber-50/70 rounded-2xl p-4 border border-amber-200/90 space-y-1.5">
+            <span className="text-[10px] font-black text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-amber-700" /> Pre-Researched Observation
             </span>
-
-            {company.notes && company.notes.trim().length > 5 ? (
-              <p className="text-xs text-slate-800 font-medium leading-relaxed">
-                {company.notes}
-              </p>
-            ) : (
-              <div className="p-3 rounded-xl bg-amber-50/90 border border-amber-200 text-amber-900 text-xs font-medium space-y-1">
-                <div className="flex items-center gap-1.5 font-extrabold text-amber-950">
-                  <AlertTriangle className="h-3.5 w-3.5 text-amber-700 shrink-0" />
-                  <span>Limited Research Details Available</span>
-                </div>
-                <p className="text-[11px] leading-snug text-amber-900/90">
-                  There is currently not a lot of research details on this company due to lack of initial inputs. Use the "Edit Research Notes" button above to add custom research.
-                </p>
-              </div>
-            )}
-
-            {company.website && (
-              <a
-                href={company.website.startsWith("http") ? company.website : `https://${company.website}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-700 hover:underline pt-1"
-              >
-                <Globe className="h-3.5 w-3.5" /> Visit Verified Website
-              </a>
-            )}
+            <p className="text-xs text-amber-950 font-bold leading-relaxed">
+              &ldquo;{cleanObs}&rdquo;
+            </p>
           </div>
 
-          {/* Research Block 2: TTT Recommended Solution Angle */}
-          <div className="bg-teal-50/70 rounded-2xl p-4 border border-teal-200/90 space-y-2">
-            <span className="text-[10px] font-black text-teal-900 uppercase tracking-wider flex items-center gap-1.5">
-              <Target className="h-3.5 w-3.5 text-teal-700" /> Recommended TTT Solution Angle
-            </span>
-            {prep ? (
-              <div className="space-y-1.5 text-xs">
-                <p className="font-extrabold text-teal-950">{prep.use_case_summary}</p>
-                {prep.personalization && (
-                  <p className="text-slate-700 italic text-[11px]">"{prep.personalization}"</p>
+          {/* Research Block 2: Multi-Touch Sequence */}
+          {staged && (
+            <div className="bg-slate-50/90 rounded-2xl p-4 border border-slate-200 space-y-3">
+              <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                <Target className="h-3.5 w-3.5 text-teal-600" /> Pre-Staged Multi-Touch Sequence
+              </span>
+
+              <div className="space-y-2 text-xs">
+                {staged.touch_1?.message && (
+                  <div className="bg-white p-3 rounded-xl border border-slate-200/80">
+                    <span className="text-[9px] font-black text-teal-700 uppercase tracking-wider block mb-1">
+                      Touch 1: Gate-Opener (Zero Pitch)
+                    </span>
+                    <p className="text-slate-800 italic leading-relaxed">&ldquo;{staged.touch_1.message}&rdquo;</p>
+                  </div>
+                )}
+
+                {staged.touch_2?.message && (
+                  <div className="bg-white p-3 rounded-xl border border-slate-200/80">
+                    <span className="text-[9px] font-black text-indigo-700 uppercase tracking-wider block mb-1">
+                      Touch 2: Value & Market Observation (Day +3)
+                    </span>
+                    <p className="text-slate-800 italic leading-relaxed">&ldquo;{staged.touch_2.message}&rdquo;</p>
+                  </div>
+                )}
+
+                {staged.touch_3?.message && (
+                  <div className="bg-white p-3 rounded-xl border border-slate-200/80">
+                    <span className="text-[9px] font-black text-amber-700 uppercase tracking-wider block mb-1">
+                      Touch 3: Breakaway & Graceful Close (Day +5)
+                    </span>
+                    <p className="text-slate-800 italic leading-relaxed">&ldquo;{staged.touch_3.message}&rdquo;</p>
+                  </div>
                 )}
               </div>
-            ) : (
-              <p className="text-xs text-teal-900 font-medium leading-relaxed">
-                Position Tadbeer TT CRM, automated WhatsApp lead routing, and digital workflow optimization to eliminate manual response delays.
-              </p>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* Research Block 3: Key Pain Points & Efficiency Leaks */}
-          <div className="bg-amber-50/70 rounded-2xl p-4 border border-amber-200/90 space-y-2">
-            <span className="text-[10px] font-black text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
-              <Lightbulb className="h-3.5 w-3.5 text-amber-700" /> Key Pain Points & Risks
-            </span>
-            {parsed.painPoints.length > 0 ? (
-              <ul className="space-y-1 text-xs text-amber-950 font-medium">
-                {parsed.painPoints.map((pt, i) => (
-                  <li key={i} className="flex items-start gap-1.5">
-                    <span className="text-amber-600 font-bold">•</span>
-                    <span>{pt}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-xs text-amber-950 font-medium leading-relaxed">
-                Fragmented lead tracking across personal WhatsApp numbers, slow lead follow-ups, and lack of central executive visibility into pipeline conversion rates.
-              </p>
-            )}
-          </div>
+          {/* Research Block 3: Cold Call 30-Second Script */}
+          {staged?.cold_call_script && (
+            <div className="bg-teal-50/70 rounded-2xl p-4 border border-teal-200 space-y-2">
+              <span className="text-[10px] font-black text-teal-900 uppercase tracking-wider flex items-center gap-1.5">
+                <Phone className="h-3.5 w-3.5 text-teal-700" /> Cold Call 30-Second Script
+              </span>
+              <div className="space-y-1.5 text-xs text-teal-950">
+                <p><strong>Opener:</strong> &ldquo;{staged.cold_call_script.opener}&rdquo;</p>
+                {staged.cold_call_script.context_bridge && (
+                  <p><strong>Bridge:</strong> &ldquo;{staged.cold_call_script.context_bridge}&rdquo;</p>
+                )}
+                {staged.cold_call_script.close_for_coffee && (
+                  <p><strong>Close for Coffee:</strong> &ldquo;{staged.cold_call_script.close_for_coffee}&rdquo;</p>
+                )}
+              </div>
+            </div>
+          )}
 
-          {/* Research Block 4: Cold Call / Message Pitch Angle */}
-          <div className="bg-indigo-50/70 rounded-2xl p-4 border border-indigo-200/90 space-y-2">
-            <span className="text-[10px] font-black text-indigo-900 uppercase tracking-wider flex items-center gap-1.5">
-              <MessageSquare className="h-3.5 w-3.5 text-indigo-700" /> Opening Hook & Call Angle
-            </span>
-            <ul className="space-y-1.5 text-xs text-indigo-950 font-medium">
-              <li className="flex items-start gap-1.5">
-                <Check className="h-3.5 w-3.5 text-indigo-600 shrink-0 mt-0.5" />
-                <span>"We help leading Oman businesses in {company.industry || "your sector"} streamline WhatsApp customer response times."</span>
-              </li>
-              <li className="flex items-start gap-1.5">
-                <Check className="h-3.5 w-3.5 text-indigo-600 shrink-0 mt-0.5" />
-                <span>"Offer a 15-minute workflow audit to demonstrate immediate operational ROI."</span>
-              </li>
-            </ul>
-          </div>
+          {/* Research Block 4: Custom Notes */}
+          {cleanNotes && cleanNotes !== cleanObs && (
+            <div className="bg-white rounded-2xl p-4 border border-slate-200 space-y-1.5">
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <MessageSquare className="h-3.5 w-3.5 text-slate-700" /> Custom Research Notes
+              </span>
+              <p className="text-xs text-slate-800 font-medium leading-relaxed">
+                {cleanNotes}
+              </p>
+            </div>
+          )}
 
         </div>
       )}

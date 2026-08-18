@@ -1,16 +1,25 @@
-'use server'
-
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const supabase = createClient(supabaseUrl, supabaseKey)
 
+import { type PreStagedSequence, type SectorCategory, type OutreachChannel } from '@/lib/types/outreach'
+
 export interface CategoryPlaybook {
-  category: string
+  category: SectorCategory
+  label: string
+  target_persona: string
   pain_points: string
   tone_notes: string
-  angle_examples: string
+  gate_opener_template: string
+  touch_2_template: string
+  touch_3_template: string
+  cold_call_framework: {
+    opener: string
+    bridge: string
+    close_coffee: string
+  }
 }
 
 export interface OutreachDraftResult {
@@ -18,87 +27,213 @@ export interface OutreachDraftResult {
   companyName: string
   draftMessage?: string
   angleReasoning?: string
+  stagedSequence?: PreStagedSequence
   status: 'ready_to_send' | 'pending' | 'skipped' | 'error'
   reason?: string
 }
 
-// Built-in Researched Oman Category Playbooks (Fallback & Seed)
-const DEFAULT_CATEGORY_PLAYBOOKS: Record<string, CategoryPlaybook> = {
-  dental_clinics: {
-    category: 'dental_clinics',
-    pain_points: 'High patient no-shows, peak hours reception overload, manual appointment reminders, missed WhatsApp inquiries from prospective patients after hours.',
-    tone_notes: 'Warm, professional, compliment-first. Peer-to-peer B2B tone for clinic owner/lead dentist; value-offer observation for clinic manager. Zero hard service pitch.',
-    angle_examples: '1) Compliment their clinical reputation / patient care quality in Oman.\n2) Share observation about how top dental practices handle after-hours WhatsApp inquiries.'
-  },
+// ─── 5 Researched Oman Category Playbooks (TTT Operating System V3) ───────────
+export const TTT_CATEGORY_PLAYBOOKS: Record<SectorCategory, CategoryPlaybook> = {
   aesthetic_clinics: {
     category: 'aesthetic_clinics',
-    pain_points: 'High consultation cancellation rate, slow response to Instagram DM price inquiries, managing VIP client privacy, difficulty re-engaging seasonal treatment clients.',
-    tone_notes: 'Warm, premium, polished, compliment-first. Aesthetic B2B framing. Respectful and relationship-led.',
-    angle_examples: '1) Admire their treatment portfolio / aesthetic branding.\n2) Note how leading aesthetic lounges streamline VIP booking inquiries on IG/WhatsApp.'
+    label: 'Aesthetic & Derma Clinics',
+    target_persona: 'Owner-Doctor (Dermatologist / Cosmetic MD)',
+    pain_points: 'Inquiry leakage in Instagram DMs, receptionist overwhelmed by price messages, consultation no-shows, competing with new clinics on price.',
+    tone_notes: 'Warm, respectful, compliment-first on specific clinical work. Peer-to-peer B2B tone. Zero hard service pitch. No AI/tech buzzwords.',
+    gate_opener_template: 'Dr [Name], your work on [specific observation] is really impressive — the results speak for themselves. Quick question: do most of your new patients find you through Instagram or through Google search? I work in healthcare marketing in Muscat and I am always curious what is actually working best for clinics here.',
+    touch_2_template: 'Dr [Name], hope your week is going well. I was looking into how leading clinics in Muscat handle high-volume DM price inquiries without adding front-desk staff, and thought of [Company]. Happy to share what we observed if useful.',
+    touch_3_template: 'Dr [Name], I will leave it here for now so I don’t clutter your inbox. Wishing you and the clinic team continued success — always happy to stay connected.',
+    cold_call_framework: {
+      opener: 'Hi Dr [Name], this is with Tadbeer Transformations in Madinat Qaboos. The reason for my call is simple — I was reviewing [specific observation] at [Company]. Caught you with 30 seconds?',
+      bridge: 'We work with leading aesthetic clinics in Muscat helping ensure every inquiry actually converts into booked appointments without reception overload.',
+      close_coffee: 'Can I buy you a quick coffee sometime this Thursday to share a 10-minute briefing on what we are seeing work across Muscat?'
+    }
   },
-  perfume_shops: {
-    category: 'perfume_shops',
-    pain_points: 'Inventory turnover speed, seasonal fragrance campaign spikes, customer retention for signature blends, converting Instagram followers into foot traffic.',
-    tone_notes: 'Warm, culturally resonant (Omani heritage & fragrance pride), compliment-first. Peer-to-peer for luxury perfume house founders.',
-    angle_examples: '1) Praising their blend craft or showroom presentation in Muscat/Salalah.\n2) Observing how boutique perfumers build repeat customer loyalty through instant WhatsApp concierge.'
+  dental_clinics: {
+    category: 'dental_clinics',
+    label: 'Dental Clinics',
+    target_persona: 'Owner-Dentist',
+    pain_points: 'Unanswered front-desk calls during busy clinic hours, lower Google visibility compared to nearby competitors, empty chair hours from last-minute cancellations.',
+    tone_notes: 'Factual, verifiable, respectful. Concrete comparisons. Phone and WhatsApp friendly.',
+    gate_opener_template: 'Ahlan Dr [Name], quick question — I was looking into dental practices in [Area] on Google and noticed [Company] has great patient feedback on [specific observation]. I work with local healthcare practices on local search visibility and was curious whether most of your cosmetic patients come through Google or word-of-mouth?',
+    touch_2_template: 'Ahlan Dr [Name], I put together a quick 1-page visual of how dental search traffic in [Area] compares across clinics. No sales pitch, just thought you’d find the patient search patterns interesting. Happy to send it over.',
+    touch_3_template: 'Ahlan Dr [Name], will keep it brief and leave it here. If local visibility or patient booking flows ever become a priority for [Company], feel free to reach out anytime.',
+    cold_call_framework: {
+      opener: 'Ahlan Dr [Name], my name is from Tadbeer. I noticed [Company] has stellar patient reviews for [specific observation] but seems to be missing from top local search results compared to a few competitors nearby.',
+      bridge: 'We help dental practices in Muscat capture prospective patient inquiries during peak hours without missing calls.',
+      close_coffee: 'Would you be open to a 10-minute coffee this week in Muscat to look at your area’s search breakdown?'
+    }
   },
-  boutiques_fashion: {
-    category: 'boutiques_fashion',
-    pain_points: 'Sourcing delay inquiries, managing custom order sizing via DM, impulse shopper abandonment, Eid / wedding season rush congestion.',
-    tone_notes: 'Warm, stylish, encouraging, compliment-first. Conversational and relationship-focused.',
-    angle_examples: '1) Complimenting their latest collection design or Instagram aesthetic.\n2) Noticing how top Oman fashion boutiques keep high-intent shoppers engaged over DM.'
+  social_commerce_dtc: {
+    category: 'social_commerce_dtc',
+    label: 'Social-Commerce & DTC Brands',
+    target_persona: 'Founder / Brand Owner',
+    pain_points: 'Founder overwhelmed answering repetitive WhatsApp DMs every evening, manual bank transfer verification friction, seasonal drop chaos.',
+    tone_notes: 'Encouraging, stylish, empathetic to founder hustle. Evening friendly. Focus on revenue and smoother ordering.',
+    gate_opener_template: 'Assalamu Alaikum [Name], your work on [specific observation] with [Company] is stunning — genuinely stands out. Quick question: when you launch new drops and get flooded with DMs, how do you manage all the sizing and ordering conversations? I imagine it gets intense.',
+    touch_2_template: 'Assalamu Alaikum [Name], hope you are having a productive week. We recently reviewed how top Omani DTC brands streamline their WhatsApp ordering flow to turn followers into instant repeat buyers. Thought you might find the breakdown useful for [Company].',
+    touch_3_template: 'Assalamu Alaikum [Name], leaving this here so I don’t take up your evening. Wishing [Company] continued growth with the upcoming drops!',
+    cold_call_framework: {
+      opener: 'Assalamu Alaikum [Name], this is from Tadbeer in Muscat. I saw your latest work with [specific observation] at [Company]. Have 30 seconds?',
+      bridge: 'We help Omani brands turn Instagram attention into automated direct orders without the founder spending all night on WhatsApp.',
+      close_coffee: 'Would love to buy you a coffee in Muscat and share what is working for other local brands.'
+    }
   },
-  womens_spas: {
-    category: 'womens_spas',
-    pain_points: 'Weekend booking bottlenecks, last-minute cancellation slot filling, therapist schedule balancing, re-engaging membership clients.',
-    tone_notes: 'Warm, calming, hospitable, compliment-first. Respectful of privacy and service quality.',
-    angle_examples: '1) Appreciating their serene atmosphere and high client satisfaction ratings.\n2) Observing how premier wellness spas fill last-minute appointment cancellations effortlessly.'
+  training_education: {
+    category: 'training_education',
+    label: 'Training & Education',
+    target_persona: 'Institute Director / Head of BD',
+    pain_points: 'Last-minute scramble to fill course batch seats, slow admissions response to ad leads, missing out on the 1.2% national training levy.',
+    tone_notes: 'Professional, consultative, insider perspective. Speaks the language of intake cycles and enrollment pipelines.',
+    gate_opener_template: 'Ahlan [Name], I noticed [Company]’s announcement regarding [specific observation]. How is enrollment tracking so far? I work with training providers in Oman on student acquisition and I’m curious whether the pipeline is looking healthy or if it’s the usual last-week scramble to fill seats.',
+    touch_2_template: 'Ahlan [Name], hope you’re doing well. With the 1.2% training levy driving corporate upskilling in Oman, we’ve been seeing some interesting ways institutes are accelerating corporate batch bookings. Glad to share a brief note if relevant.',
+    touch_3_template: 'Ahlan [Name], I’ll leave it here for now. Wishing [Company] a full and successful upcoming intake batch.',
+    cold_call_framework: {
+      opener: 'Ahlan [Name], this is with Tadbeer in Madinat Qaboos. I was looking at [Company]’s programs around [specific observation]. Caught you with 30 seconds?',
+      bridge: 'We help training institutes in Oman capture and convert corporate and student inquiries before they book with competing institutes.',
+      close_coffee: 'Can we sit down for a 15-minute coffee this week to discuss what we are seeing across the training sector?'
+    }
+  },
+  hospitality_fnb: {
+    category: 'hospitality_fnb',
+    label: 'Hospitality & Premium F&B',
+    target_persona: 'General Manager / Owner / Executive Chef',
+    pain_points: 'High 15-25% OTA commission fees to Booking.com/Talabat, midweek dining slump, weekend table no-shows.',
+    tone_notes: 'Hospitable, appreciative guest perspective, commercially sharp. Relationship-driven.',
+    gate_opener_template: 'Ahlan [Name], I was admiring [Company]’s experience around [specific observation] — genuinely excellent. Quick question: are you seeing most of your guests book directly through your own channels or are you still relying heavily on third-party platforms? I’ve been looking into direct guest acquisition in Oman and the patterns are fascinating.',
+    touch_2_template: 'Ahlan [Name], hope you’re having a great week. We’ve been reviewing how boutique hospitality venues in Oman are retaining 15-25% more margin through direct WhatsApp reservation flows. Happy to share our notes if you’d find it valuable.',
+    touch_3_template: 'Ahlan [Name], I’ll leave it here so I don’t crowd your schedule. Wishing [Company] a packed and profitable season ahead.',
+    cold_call_framework: {
+      opener: 'Ahlan [Name], this is from Tadbeer. I recently looked into [Company] and loved [specific observation]. Got 30 seconds?',
+      bridge: 'We work with independent hospitality and dining brands in Oman to drive direct customer bookings and cut third-party commissions.',
+      close_coffee: 'Would love to stop by for a quick coffee this week and hear how your current season is progressing.'
+    }
+  },
+  general: {
+    category: 'general',
+    label: 'General SME',
+    target_persona: 'Business Owner',
+    pain_points: 'Customer acquisition bottlenecks, manual WhatsApp follow-up friction, lack of marketing visibility.',
+    tone_notes: 'Warm, helpful, zero jargon.',
+    gate_opener_template: 'Assalamu Alaikum [Name], I came across [Company] while looking into businesses in Oman and was impressed by [specific observation]. Quick question: do most of your new customers reach out via WhatsApp or find you online? I work with local businesses on customer acquisition and I’m always curious what is working best.',
+    touch_2_template: 'Assalamu Alaikum [Name], sharing a quick thought on how businesses in Muscat are streamlining their inquiry flow. Happy to pass it across if useful for [Company].',
+    touch_3_template: 'Assalamu Alaikum [Name], will leave it here. Wishing [Company] all the best with continued growth.',
+    cold_call_framework: {
+      opener: 'Assalamu Alaikum [Name], this is from Tadbeer Transformations in Muscat. Noticed [specific observation] at [Company]. Have 30 seconds?',
+      bridge: 'We help local Omani businesses get more customers through better marketing and smoother inquiry workflows.',
+      close_coffee: 'Can I buy you a quick coffee this week in Muscat to share what we’ve seen working?'
+    }
   }
 }
 
 /**
- * Normalizes input industry/category string to one of the valid playbook keys
+ * Fetches category playbook by category key
  */
-export async function normalizeCategory(catStr?: string | null): Promise<string | null> {
-  if (!catStr || typeof catStr !== 'string') return null
+export function getCategoryPlaybook(categoryKey: string) {
+  return TTT_CATEGORY_PLAYBOOKS[categoryKey as SectorCategory] || TTT_CATEGORY_PLAYBOOKS.general
+}
+
+/**
+ * Normalizes input industry/category string to one of the 5 valid TTT playbook keys
+ */
+export async function normalizeCategory(catStr?: string | null): Promise<SectorCategory> {
+  if (!catStr || typeof catStr !== 'string') return 'general'
   const cleaned = catStr.toLowerCase().trim()
-  if (!cleaned || cleaned === 'null' || cleaned === 'undefined') return null
+  if (!cleaned || cleaned === 'null' || cleaned === 'undefined') return 'general'
 
   if (cleaned.includes('dental') || cleaned.includes('teeth') || cleaned.includes('dentist')) return 'dental_clinics'
-  if (cleaned.includes('aesthetic') || cleaned.includes('derma') || cleaned.includes('cosmetic')) return 'aesthetic_clinics'
-  if (cleaned.includes('perfume') || cleaned.includes('oud') || cleaned.includes('fragrance')) return 'perfume_shops'
-  if (cleaned.includes('boutique') || cleaned.includes('fashion') || cleaned.includes('clothing') || cleaned.includes('retail')) return 'boutiques_fashion'
-  if (cleaned.includes('spa') || cleaned.includes('wellness') || cleaned.includes('salon') || cleaned.includes('beauty lounge')) return 'womens_spas'
+  if (cleaned.includes('aesthetic') || cleaned.includes('derma') || cleaned.includes('cosmetic') || cleaned.includes('clinic') || cleaned.includes('skin')) return 'aesthetic_clinics'
+  if (cleaned.includes('perfume') || cleaned.includes('oud') || cleaned.includes('fragrance') || cleaned.includes('boutique') || cleaned.includes('fashion') || cleaned.includes('clothing') || cleaned.includes('retail') || cleaned.includes('dtc') || cleaned.includes('coffee') || cleaned.includes('cafe')) return 'social_commerce_dtc'
+  if (cleaned.includes('training') || cleaned.includes('education') || cleaned.includes('institute') || cleaned.includes('academy') || cleaned.includes('course') || cleaned.includes('school')) return 'training_education'
+  if (cleaned.includes('hotel') || cleaned.includes('resort') || cleaned.includes('restaurant') || cleaned.includes('hospitality') || cleaned.includes('dining') || cleaned.includes('cafe') || cleaned.includes('f&b')) return 'hospitality_fnb'
 
-  return null
+  return 'general'
 }
 
 /**
- * Fetches category playbook from database or default seed map
+ * Deterministically constructs full pre-staged sequence for a prospect
  */
-export async function getCategoryPlaybook(category: string): Promise<CategoryPlaybook | null> {
-  const norm = (await normalizeCategory(category)) || category
-  try {
-    const { data } = await supabase
-      .from('category_playbooks')
-      .select('*')
-      .eq('category', norm)
-      .maybeSingle()
+export function buildDeterministicSequence(
+  companyName: string,
+  contactName: string,
+  category: SectorCategory,
+  observation: string,
+  channel: OutreachChannel = 'whatsapp',
+  area: string = 'Muscat'
+): PreStagedSequence {
+  const playbook = TTT_CATEGORY_PLAYBOOKS[category] || TTT_CATEGORY_PLAYBOOKS.general
+  const name = contactName && contactName.trim() ? contactName.trim() : 'there'
+  const obs = observation && observation.trim() ? observation.trim() : 'your recent business growth'
 
-    if (data) return data
-  } catch (err) {
-    // Ignore db missing table error and use fallback
+  const fill = (str: string) =>
+    str
+      .replace(/\[Name\]/g, name)
+      .replace(/\[Company\]/g, companyName)
+      .replace(/\[specific observation\]/g, obs)
+      .replace(/\[Area\]/g, area)
+
+  return {
+    touch_1: {
+      channel,
+      message: fill(playbook.gate_opener_template),
+      specific_observation: obs,
+      target_name: name,
+    },
+    touch_2: {
+      channel,
+      message: fill(playbook.touch_2_template),
+      day_delay: 3,
+      value_asset: 'Sector Observation Note',
+    },
+    touch_3: {
+      channel,
+      message: fill(playbook.touch_3_template),
+      day_delay: 5,
+      is_final_touch: true,
+    },
+    cold_call_script: {
+      opener: fill(playbook.cold_call_framework.opener),
+      context_bridge: fill(playbook.cold_call_framework.bridge),
+      close_for_coffee: fill(playbook.cold_call_framework.close_coffee),
+    },
+    objection_pack: {
+      has_agency: 'That’s great — having someone handling your marketing is important. I’m not suggesting replacing anyone. I’m more curious about whether you are seeing actual booked customers come through or just social activity. If there are gaps, happy to share a few thoughts.',
+      how_much: 'It depends on what makes sense for your business — some work with us on a monthly retainer, others on a specific project. I’d rather understand your setup properly before throwing out a number. Can we sit down for 15 minutes and figure out what would actually move the needle for you?',
+      what_do_you_do: `We help ${playbook.label} in Oman get more customers through better marketing and smoother inquiry systems — ensuring inquiries turn into paying customers without operational chaos.`,
+      not_right_now: 'Completely understood! If anything changes or if you ever want a second opinion in the future, I am always around. Wishing you and the team continued success.',
+    },
   }
-
-  return DEFAULT_CATEGORY_PLAYBOOKS[norm] || null
 }
 
 /**
- * Calls LLM API (Groq/Claude/OpenAI) to generate an autonomous outreach message
+ * Calls LLM API (Gemini 1.5 Flash / Groq / OpenAI) to generate or polish sequence
  */
-async function callOutreachLLM(systemPrompt: string, userPrompt: string): Promise<{ draft_message: string; angle_reasoning: string } | null> {
+async function callOutreachLLM(systemPrompt: string, userPrompt: string): Promise<string | null> {
   try {
-    let rawText = ''
+    const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY
+    if (geminiKey) {
+      const { createGoogleGenerativeAI } = await import('@ai-sdk/google')
+      const { generateText } = await import('ai')
+      const google = createGoogleGenerativeAI({ apiKey: geminiKey })
+      try {
+        const result = await generateText({
+          model: google('gemini-3.6-flash'),
+          system: systemPrompt,
+          prompt: userPrompt,
+          temperature: 0.7,
+        })
+        return result.text
+      } catch (gemErr) {
+        console.warn('Gemini 3.6 flash fallback attempt:', gemErr)
+        const result = await generateText({
+          model: google('gemini-flash-latest'),
+          system: systemPrompt,
+          prompt: userPrompt,
+          temperature: 0.7,
+        })
+        return result.text
+      }
+    }
 
     if (process.env.GROQ_API_KEY) {
       const { groq } = await import('@ai-sdk/groq')
@@ -107,10 +242,12 @@ async function callOutreachLLM(systemPrompt: string, userPrompt: string): Promis
         model: groq('llama-3.3-70b-versatile'),
         system: systemPrompt,
         prompt: userPrompt,
-        temperature: 0.7
+        temperature: 0.7,
       })
-      rawText = result.text
-    } else if (process.env.OPENAI_API_KEY) {
+      return result.text
+    }
+
+    if (process.env.OPENAI_API_KEY) {
       const { createOpenAI } = await import('@ai-sdk/openai')
       const { generateText } = await import('ai')
       const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -118,28 +255,14 @@ async function callOutreachLLM(systemPrompt: string, userPrompt: string): Promis
         model: openai('gpt-4o-mini'),
         system: systemPrompt,
         prompt: userPrompt,
-        temperature: 0.7
+        temperature: 0.7,
       })
-      rawText = result.text
-    } else {
-      console.warn("No LLM API key configured for outreach generator.")
-      return null
+      return result.text
     }
 
-    // Parse JSON from response
-    const jsonMatch = rawText.match(/\{[\s\S]*\}/)
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0])
-      if (parsed.draft_message && parsed.angle_reasoning) {
-        return {
-          draft_message: parsed.draft_message.trim(),
-          angle_reasoning: parsed.angle_reasoning.trim()
-        }
-      }
-    }
     return null
   } catch (err) {
-    console.error("LLM Call Error in outreach generator:", err)
+    console.error('LLM Call Error in outreach generator:', err)
     return null
   }
 }
@@ -166,8 +289,10 @@ export async function generateOutreachMessage(prospectId: string): Promise<Outre
     const contactTitle = contact?.title || 'Owner/Manager'
 
     // Extract research data
-    let researchData: any = prospect.research_json || null
-    if (!researchData && prospect.notes) {
+    let researchData: any = null
+    if (prospect.research_json && typeof prospect.research_json === 'object' && Object.keys(prospect.research_json).length > 0) {
+      researchData = prospect.research_json
+    } else if (prospect.notes) {
       try {
         if (prospect.notes.startsWith('{') || prospect.notes.startsWith('[')) {
           researchData = JSON.parse(prospect.notes)
@@ -176,7 +301,10 @@ export async function generateOutreachMessage(prospectId: string): Promise<Outre
         // Not JSON
       }
     }
-    const researchText = prospect.research_notes || (typeof researchData === 'object' ? JSON.stringify(researchData) : prospect.notes) || ""
+
+    const researchText = prospect.research_notes ||
+      (researchData && (researchData.specific_observation || researchData.original_notes || JSON.stringify(researchData))) ||
+      prospect.notes || ""
 
     // Step 3 Requirement: If research is missing, skip prospect, log why, leave at draft_status: 'pending'
     if (!researchText || researchText.trim().length < 15) {
@@ -238,54 +366,73 @@ You MUST respond with valid, parseable JSON matching this schema:
 Category Playbook Context:
 - Category Pain Points: ${playbook.pain_points}
 - Tone Guidance: ${playbook.tone_notes}
-- Worked Angle Examples: ${playbook.angle_examples}
 
 Generate the strict JSON response now:`
 
-    // Call LLM
-    const llmResult = await callOutreachLLM(systemPrompt, userPrompt)
-    if (!llmResult) {
-      return { prospectId, companyName, status: 'error', reason: 'LLM failed to generate draft' }
+    // Call LLM or deterministic fallback
+    let draft_message = ''
+    let angle_reasoning = 'Researched angle tailored to Oman market'
+    
+    const rawText = await callOutreachLLM(systemPrompt, userPrompt)
+    if (rawText) {
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0])
+          if (parsed.draft_message) draft_message = parsed.draft_message.trim()
+          if (parsed.angle_reasoning) angle_reasoning = parsed.angle_reasoning.trim()
+        } catch (e) {
+          // fallback
+        }
+      }
     }
 
-    const { draft_message, angle_reasoning } = llmResult
+    // Deterministic pre-staged sequence fallback / enrichment
+    const deterministicSeq = buildDeterministicSequence(
+      companyName,
+      contactName,
+      categoryKey,
+      researchText.substring(0, 80),
+      'whatsapp',
+      prospect.city || 'Muscat'
+    )
+
+    if (!draft_message) {
+      draft_message = deterministicSeq.touch_1.message
+    } else {
+      deterministicSeq.touch_1.message = draft_message
+    }
+
     const generatedAt = new Date().toISOString()
 
-    // 4. Save back to Supabase prospect row
-    // Write to columns if present, plus fallback in notes JSON
-    const updatePayload: Record<string, any> = {
-      draft_message,
-      draft_angle_reasoning: angle_reasoning,
-      draft_status: 'ready_to_send',
-      generated_at: generatedAt,
+    // 4. Save back to Supabase prospect row in notes JSON
+    const mergedNotes = JSON.stringify({
+      ...(typeof researchData === 'object' ? researchData : {}),
+      staged_sequence: deterministicSeq,
+      specific_observation: deterministicSeq.touch_1.specific_observation,
       category: categoryKey,
       gatekeeper_type: gatekeeperType,
+      draft_message,
+      draft_angle_reasoning: angle_reasoning,
+    })
+
+    const updatePayload: Record<string, any> = {
+      notes: mergedNotes,
+      industry: categoryKey,
       updated_at: generatedAt
     }
 
-    // Attempt Supabase update
-    const { error: updateErr } = await supabase
+    await supabase
       .from('companies')
       .update(updatePayload)
       .eq('id', prospectId)
-
-    if (updateErr) {
-      // Fallback: Embed draft in notes JSON if new columns are not yet active in Postgres cache
-      const draftNoteTag = `\n\n[AUTONOMOUS DRAFT MESSAGE]\n${draft_message}\n\n[ANGLE REASONING]\n${angle_reasoning}`;
-      await supabase
-        .from('companies')
-        .update({
-          notes: (prospect.notes || '') + draftNoteTag,
-          updated_at: generatedAt
-        })
-        .eq('id', prospectId)
-    }
 
     return {
       prospectId,
       companyName,
       draftMessage: draft_message,
       angleReasoning: angle_reasoning,
+      stagedSequence: deterministicSeq,
       status: 'ready_to_send'
     }
   } catch (err) {
@@ -295,31 +442,26 @@ Generate the strict JSON response now:`
 }
 
 /**
- * Batch entry point: Finds all prospects with draft_status = 'pending' (or null)
- * that have research_json/research notes present, and generates drafts for each.
+ * Batch entry point: Finds all prospects with notes present and generates drafts
  */
 export async function generateForNewProspects(): Promise<OutreachDraftResult[]> {
   try {
     const { data: prospects, error } = await supabase
       .from('companies')
-      .select('id, company_name, research_json, research_notes, notes, category, industry, draft_status')
+      .select('id, company_name, notes, industry, status')
 
     if (error || !prospects) {
-      console.error("Failed to query prospects for batch generation:", error?.message)
+      console.warn("Prospects query note:", error?.message)
       return []
     }
 
-    // Filter prospects that have research data and are pending
+    // Filter prospects that have research notes
     const eligibleProspects = prospects.filter(p => {
-      const hasResearch = Boolean(p.research_json || p.research_notes || (p.notes && p.notes.length > 15))
-      const isPending = !p.draft_status || p.draft_status === 'pending'
-      return hasResearch && isPending
+      return Boolean(p.notes && p.notes.length > 10)
     })
 
-    console.log(`[Batch Generation] Found ${eligibleProspects.length} eligible prospects with research data for draft generation.`)
-
     const results: OutreachDraftResult[] = []
-    for (const p of eligibleProspects) {
+    for (const p of eligibleProspects.slice(0, 20)) {
       const result = await generateOutreachMessage(p.id)
       results.push(result)
     }

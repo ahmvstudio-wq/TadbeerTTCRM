@@ -275,69 +275,325 @@ export async function getOutreachLeads(
   }
 }
 
-// ─── Also support legacy ig_dm activity_type entries ─────────────────────────
+// ─── Get all outreach leads unified across companies and activities ─────────
 export async function getAllLeadsForPipeline(
-  dateFilter: string = 'today',
+  dateFilter: string = 'all',
   channelFilter?: OutreachChannel
 ) {
   try {
-    let query = supabase
+    await requireAuth()
+
+    // 1. Fetch activities with company joins
+    const { data: activities, error: actErr } = await supabase
       .from('activities')
-      .select('*, companies(id, company_name, industry, phone, notes)')
+      .select('*, companies(id, company_name, industry, phone, notes, research_json, category, draft_message, status)')
       .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach'])
       .order('created_at', { ascending: false })
 
-    if (dateFilter === 'today') {
-      const today = new Date(); today.setHours(0, 0, 0, 0)
-      query = query.gte('created_at', today.toISOString())
-    } else if (dateFilter === 'week') {
-      const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7)
-      query = query.gte('created_at', weekAgo.toISOString())
-    } else if (dateFilter !== 'all' && dateFilter.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      const startDate = new Date(`${dateFilter}T00:00:00.000Z`)
-      const endDate = new Date(`${dateFilter}T23:59:59.999Z`)
-      query = query.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString())
+    if (actErr) {
+      console.warn("Activities query warning:", actErr.message)
     }
 
-    const { data, error } = await query.limit(300)
-    if (error) return { data: null, error: error.message }
+    // 2. Fetch all companies with contacts to ensure 100% visibility of uncontacted/staged leads
+    const { data: allCompanies, error: coErr } = await supabase
+      .from('companies')
+      .select('*, contacts(*)')
+      .order('created_at', { ascending: false })
 
-    let parsed = (data || []).map((act: any) => {
+    if (coErr) {
+      console.warn("Companies query warning:", coErr.message)
+    }
+
+    const leadMap = new Map<string, OutreachLead>();
+
+    // First, map all companies from the database so NO prospect is hidden
+    (allCompanies || []).forEach((co: any) => {
+      const contact = co.contacts?.[0] || {}
+      let rJson: any = {}
+      try {
+        if (co.research_json && typeof co.research_json === 'object') rJson = co.research_json
+        else if (co.notes && (co.notes.startsWith('{') || co.notes.startsWith('['))) rJson = JSON.parse(co.notes)
+      } catch {}
+
+      const rawIg = rJson.instagram_handle || (co.notes && co.notes.match(/["']?instagram_handle["']?\s*:\s*["'](@?[^"']+)["']/i)?.[1]) || (co.notes && co.notes.match(/Instagram:\s*(@?[^\s,]+)/i)?.[1]) || null
+      const cleanIg = rawIg ? (rawIg.startsWith('@') ? rawIg : `@${rawIg.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^\/+/, '').replace(/\/+$/, '')}`) : null
+      const igHandle = cleanIg
+      const phone = co.phone || contact.phone || contact.whatsapp || null
+      const channel: OutreachChannel = igHandle ? 'instagram_dm' : (phone ? 'whatsapp' : 'cold_call')
+      const specificObs = rJson.specific_observation || rJson.staged_sequence?.touch_1?.specific_observation || co.draft_angle_reasoning || (co.notes && !co.notes.startsWith('{') ? co.notes : '') || 'Recent business growth & market positioning'
+
+      const stagedSeq = rJson.staged_sequence || undefined
+      const openerMessage = co.draft_message || stagedSeq?.touch_1?.message || 'Warm inquiry regarding operations'
+
+      leadMap.set(co.id, {
+        id: `staged-${co.id}`,
+        company_id: co.id,
+        company_name: co.company_name || 'Unknown',
+        contact_name: contact.full_name || 'Owner/Manager',
+        contact_title: contact.title || 'Decision Maker',
+        industry: co.industry || co.category || 'General',
+        sector: (co.category || 'general') as any,
+        phone,
+        instagram_handle: igHandle,
+        linkedin_url: co.linkedin_url || contact.linkedin_url || null,
+        email: co.email || contact.email || null,
+        channel,
+        handle: igHandle || phone || co.company_name,
+        template_used: 'gate_opener',
+        status: co.status === 'opportunity' ? 'meeting_booked' : (co.status === 'lead' ? 'warm_up' : 'gate_opener_staged'),
+        stage: co.status === 'opportunity' ? 'meeting_booked' : (co.status === 'lead' ? 'warm_up' : 'gate_opener_staged'),
+        touch_count: 0,
+        specific_observation: specificObs,
+        prospect_reply: '',
+        pain_point: '',
+        call_opening_line: stagedSeq?.cold_call_script?.opener || '',
+        notes: co.notes || '',
+        staged_sequence: stagedSeq,
+        sent_at: co.created_at,
+        updated_at: co.updated_at || co.created_at,
+      })
+    })
+
+    // Next, overlay actual logged activities so live status, replies, and sent timestamps are 100% accurate
+    ;(activities || []).forEach((act: any) => {
       let payload: any = {}
       try { payload = act.description ? JSON.parse(act.description) : {} } catch {}
 
-      // Normalise legacy ig_dm records
-      const channel: OutreachChannel = payload.channel || (act.activity_type === 'ig_dm' ? 'instagram_dm' : 'cold_call')
-      let rawStatus = payload.status || payload.dm_status || 'sent'
-      if (rawStatus === 'dm_sent') rawStatus = 'sent'
-      const status: OutreachStatus = rawStatus as OutreachStatus
-      const handle                    = payload.handle || payload.instagram_handle || ''
+      const co = act.companies || {}
+      const channel: OutreachChannel = payload.channel || (act.activity_type === 'ig_dm' ? 'instagram_dm' : (act.activity_type === 'whatsapp_sent' ? 'whatsapp' : (act.activity_type === 'email_sent' ? 'email' : 'cold_call')))
+      let status: OutreachStatus = payload.status || 'gate_opener_sent'
+      if (status === 'sent') status = 'gate_opener_sent'
+      if (status === 'reply_received') status = 'warm_up'
+      if (status === 'replied_interested' || status === 'replied_objection') status = 'opening_identified'
 
-      return {
+      const existingLead = leadMap.get(act.company_id)
+      const specificObs = payload.pain_point || existingLead?.specific_observation || ''
+
+      leadMap.set(act.company_id || act.id, {
         id: act.id,
         company_id: act.company_id,
-        company_name: act.companies?.company_name || 'Unknown',
-        industry: act.companies?.industry || 'Unknown',
-        phone: act.companies?.phone || null,
+        company_name: co.company_name || existingLead?.company_name || 'Unknown',
+        contact_name: existingLead?.contact_name || 'Decision Maker',
+        contact_title: existingLead?.contact_title || 'Owner',
+        industry: co.industry || existingLead?.industry || 'General',
+        sector: existingLead?.sector || 'general',
+        phone: co.phone || existingLead?.phone || null,
+        instagram_handle: existingLead?.instagram_handle || payload.handle || null,
+        linkedin_url: existingLead?.linkedin_url || null,
+        email: existingLead?.email || null,
         channel,
-        handle,
-        template_used: (payload.template_used || 'custom') as OutreachTemplate,
+        handle: payload.handle || existingLead?.handle || '',
+        template_used: (payload.template_used || 'gate_opener') as OutreachTemplate,
         status,
+        stage: status as any,
+        touch_count: (existingLead?.touch_count || 0) + 1,
+        specific_observation: specificObs,
         prospect_reply: payload.prospect_reply || '',
         pain_point: payload.pain_point || '',
-        call_opening_line: payload.call_opening_line || '',
-        notes: payload.notes || act.notes || '',
+        call_opening_line: payload.call_opening_line || existingLead?.call_opening_line || '',
+        notes: payload.notes || act.notes || existingLead?.notes || '',
+        staged_sequence: existingLead?.staged_sequence,
         sent_at: act.created_at,
         updated_at: act.updated_at || act.created_at,
-      } as OutreachLead
+      })
     })
 
-    let combined = parsed;
+    let combined: OutreachLead[] = Array.from(leadMap.values())
+
+    // Apply date filters if specified
+    if (dateFilter === 'today') {
+      const today = new Date(); today.setHours(0, 0, 0, 0)
+      combined = combined.filter(l => new Date(l.sent_at).getTime() >= today.getTime())
+    } else if (dateFilter === 'week') {
+      const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7)
+      combined = combined.filter(l => new Date(l.sent_at).getTime() >= weekAgo.getTime())
+    }
+
     if (channelFilter) {
       combined = combined.filter(l => l.channel === channelFilter)
     }
 
     return { data: combined, error: null }
+  } catch (err) {
+    return { data: null, error: (err as Error).message }
+  }
+}
+
+// ─── Get Dedicated Daily Batch per Channel (25 Contacts with 0 Contradictions) ───
+export async function getChannelDailyBatch(
+  channel: OutreachChannel,
+  limit: number = 25
+) {
+  try {
+    await requireAuth()
+
+    // 1. Find all company IDs that ALREADY had an outreach activity logged on this channel
+    const validActType = getValidActivityType(channel)
+    const { data: touchedActs } = await supabase
+      .from('activities')
+      .select('company_id')
+      .in('activity_type', [validActType, 'ig_dm', 'outreach'])
+
+    const touchedCompanyIds = new Set((touchedActs || []).map(a => a.company_id).filter(Boolean))
+
+    // 2. Query companies eligible for this channel that HAVE NOT been touched yet
+    let coQuery = supabase
+      .from('companies')
+      .select('*, contacts(*)')
+      .not('status', 'in', '("won","lost","archived")')
+      .order('created_at', { ascending: false })
+
+    if (channel === 'instagram_dm') {
+      coQuery = coQuery.or('notes.ilike.%instagram%,notes.ilike.%@%')
+    } else if (channel === 'whatsapp' || channel === 'cold_call') {
+      coQuery = coQuery.not('phone', 'is', null)
+    } else if (channel === 'linkedin') {
+      coQuery = coQuery.not('linkedin_url', 'is', null)
+    } else if (channel === 'email') {
+      coQuery = coQuery.not('email', 'is', null)
+    }
+
+    const { data: companies, error: coErr } = await coQuery.limit(limit * 3)
+    if (coErr) return { data: [], totalAvailable: 0, error: coErr.message }
+
+    // Filter strictly out touched companies and filter by channel suitability
+    const uncontacted = (companies || []).filter(c => {
+      if (touchedCompanyIds.has(c.id)) return false
+
+      let rJson: any = {}
+      try {
+        if (c.research_json && typeof c.research_json === 'object' && Object.keys(c.research_json).length > 0) rJson = c.research_json
+        else if (c.notes && (c.notes.startsWith('{') || c.notes.startsWith('['))) rJson = JSON.parse(c.notes)
+      } catch {}
+
+      if (channel === 'instagram_dm') {
+        const rawIg = rJson.instagram_handle || (c.notes && c.notes.match(/["']?instagram_handle["']?\s*:\s*["'](@?[^"']+)["']/i)?.[1]) || (c.notes && c.notes.match(/Instagram:\s*(@?[^\s,]+)/i)?.[1])
+        return Boolean(rawIg && rawIg !== 'null' && String(rawIg).trim().length > 1)
+      }
+      if (channel === 'whatsapp' || channel === 'cold_call') {
+        return Boolean(c.phone || c.contacts?.[0]?.phone || c.contacts?.[0]?.whatsapp)
+      }
+      if (channel === 'linkedin') {
+        return Boolean(c.linkedin_url || c.contacts?.[0]?.linkedin_url)
+      }
+      if (channel === 'email') {
+        return Boolean(c.email || c.contacts?.[0]?.email)
+      }
+      return true
+    })
+
+    const mapped: OutreachLead[] = uncontacted.slice(0, limit).map(c => {
+      const contact = c.contacts?.[0] || {}
+      let rJson: any = {}
+      try {
+        if (c.research_json && typeof c.research_json === 'object' && Object.keys(c.research_json).length > 0) rJson = c.research_json
+        else if (c.notes && (c.notes.startsWith('{') || c.notes.startsWith('['))) rJson = JSON.parse(c.notes)
+      } catch {}
+
+      const rawIg = rJson.instagram_handle || (c.notes && c.notes.match(/["']?instagram_handle["']?\s*:\s*["'](@?[^"']+)["']/i)?.[1]) || (c.notes && c.notes.match(/Instagram:\s*(@?[^\s,]+)/i)?.[1]) || null
+      const cleanIg = rawIg ? (rawIg.startsWith('@') ? rawIg : `@${rawIg.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^\/+/, '').replace(/\/+$/, '')}`) : null
+      const ig = cleanIg
+      const handle = channel === 'instagram_dm' ? (ig || c.company_name) : (c.phone || contact.phone || c.email || c.company_name)
+      const stagedSeq = rJson.staged_sequence || undefined
+
+      return {
+        id: `daily-${c.id}`,
+        company_id: c.id,
+        company_name: c.company_name,
+        contact_name: contact.full_name || 'Owner/Manager',
+        contact_title: contact.title || 'Decision Maker',
+        industry: c.industry || c.category || 'General',
+        sector: c.category || 'general',
+        phone: c.phone || contact.phone || null,
+        instagram_handle: ig,
+        linkedin_url: c.linkedin_url || contact.linkedin_url || null,
+        email: c.email || contact.email || null,
+        channel,
+        handle,
+        template_used: 'gate_opener',
+        status: 'gate_opener_staged',
+        stage: 'gate_opener_staged',
+        touch_count: 0,
+        specific_observation: rJson.specific_observation || rJson.staged_sequence?.touch_1?.specific_observation || c.draft_angle_reasoning || (c.notes && !c.notes.startsWith('{') ? c.notes : '') || 'Recent business growth & market positioning',
+        prospect_reply: '',
+        pain_point: '',
+        call_opening_line: stagedSeq?.cold_call_script?.opener || `Ahlan, this is from Tadbeer in Muscat regarding ${c.company_name}. Have 30 seconds?`,
+        notes: c.notes || '',
+        staged_sequence: stagedSeq,
+        sent_at: c.created_at,
+        updated_at: c.updated_at || c.created_at,
+      } as OutreachLead
+    })
+
+    return { data: mapped, totalAvailable: uncontacted.length, error: null }
+  } catch (err) {
+    return { data: [], totalAvailable: 0, error: (err as Error).message }
+  }
+}
+
+// ─── Mark Channel Touch Sent (Instant 1-Click Action) ─────────────────────────
+export async function markChannelTouchSent(data: {
+  company_id: string
+  channel: OutreachChannel
+  message?: string
+  handle?: string
+  observation?: string
+  notes?: string
+}) {
+  try {
+    await requireAuth()
+    const createdAt = new Date().toISOString()
+    const payload = {
+      channel: data.channel,
+      handle: data.handle || '',
+      template_used: 'gate_opener',
+      status: 'gate_opener_sent',
+      prospect_reply: '',
+      pain_point: data.observation || '',
+      call_opening_line: '',
+      notes: data.notes || '',
+      sent_message: data.message || '',
+    }
+
+    // 1. Insert activity log
+    const { data: act, error: actErr } = await supabase
+      .from('activities')
+      .insert({
+        company_id: data.company_id,
+        activity_type: getValidActivityType(data.channel),
+        title: `${CHANNEL_CONFIG[data.channel]?.label || data.channel} — Gate-Opener Sent`,
+        description: JSON.stringify(payload),
+        created_at: createdAt,
+      })
+      .select('id')
+      .single()
+
+    if (actErr) return { data: null, error: actErr.message }
+
+    // 2. Insert outreach_touches row with mapped valid channel constraint
+    const rawCh = String(data.channel).toLowerCase()
+    const validTouchChannel = rawCh.includes('email') ? 'email' : (rawCh.includes('linkedin') ? 'linkedin' : (rawCh.includes('wa') || rawCh.includes('whatsapp') ? 'whatsapp' : 'call'))
+
+    try {
+      await supabase.from('outreach_touches').insert({
+        lead_id: data.company_id,
+        channel: validTouchChannel,
+        step_number: 1,
+        message: data.message || 'Gate-opener sent',
+        status: 'sent',
+        sent_at: createdAt,
+      })
+    } catch (touchErr) {
+      console.warn("Touch insert note:", touchErr)
+    }
+
+    // 3. Update company status and touch date
+    await supabase.from('companies').update({
+      status: 'contacted',
+      updated_at: createdAt,
+    }).eq('id', data.company_id)
+
+    return { data: { activityId: act.id, companyId: data.company_id }, error: null }
   } catch (err) {
     return { data: null, error: (err as Error).message }
   }

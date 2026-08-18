@@ -10,18 +10,22 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { cn, formatWhatsAppNumber } from "@/lib/utils";
+import { cn, formatWhatsAppNumber, getCleanDisplayNotes, getCleanObservation, getCleanDraftMessage } from "@/lib/utils";
 import {
-  logOutreach, updateOutreachStatus, updateOutreachEntry, getAllLeadsForPipeline, deleteOutreachLog, bulkLogOutreach, importCSVOutreach, type MappedCSVRow
+  logOutreach, updateOutreachStatus, updateOutreachEntry, getAllLeadsForPipeline, deleteOutreachLog, bulkLogOutreach, importCSVOutreach, markChannelTouchSent, type MappedCSVRow
 } from "@/lib/actions/ig-dm";
 import { getCompanies } from "@/lib/actions/companies";
 import {
-  CHANNEL_CONFIG, STATUS_CONFIG, TEMPLATE_LABELS,
-  type OutreachChannel, type OutreachStatus, type OutreachTemplate, type OutreachLead,
+  CHANNEL_CONFIG, STATUS_CONFIG, STAGE_CONFIG, SECTOR_CONFIG, TEMPLATE_LABELS,
+  type OutreachChannel, type OutreachStatus, type OutreachStage, type SectorCategory, type OutreachTemplate, type OutreachLead,
 } from "@/lib/types/outreach";
 import { ColdCallScriptModal } from "@/components/outreach/cold-call-script-modal";
 import { DMEmailTemplateModal } from "@/components/outreach/dm-email-template-modal";
 import { ContactDetailDrawer } from "@/components/outreach/contact-detail-drawer";
+import { PowerHourModal } from "@/components/outreach/power-hour-modal";
+import { EmailComposerModal } from "@/components/outreach/email-composer-modal";
+import { CsvImport } from "@/components/ui/csv-import";
+import { bulkImportCompanies } from "@/lib/actions/import";
 import { PLAYBOOK_TEMPLATES } from "@/lib/outreach-messages-library";
 import { useUnifiedLead } from "@/context/unified-lead-context";
 
@@ -52,6 +56,16 @@ function getDaysElapsed(dateStr: string): number {
 
 // ─── Status chip styles ───────────────────────────────────────────────────────
 const STATUS_CHIP: Record<OutreachStatus, string> = {
+  gate_opener_staged: "bg-slate-100 text-slate-700 border-slate-200",
+  gate_opener_sent:   "bg-blue-50 text-blue-700 border-blue-200",
+  warm_up:            "bg-indigo-50 text-indigo-700 border-indigo-200",
+  opening_identified: "bg-amber-50 text-amber-700 border-amber-200",
+  coffee_invited:     "bg-teal-50 text-teal-700 border-teal-200",
+  meeting_booked:     "bg-pink-50 text-pink-700 border-pink-200",
+  follow_up_sent:     "bg-violet-50 text-violet-700 border-violet-200",
+  proposal_requested: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  not_now_snoozed:    "bg-gray-100 text-gray-500 border-gray-200",
+  agency_existing:    "bg-orange-50 text-orange-700 border-orange-200",
   sent:               "bg-blue-50 text-blue-700 border-blue-200",
   no_reply:           "bg-slate-100 text-slate-500 border-slate-200",
   reply_received:     "bg-indigo-50 text-indigo-700 border-indigo-200",
@@ -59,25 +73,34 @@ const STATUS_CHIP: Record<OutreachStatus, string> = {
   replied_objection:  "bg-amber-50 text-amber-700 border-amber-200",
   ready_for_call:     "bg-teal-50 text-teal-700 border-teal-200",
   called:             "bg-violet-50 text-violet-600 border-violet-200",
-  meeting_booked:     "bg-pink-50 text-pink-700 border-pink-200",
 };
 
-const CHANNEL_BG: Record<OutreachChannel, string> = {
-  instagram_dm: "bg-slate-100 border border-slate-200 text-slate-700",
-  linkedin:     "bg-slate-100 border border-slate-200 text-slate-700",
-  whatsapp:     "bg-slate-100 border border-slate-200 text-slate-700",
-  cold_call:    "bg-slate-100 border border-slate-200 text-slate-700",
-  referral:     "bg-slate-100 border border-slate-200 text-slate-700",
-  email:        "bg-slate-100 border border-slate-200 text-slate-700",
-  event:        "bg-slate-100 border border-slate-200 text-slate-700",
-  walk_in:      "bg-slate-100 border border-slate-200 text-slate-700",
-};
+const STATUSES: OutreachStatus[] = [
+  "gate_opener_staged",
+  "gate_opener_sent",
+  "warm_up",
+  "opening_identified",
+  "coffee_invited",
+  "meeting_booked",
+  "follow_up_sent",
+  "proposal_requested",
+  "not_now_snoozed",
+  "agency_existing",
+  "sent",
+  "no_reply",
+  "reply_received",
+  "replied_interested",
+  "replied_objection",
+  "ready_for_call",
+  "called"
+];
 
 const CHANNELS: OutreachChannel[] = [
-  "instagram_dm","linkedin","whatsapp","cold_call","referral","email","event","walk_in"
+  "instagram_dm","whatsapp","linkedin","cold_call","email","referral","event","walk_in"
 ];
-const STATUSES: OutreachStatus[] = [
-  "sent","no_reply","reply_received","replied_interested","replied_objection","ready_for_call","called","meeting_booked"
+
+const SECTORS: SectorCategory[] = [
+  "aesthetic_clinics", "dental_clinics", "social_commerce_dtc", "training_education", "hospitality_fnb", "general"
 ];
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -86,13 +109,20 @@ export default function OutreachPipelinePage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [channelFilter, setChannelFilter] = useState<OutreachChannel | "all">("all");
+  const [sectorFilter, setSectorFilter] = useState<SectorCategory | "all">("all");
+  const [stageFilter, setStageFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const { openLead } = useUnifiedLead();
   const [viewMode, setViewMode] = useState<"table" | "kanban">("table");
   const [logOpen, setLogOpen] = useState(false);
   const [activeCard, setActiveCard] = useState<string | null>(null);
-  const [showFollowupsTable, setShowFollowupsTable] = useState(false);
   const [drawerLead, setDrawerLead] = useState<OutreachLead | null>(null);
+
+  // Power-Hour Focus State
+  const [powerHourOpen, setPowerHourOpen] = useState(false);
+  const [powerHourChannel, setPowerHourChannel] = useState<OutreachChannel>("instagram_dm");
+  const [powerHourLeads, setPowerHourLeads] = useState<OutreachLead[]>([]);
+  const [isFreshImportOpen, setIsFreshImportOpen] = useState(false);
 
   const fetchLeads = useCallback(async (isSilent = false) => {
     if (!isSilent) setInitialLoading(true);
@@ -104,7 +134,7 @@ export default function OutreachPipelinePage() {
       window.location.href = "/login";
       return;
     }
-    setLeads(result.data || []);
+    setLeads((result.data as OutreachLead[]) || []);
     setInitialLoading(false);
   }, [dateFilter, channelFilter]);
 
@@ -114,8 +144,11 @@ export default function OutreachPipelinePage() {
     fetchLeads(true);
   }, [fetchLeads]);
 
-  // Filtered Leads by Search Query
+  // Filtered Leads by Search Query, Sector, and Stage
   const filteredLeads = leads.filter(l => {
+    if (sectorFilter !== "all" && l.sector !== sectorFilter) return false;
+    if (stageFilter !== "all" && l.stage !== stageFilter && l.status !== stageFilter) return false;
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       const matchesName = l.company_name.toLowerCase().includes(q);
@@ -128,15 +161,23 @@ export default function OutreachPipelinePage() {
     return true;
   });
 
+  const handleLaunchPowerHour = () => {
+    const ch = channelFilter === "all" ? "instagram_dm" : channelFilter;
+    const batch = filteredLeads.filter(l => l.channel === ch || channelFilter === "all").slice(0, 25);
+    setPowerHourLeads(batch.length > 0 ? batch : filteredLeads.slice(0, 25));
+    setPowerHourChannel(ch);
+    setPowerHourOpen(true);
+  };
+
   // Metrics & Lists
   const total             = leads.length;
-  const replyReceivedList = filteredLeads.filter(l => l.status === "reply_received");
-  const followupsDueList  = leads.filter(l => (l.status === "sent" || l.status === "no_reply") && getDaysElapsed(l.sent_at) >= 2);
-  const interested        = leads.filter(l => l.status === "replied_interested").length;
-  const callReady         = leads.filter(l => l.status === "ready_for_call").length;
-  const booked            = leads.filter(l => l.status === "meeting_booked").length;
+  const replyReceivedList = filteredLeads.filter(l => l.status === "reply_received" || l.stage === "warm_up");
+  const followupsDueList  = leads.filter(l => (l.status === "sent" || l.status === "no_reply" || l.stage === "gate_opener_sent") && getDaysElapsed(l.sent_at) >= 2);
+  const interested        = leads.filter(l => l.status === "replied_interested" || l.stage === "opening_identified").length;
+  const callReady         = leads.filter(l => l.status === "ready_for_call" || l.stage === "coffee_invited").length;
+  const booked            = leads.filter(l => l.status === "meeting_booked" || l.stage === "meeting_booked").length;
 
-  const callList          = filteredLeads.filter(l => l.status === "ready_for_call");
+  const callList          = filteredLeads.filter(l => l.status === "ready_for_call" || l.stage === "coffee_invited");
   const pipeList          = filteredLeads.filter(l => l.status === "sent" || l.status === "no_reply" || l.status === "replied_interested" || l.status === "replied_objection");
   const doneList          = filteredLeads.filter(l => l.status === "called" || l.status === "meeting_booked");
 
@@ -150,10 +191,10 @@ export default function OutreachPipelinePage() {
           <div>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 flex items-center gap-2">
               <Send className="h-5 w-5 text-teal-600" />
-              <span>Outreach Pipeline</span>
+              <span>Outreach Pipeline (Oman Operating System)</span>
             </h1>
             <p className="text-slate-400 text-xs mt-0.5 font-medium">
-              Log outreach, track replies & manage warm calls across channels.
+              Zero-pitch human conversation arcs, relationship-first gate-openers & multi-channel execution.
             </p>
           </div>
 
@@ -176,15 +217,30 @@ export default function OutreachPipelinePage() {
                   viewMode === "kanban" ? "bg-white text-slate-900 shadow-2xs font-extrabold" : "text-slate-500 hover:text-slate-900"
                 )}
               >
-                📊 Kanban Board
+                📊 7-Stage Kanban
               </button>
             </div>
 
             <Button
-              onClick={() => setLogOpen(true)}
-              className="bg-slate-900 hover:bg-slate-800 text-white font-bold h-9 px-4 rounded-xl text-xs cursor-pointer shadow-2xs"
+              onClick={handleLaunchPowerHour}
+              className="bg-teal-600 hover:bg-teal-700 text-white font-black h-9 px-3.5 rounded-xl text-xs cursor-pointer shadow-md flex items-center gap-1.5"
             >
-              <Plus className="h-3.5 w-3.5 mr-1" /> Log Outreach
+              <Sparkles className="h-3.5 w-3.5 text-amber-300" /> ⚡ 25-Lead Power-Hour
+            </Button>
+
+            <Button
+              onClick={() => setIsFreshImportOpen(true)}
+              variant="outline"
+              className="h-9 px-3.5 rounded-xl text-xs font-bold border-slate-300 text-slate-700 hover:bg-slate-50 cursor-pointer flex items-center gap-1.5 shadow-2xs"
+            >
+              <Upload className="h-3.5 w-3.5 text-teal-600" /> Import Fresh Leads (CSV)
+            </Button>
+
+            <Button
+              onClick={() => setLogOpen(true)}
+              className="bg-slate-900 hover:bg-slate-800 text-white font-bold h-9 px-3.5 rounded-xl text-xs cursor-pointer shadow-2xs"
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" /> Log Past Outreach
             </Button>
           </div>
         </div>
@@ -214,26 +270,59 @@ export default function OutreachPipelinePage() {
             </div>
             {followupsDueList.length > 0 && (
               <div className="flex items-center gap-1 font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
-                <span>⏰ Follow-ups:</span>
+                <span>⏰ Follow-ups (Day 3+):</span>
                 <span className="font-extrabold">{followupsDueList.length}</span>
               </div>
             )}
             <div className="flex items-center gap-1 font-bold">
-              <span className="text-slate-400 font-medium">Replies:</span>
+              <span className="text-slate-400 font-medium">Stage 2 Warm-Up:</span>
               <span className="text-indigo-700 font-extrabold">{replyReceivedList.length}</span>
             </div>
             <div className="flex items-center gap-1 font-bold">
-              <span className="text-slate-400 font-medium">Ready:</span>
+              <span className="text-slate-400 font-medium">Stage 4 Coffee:</span>
               <span className="text-teal-700 font-extrabold">{callReady}</span>
             </div>
             <div className="flex items-center gap-1 font-bold">
-              <span className="text-slate-400 font-medium">Booked:</span>
+              <span className="text-slate-400 font-medium">Stage 5 Meeting:</span>
               <span className="text-pink-700 font-extrabold">{booked}</span>
             </div>
           </div>
         </div>
 
-        {/* Row 3: Period & Channel Filter Strip */}
+        {/* Row 3: Sector Categories Filter Strip */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100">
+          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mr-1">Sector:</span>
+          <button
+            onClick={() => setSectorFilter("all")}
+            className={cn(
+              "px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer",
+              sectorFilter === "all" ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+            )}
+          >
+            All Sectors
+          </button>
+          {SECTORS.map(sec => {
+            const cfg = SECTOR_CONFIG[sec];
+            if (!cfg) return null;
+            return (
+              <button
+                key={sec}
+                onClick={() => setSectorFilter(sec)}
+                className={cn(
+                  "flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer",
+                  sectorFilter === sec
+                    ? "bg-slate-900 text-white border-slate-900"
+                    : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-white"
+                )}
+              >
+                <span>{cfg.emoji}</span>
+                <span>{cfg.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Row 4: Channel & Period Filter Strip */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
           <div className="flex gap-1 flex-wrap items-center">
             <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mr-1">Channel:</span>
@@ -487,6 +576,33 @@ export default function OutreachPipelinePage() {
           handleSilentUpdate();
         }}
       />
+
+      {/* ── Dedicated Power-Hour Focus Mode Modal ──────────────────────── */}
+      <PowerHourModal
+        isOpen={powerHourOpen}
+        onClose={() => {
+          setPowerHourOpen(false);
+          handleSilentUpdate();
+        }}
+        channel={powerHourChannel}
+        leads={powerHourLeads}
+        onLeadSent={(sentId) => {
+          setPowerHourLeads(prev => prev.filter(l => l.id !== sentId));
+          handleSilentUpdate();
+        }}
+      />
+
+      {/* ── Bulk Fresh Leads Import Modal ───────────────────────────────── */}
+      <CsvImport
+        open={isFreshImportOpen}
+        onClose={() => setIsFreshImportOpen(false)}
+        title="Import Fresh Uncontacted Leads (Bulk CSV)"
+        onImport={async (data, channel) => {
+          await bulkImportCompanies(data, channel);
+          setIsFreshImportOpen(false);
+          fetchLeads(false);
+        }}
+      />
     </div>
   );
 }
@@ -637,6 +753,7 @@ function OutreachCard({ lead, expanded, onToggle, onUpdate, compact }: { lead: O
   const [deleting, setDeleting] = useState(false);
   const [scriptModalOpen, setScriptModalOpen] = useState(false);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
 
   // Editable fields
   const [companyName, setCompanyName] = useState(lead.company_name);
@@ -757,7 +874,7 @@ function OutreachCard({ lead, expanded, onToggle, onUpdate, compact }: { lead: O
                 <button
                   key={s}
                   type="button"
-                  onClick={() => handleStatusChange(s)}
+              onClick={() => handleStatusChange(s)}
                   className={cn(
                     "text-[10px] font-extrabold px-2 py-0.5 rounded-md border transition-all cursor-pointer",
                     status === s
@@ -834,10 +951,33 @@ function OutreachCard({ lead, expanded, onToggle, onUpdate, compact }: { lead: O
                     href={`https://wa.me/${formatWhatsAppNumber(cleanHandle)}${notes ? `?text=${encodeURIComponent(notes)}` : ''}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="bg-emerald-100 text-emerald-900 text-[10px] font-bold px-2 py-1 rounded-lg"
+                    className="bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[10px] font-bold px-2 py-1 rounded-lg flex items-center gap-1"
                   >
                     WA
                   </a>
+                )}
+
+                {cleanHandle && (isIgHandle || channel === 'instagram_dm') && (
+                  <a
+                    href={`https://www.instagram.com/${cleanHandle.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^\/+/, '').replace(/\/+$/, '').replace(/^@+/, '')}/`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-pink-100 hover:bg-pink-200 text-pink-900 text-[10px] font-bold px-2 py-1 rounded-lg flex items-center gap-1"
+                  >
+                    IG
+                  </a>
+                )}
+
+                {/* Direct Email Action with Gmail & Outlook Chooser */}
+                {((cleanHandle && cleanHandle.includes('@') && !isIgHandle) || channel === 'email' || lead.email) && (
+                  <button
+                    type="button"
+                    onClick={() => setEmailModalOpen(true)}
+                    className="bg-violet-100 hover:bg-violet-200 text-violet-900 text-[10px] font-bold px-2 py-1 rounded-lg flex items-center gap-1 cursor-pointer"
+                    title="Send Direct Email (Gmail / Outlook)"
+                  >
+                    <Mail className="h-3 w-3 text-violet-700" /> Mail
+                  </button>
                 )}
 
                 <button
@@ -858,6 +998,20 @@ function OutreachCard({ lead, expanded, onToggle, onUpdate, compact }: { lead: O
             </>
           )}
         </div>
+      )}
+
+      {/* Direct Email Modal (Gmail & Outlook Chooser) */}
+      {emailModalOpen && (
+        <EmailComposerModal
+          isOpen={emailModalOpen}
+          onClose={() => setEmailModalOpen(false)}
+          email={cleanHandle.includes('@') ? cleanHandle : (lead.email || '')}
+          companyName={lead.company_name}
+          prospectName={lead.contact_name}
+          draftMessage={getCleanDraftMessage(lead)}
+          observation={getCleanObservation(lead)}
+          onSent={onUpdate}
+        />
       )}
 
       {scriptModalOpen && (

@@ -29,11 +29,8 @@ function formatInstagramUrl(handle: string | null, channel: string): string {
   if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
     return trimmed;
   }
-  const cleanHandle = trimmed.replace(/^@/, "");
-  if (channel === "instagram_dm" || trimmed.startsWith("@")) {
-    return `https://instagram.com/${cleanHandle}`;
-  }
-  return "";
+  const cleanHandle = trimmed.replace(/^@+/, "").replace(/\/+$/, "");
+  return `https://www.instagram.com/${cleanHandle}/`;
 }
 
 function escapeCSVCell(val: any): string {
@@ -66,7 +63,7 @@ export default function FollowUpsPage() {
       window.location.href = "/login";
       return;
     }
-    setOutreachLeads(outRes.data || []);
+    setOutreachLeads((outRes.data as OutreachLead[]) || []);
     setLegacyFollowups(legRes.data || []);
     setLoading(false);
   }, []);

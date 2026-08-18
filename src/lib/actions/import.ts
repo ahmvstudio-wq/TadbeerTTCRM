@@ -1,14 +1,38 @@
 'use server'
 
 import { createClient } from '@supabase/supabase-js'
-import { generateForNewProspects } from '@/lib/ai/outreach-generator'
+import { generateForNewProspects, normalizeCategory, buildDeterministicSequence } from '@/lib/ai/outreach-generator'
 import { requireAuth } from '@/lib/auth-guard'
+import { type OutreachChannel, type SectorCategory } from '@/lib/types/outreach'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const supabase = createClient(supabaseUrl, supabaseKey)
 
-export async function bulkImportCompanies(data: Record<string, string>[]) {
+function normalizeCompanyStatus(rawStatus?: string): string {
+  if (!rawStatus) return 'prospect'
+  const s = rawStatus.toLowerCase().trim()
+  if (['prospect', 'contacted', 'in_call_queue', 'meeting_booked', 'opportunity', 'won', 'lost'].includes(s)) {
+    return s
+  }
+  if (s.includes('sent') || s.includes('contact') || s.includes('warm') || s.includes('opening')) return 'contacted'
+  if (s.includes('call')) return 'in_call_queue'
+  if (s.includes('meeting') || s.includes('booked') || s.includes('coffee')) return 'meeting_booked'
+  if (s.includes('opp') || s.includes('deal') || s.includes('proposal')) return 'opportunity'
+  if (s.includes('won')) return 'won'
+  if (s.includes('lost')) return 'lost'
+  return 'prospect'
+}
+
+function formatHandleToName(handle: string): string {
+  const clean = handle.replace(/^https?:\/\/(www\.)?instagram\.com\//, '').replace(/^@/, '').replace(/\/$/, '').replace(/[_.]+/g, ' ').trim()
+  return clean.replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+export async function bulkImportCompanies(
+  data: Record<string, string>[],
+  targetChannel?: OutreachChannel | 'all'
+) {
   try {
     await requireAuth()
 
@@ -30,20 +54,113 @@ export async function bulkImportCompanies(data: Record<string, string>[]) {
       const contactInfoMap: any[] = []
 
       for (const row of chunk) {
-        const companyName = row.company_name || row.companyName || row.company || row.name
-        if (!companyName || !companyName.trim()) {
-          failed++
-          continue
+        // Extract IG handle
+        const rawIg = row.instagram_handle || row.instagram || row.ig_handle || row.ig || row.handle || row.username || ''
+        const cleanIg = rawIg ? (rawIg.startsWith('@') ? rawIg : `@${rawIg.replace(/^https?:\/\/(www\.)?instagram\.com\//, '').replace(/\/$/, '')}`) : null
+
+        // Intelligent Company Name resolution
+        let companyName = (
+          row.company_name ||
+          row.companyName ||
+          row.company ||
+          row.business_name ||
+          row.business ||
+          row.brand_name ||
+          row.brand ||
+          row.clinic_name ||
+          row.clinic ||
+          row.store_name ||
+          row.name ||
+          row.person_name ||
+          row.full_name ||
+          row.doctor_name ||
+          row.founder ||
+          ''
+        ).trim()
+
+        if (!companyName && cleanIg) {
+          companyName = formatHandleToName(cleanIg)
+        } else if (!companyName && row.phone) {
+          companyName = `Prospect (${row.phone})`
+        } else if (!companyName && row.email) {
+          companyName = row.email.split('@')[0]
         }
+
+        if (!companyName) {
+          companyName = 'Oman Prospect'
+        }
+        
+        const rawCat = row.category || row.sector || row.industry || 'general'
+        const normalizedSector = (await normalizeCategory(rawCat)) as SectorCategory
+
+        const observation = row.specific_observation || row.observation || row.research_notes || row.pain_point || row.notes || ''
+        const contactPerson = row.person_name || row.contact_name || row.full_name || row.contact || row.person || row.doctor_name || row.founder || ''
+
+        // Pre-build sequence based on user-chosen channel or auto-detection
+        let prefChannel: OutreachChannel = 'whatsapp'
+        if (targetChannel && targetChannel !== 'all') {
+          prefChannel = targetChannel
+        } else {
+          prefChannel = cleanIg ? 'instagram_dm' : (row.whatsapp || row.phone ? 'whatsapp' : 'cold_call')
+        }
+
+        const preStagedSeq = buildDeterministicSequence(
+          companyName.trim(),
+          contactPerson,
+          normalizedSector,
+          observation,
+          prefChannel,
+          row.city || 'Muscat'
+        )
+
+        // If custom touch messages were mapped in the CSV, override the defaults
+        const customTouch1 = row.touch_1_message || row.draft_message || row.first_touch || row.dm_script || row.message
+        if (customTouch1 && customTouch1.trim() && preStagedSeq.touch_1) {
+          preStagedSeq.touch_1.message = customTouch1.trim()
+        }
+
+        const customTouch2 = row.touch_2_message || row.followup_1 || row.follow_up_1 || row.followup_message
+        if (customTouch2 && customTouch2.trim() && preStagedSeq.touch_2) {
+          preStagedSeq.touch_2.message = customTouch2.trim()
+        }
+
+        const customTouch3 = row.touch_3_message || row.followup_2 || row.follow_up_2 || row.breakaway_message
+        if (customTouch3 && customTouch3.trim() && preStagedSeq.touch_3) {
+          preStagedSeq.touch_3.message = customTouch3.trim()
+        }
+
+        const customCallScript = row.cold_call_script || row.call_opener || row.call_script
+        if (customCallScript && customCallScript.trim()) {
+          if (preStagedSeq.cold_call_script) {
+            preStagedSeq.cold_call_script.opener = customCallScript.trim()
+          } else {
+            preStagedSeq.cold_call_script = {
+              opener: customCallScript.trim(),
+              context_bridge: 'We help leading businesses across Muscat optimize customer bookings and eliminate dropped inquiries.',
+              close_for_coffee: 'Can I buy you a quick 10-minute coffee in Muscat to share what we are seeing work?'
+            }
+          }
+        }
+
+        const initialStatus = row.stage || row.status || 'prospect'
 
         const companyObj: Record<string, any> = {
           company_name: companyName.trim(),
-          status: 'prospect',
+          industry: normalizedSector || row.industry || 'general',
+          status: normalizeCompanyStatus(row.status || row.stage),
+          notes: JSON.stringify({
+            category: normalizedSector,
+            instagram_handle: cleanIg,
+            specific_observation: observation || preStagedSeq.touch_1.specific_observation,
+            staged_sequence: preStagedSeq,
+            original_notes: row.notes || '',
+            target_channel: prefChannel,
+            draft_message: preStagedSeq.touch_1.message
+          }),
           created_at: now,
           updated_at: now
         }
 
-        if (row.industry) companyObj.industry = row.industry
         if (row.website) companyObj.website = row.website
         if (row.phone) companyObj.phone = row.phone
         if (row.email) companyObj.email = row.email
@@ -52,27 +169,27 @@ export async function bulkImportCompanies(data: Record<string, string>[]) {
         if (row.employee_count || row.employees) {
           companyObj.employee_count = parseInt(row.employee_count || row.employees) || null
         }
-        if (row.notes) companyObj.notes = row.notes
         if (row.linkedin_url || row.linkedin) companyObj.linkedin_url = row.linkedin_url || row.linkedin
 
         companiesToInsert.push(companyObj)
 
         // Extract contact info for matching after insertion
-        const personName = row.person_name || row.contact_name || row.full_name || row.contact || row.person
         const personTitle = row.person_title || row.title || row.job_title || row.contact_title
         const contactEmail = row.contact_email || row.person_email || row.email
         const contactPhone = row.contact_phone || row.person_phone || row.phone
-        const whatsapp = row.whatsapp || row.whatsapp_number || row.wa_number
+        const whatsapp = row.whatsapp || row.whatsapp_number || row.wa_number || row.phone
         const contactLinkedin = row.contact_linkedin || row.person_linkedin || row.linkedin
 
         contactInfoMap.push({
-          personName,
+          personName: contactPerson,
           personTitle,
           contactEmail,
           contactPhone,
           whatsapp,
           contactLinkedin,
-          companyName: companyName.trim()
+          companyName: companyName.trim(),
+          preStagedSeq,
+          channel: prefChannel,
         })
       }
 
@@ -87,7 +204,7 @@ export async function bulkImportCompanies(data: Record<string, string>[]) {
       if (companyErr || !insertedCompanies) {
         console.error('Batch company insert failed:', companyErr?.message)
         failed += companiesToInsert.length
-        continue
+        return { imported, failed, total: data.length, error: companyErr?.message }
       }
 
       // Map contacts to inserted company IDs
@@ -109,7 +226,7 @@ export async function bulkImportCompanies(data: Record<string, string>[]) {
         })
       })
 
-      // Batch Insert Contacts in 1 single HTTP request per chunk
+      // Batch Insert Contacts
       if (contactsToInsert.length > 0) {
         const { error: contactErr } = await supabase
           .from('contacts')
@@ -120,11 +237,36 @@ export async function bulkImportCompanies(data: Record<string, string>[]) {
         }
       }
 
+      // Automatically register initial staging touch in outreach_touches
+      const touchesToInsert = insertedCompanies.map((insertedComp, idx) => {
+        const info = contactInfoMap[idx] || {}
+        const seq = info.preStagedSeq
+        const rawCh = String(info.channel || 'whatsapp').toLowerCase()
+        const validChannel = rawCh.includes('email') ? 'email' : (rawCh.includes('linkedin') ? 'linkedin' : (rawCh.includes('wa') || rawCh.includes('whatsapp') ? 'whatsapp' : 'call'))
+
+        return {
+          lead_id: insertedComp.id,
+          channel: validChannel,
+          step_number: 1,
+          message: seq?.touch_1?.message || 'Warm greeting',
+          status: 'staged',
+          sent_at: now,
+        }
+      })
+
+      if (touchesToInsert.length > 0) {
+        try {
+          const { error: touchErr } = await supabase.from('outreach_touches').insert(touchesToInsert)
+          if (touchErr) {
+            console.warn("Outreach touches insert warning:", touchErr.message)
+          }
+        } catch (tErr) {
+          console.warn("Outreach touches insert skipped:", tErr)
+        }
+      }
+
       imported += insertedCompanies.length
     }
-
-    // Automatically trigger research-grounded outreach draft generation for new prospects
-    generateForNewProspects().catch((err) => console.error("Auto draft generation error post-import:", err))
 
     return { imported, failed, total: data.length }
   } catch (error) {

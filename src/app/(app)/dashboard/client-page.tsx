@@ -25,6 +25,10 @@ import { type OutreachLead } from "@/lib/types/outreach";
 import { useUnifiedLead } from "@/context/unified-lead-context";
 import { generateDailyCallBatch, getOrCreateDailyCallBatch } from "@/lib/actions/cadence";
 import { ToCallListDrawer } from "@/components/dashboard/to-call-list-drawer";
+import { PowerHourModal } from "@/components/outreach/power-hour-modal";
+import { getChannelDailyBatch } from "@/lib/actions/ig-dm";
+import { type OutreachChannel, CHANNEL_CONFIG } from "@/lib/types/outreach";
+import { Badge } from "@/components/ui/badge";
 
 // Semi-Circular Teal Speedometer Gauge for Conversion Rate
 function TealGauge({ percentage = 0 }: { percentage?: number }) {
@@ -93,13 +97,19 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
   const [meetingsList, setMeetingsList] = useState<any[]>(initialData.meetingsList);
   const [opportunitiesList, setOpportunitiesList] = useState<any[]>(initialData.opportunitiesList);
   const [linkedinProspects, setLinkedinProspects] = useState<any[]>(initialData.linkedinProspects);
-  const [outreachLeads] = useState<any[]>(initialData.outreachLeads || []);
+  const [outreachLeads, setOutreachLeads] = useState<any[]>(initialData.outreachLeads || []);
   const { openLead } = useUnifiedLead();
   const [loading, setLoading] = useState(false);
   const [generatingBatch, setGeneratingBatch] = useState(false);
   const [dailyBatchLeads, setDailyBatchLeads] = useState<any[]>([]);
   const [isToCallDrawerOpen, setIsToCallDrawerOpen] = useState(false);
   const [dailyCallBatch, setDailyCallBatch] = useState<any[]>([]);
+
+  // Multi-Channel Power-Hour State
+  const [powerHourOpen, setPowerHourOpen] = useState(false);
+  const [powerHourChannel, setPowerHourChannel] = useState<OutreachChannel>('instagram_dm');
+  const [powerHourLeads, setPowerHourLeads] = useState<OutreachLead[]>([]);
+  const [loadingChannel, setLoadingChannel] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadBatch() {
@@ -110,6 +120,24 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
     }
     loadBatch();
   }, []);
+
+  const handleLaunchChannelPowerHour = async (channel: OutreachChannel) => {
+    setLoadingChannel(channel);
+    try {
+      const res = await getChannelDailyBatch(channel, 25);
+      if (res.data && res.data.length > 0) {
+        setPowerHourLeads(res.data);
+        setPowerHourChannel(channel);
+        setPowerHourOpen(true);
+      } else {
+        alert(`No uncontacted leads currently available for ${CHANNEL_CONFIG[channel]?.label || channel}. All leads on this channel have been contacted or need new list imports!`);
+      }
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setLoadingChannel(null);
+    }
+  };
 
   const handleGenerateCallBatch = async () => {
     setGeneratingBatch(true);
@@ -271,7 +299,173 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
   return (
     <div className="min-h-screen bg-white p-3 sm:p-6 lg:p-8 space-y-5 font-sans max-w-7xl mx-auto">
       
-      {/* ── Top Row: 4 High-Density Compact KPI Cards (2 Columns on Mobile) ── */}
+      {/* ── TOP OF DASHBOARD: Dedicated To-Call List Workstation ────────────── */}
+      <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-[#0f343c] text-white rounded-3xl p-5 sm:p-6 border border-slate-800 shadow-xl space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className="h-12 w-12 rounded-2xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-amber-400 font-black text-xl shrink-0 shadow-inner">
+              📞
+            </div>
+            <div>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h2 className="text-base sm:text-lg font-black text-white tracking-tight flex items-center gap-2">
+                  Today&apos;s To-Call List
+                </h2>
+                <Badge className="bg-amber-500/20 text-amber-300 border-amber-400/30 text-[10px] font-bold">
+                  Daily 20 Limit
+                </Badge>
+                <Badge className="bg-teal-500/20 text-teal-300 border-teal-400/30 text-[10px] font-bold">
+                  Zero Contradictions
+                </Badge>
+              </div>
+              <p className="text-xs text-slate-300 mt-1">
+                Strict uncontacted phone queue with pre-staged 30-second cold call scripts & 1-click dialers.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <Button
+              onClick={() => setIsToCallDrawerOpen(true)}
+              className="bg-white/10 hover:bg-white/20 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl border border-white/15 transition cursor-pointer"
+            >
+              <Phone className="h-3.5 w-3.5 text-amber-400" />
+              Open Call List ({dailyCallBatch.length > 0 ? dailyCallBatch.length : 20})
+            </Button>
+            <Button
+              onClick={() => handleLaunchChannelPowerHour('cold_call')}
+              disabled={loadingChannel === 'cold_call'}
+              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-4 py-2.5 rounded-xl shadow-lg transition flex items-center gap-1.5 cursor-pointer"
+            >
+              {loadingChannel === 'cold_call' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5 fill-current" />}
+              Launch Cold Call 25 Batch
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── BELOW: REMAINING 4 DIGITAL OUTREACH CHANNELS (25/day Target) ───── */}
+      <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 border border-slate-800 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-black tracking-tight text-white flex items-center gap-2">
+                <Zap className="h-4 w-4 text-teal-400" /> Today&apos;s Multi-Channel Daily Targets
+              </h3>
+              <Badge className="bg-teal-500/20 text-teal-300 border-teal-400/30 text-[10px] font-bold">
+                Remaining 4 Channels (25 / Day)
+              </Badge>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Strict uncontacted queues with pre-staged sequences — zero duplicate touches or contradictions
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link href="/outreach" className="text-xs font-bold text-teal-400 hover:text-teal-300 flex items-center gap-1 transition">
+              Open Master Outreach Board <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        </div>
+
+        {/* 4 Remaining Channel Cards: Instagram, WhatsApp, LinkedIn, Email */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          
+          {/* Channel 1: Instagram DM */}
+          <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700/80 hover:border-teal-400 transition-all flex flex-col justify-between space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-xl bg-pink-500/20 border border-pink-400/30 flex items-center justify-center text-pink-400 font-bold text-sm">
+                  📸
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-white">Instagram DM</h4>
+                  <p className="text-[10px] text-slate-400">Target: 25 / day</p>
+                </div>
+              </div>
+            </div>
+            <Button
+              onClick={() => handleLaunchChannelPowerHour('instagram_dm')}
+              disabled={loadingChannel === 'instagram_dm'}
+              className="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs py-2 rounded-xl shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              {loadingChannel === 'instagram_dm' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+              Launch 25 Batch
+            </Button>
+          </div>
+
+          {/* Channel 2: WhatsApp */}
+          <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700/80 hover:border-emerald-400 transition-all flex flex-col justify-between space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400 font-bold text-sm">
+                  💬
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-white">WhatsApp</h4>
+                  <p className="text-[10px] text-slate-400">Target: 25 / day</p>
+                </div>
+              </div>
+            </div>
+            <Button
+              onClick={() => handleLaunchChannelPowerHour('whatsapp')}
+              disabled={loadingChannel === 'whatsapp'}
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-2 rounded-xl shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              {loadingChannel === 'whatsapp' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+              Launch 25 Batch
+            </Button>
+          </div>
+
+          {/* Channel 3: LinkedIn */}
+          <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700/80 hover:border-blue-400 transition-all flex flex-col justify-between space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-400 font-bold text-sm">
+                  🔗
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-white">LinkedIn Note</h4>
+                  <p className="text-[10px] text-slate-400">Target: 25 / day</p>
+                </div>
+              </div>
+            </div>
+            <Button
+              onClick={() => handleLaunchChannelPowerHour('linkedin')}
+              disabled={loadingChannel === 'linkedin'}
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs py-2 rounded-xl shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              {loadingChannel === 'linkedin' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+              Launch 25 Batch
+            </Button>
+          </div>
+
+          {/* Channel 4: Email */}
+          <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700/80 hover:border-violet-400 transition-all flex flex-col justify-between space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-xl bg-violet-500/20 border border-violet-400/30 flex items-center justify-center text-violet-400 font-bold text-sm">
+                  ✉️
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-white">Direct Email</h4>
+                  <p className="text-[10px] text-slate-400">Target: 25 / day</p>
+                </div>
+              </div>
+            </div>
+            <Button
+              onClick={() => handleLaunchChannelPowerHour('email')}
+              disabled={loadingChannel === 'email'}
+              className="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs py-2 rounded-xl shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              {loadingChannel === 'email' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+              Launch 25 Batch
+            </Button>
+          </div>
+
+        </div>
+      </div>
+
+      {/* ── 4 CORE HIGH-DENSITY COMPACT KPI CARDS ──────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
         
         {/* KPI 1: Total Prospects */}
@@ -284,7 +478,6 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
           </div>
           <div className="my-2 sm:my-3 flex items-baseline justify-between">
             <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{totalProspects}</h3>
-            {/* Sparkline Graphic */}
             <svg className="h-6 w-14 text-[#174E59]" viewBox="0 0 50 20" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M 0 15 Q 10 5, 20 12 T 40 4 L 50 8" strokeLinecap="round" />
             </svg>
@@ -292,35 +485,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
           <p className="text-[10px] sm:text-xs text-slate-400 font-medium truncate">Database CRM Records</p>
         </div>
 
-        {/* KPI 2: To Call Queue (Limited Daily 20 Call Batch) */}
-        <div 
-          onClick={() => setIsToCallDrawerOpen(true)}
-          className="bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 border border-slate-200 shadow-xs hover:shadow-md transition-all flex flex-col justify-between cursor-pointer group hover:border-[#174E59]/40"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] sm:text-xs font-bold text-slate-500 flex items-center gap-1.5 truncate group-hover:text-[#174E59]">
-              <Phone className="h-3.5 w-3.5 text-[#174E59] shrink-0" /> To Call List
-            </span>
-            <span className="text-[9px] text-amber-700 font-extrabold bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200">
-              Daily 20 Limit
-            </span>
-          </div>
-          <div className="my-2 sm:my-3 flex items-baseline justify-between">
-            <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-              {dailyCallBatch.length > 0 ? dailyCallBatch.length : 20}
-            </h3>
-            {/* Sparkline Graphic */}
-            <svg className="h-6 w-14 text-[#174E59]" viewBox="0 0 50 20" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M 0 18 Q 12 16, 25 8 T 50 2" strokeLinecap="round" />
-            </svg>
-          </div>
-          <p className="text-[10px] sm:text-xs text-[#174E59] font-extrabold truncate flex items-center justify-between">
-            <span>Daily Call Queue</span>
-            <span className="text-[9px] bg-[#174E59] text-white px-1.5 py-0.5 rounded font-mono font-bold">Open Window</span>
-          </p>
-        </div>
-
-        {/* KPI 3: Active Pipeline */}
+        {/* KPI 2: Active Pipeline */}
         <div className="bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 border border-slate-200 shadow-xs hover:shadow-md transition-all flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11px] sm:text-xs font-bold text-slate-500 flex items-center gap-1.5 truncate">
@@ -330,14 +495,14 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
           </div>
           <div className="my-2 sm:my-3 flex items-baseline justify-between">
             <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{activePipeline}</h3>
-            <svg className="h-6 w-14 text-slate-400" viewBox="0 0 50 20" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <svg className="h-6 w-14 text-blue-500" viewBox="0 0 50 20" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M 0 10 Q 15 18, 30 6 T 50 12" strokeLinecap="round" />
             </svg>
           </div>
           <p className="text-[10px] sm:text-xs text-slate-400 font-medium truncate">In Active Workflow</p>
         </div>
 
-        {/* KPI 4: Meetings Booked */}
+        {/* KPI 3: Meetings Booked */}
         <div className="bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 border border-slate-200 shadow-xs hover:shadow-md transition-all flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11px] sm:text-xs font-bold text-slate-500 flex items-center gap-1.5 truncate">
@@ -352,6 +517,25 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
             </svg>
           </div>
           <p className="text-[10px] sm:text-xs text-slate-400 font-medium truncate">Executive Meetings</p>
+        </div>
+
+        {/* KPI 4: Estimated Pipeline Value / Conversion */}
+        <div className="bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 border border-slate-200 shadow-xs hover:shadow-md transition-all flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] sm:text-xs font-bold text-slate-500 flex items-center gap-1.5 truncate">
+              <DollarSign className="h-3.5 w-3.5 text-emerald-600 shrink-0" /> Pipeline Value
+            </span>
+            <span className="text-[9px] text-emerald-800 font-extrabold bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-200">{conversionRate}% Conv</span>
+          </div>
+          <div className="my-2 sm:my-3 flex items-baseline justify-between">
+            <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              {pipelineValue > 0 ? `OMR ${(pipelineValue / 1000).toFixed(1)}k` : "OMR 0"}
+            </h3>
+            <svg className="h-6 w-14 text-emerald-600" viewBox="0 0 50 20" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M 0 18 Q 12 16, 25 8 T 50 2" strokeLinecap="round" />
+            </svg>
+          </div>
+          <p className="text-[10px] sm:text-xs text-slate-400 font-medium truncate">Estimated Deal Value</p>
         </div>
 
       </div>
@@ -684,6 +868,17 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
         onClose={() => setIsToCallDrawerOpen(false)}
         initialLeads={dailyCallBatch.length > 0 ? dailyCallBatch : callReadyLeads.slice(0, 20)}
         totalPoolCount={callReadyLeads.length}
+      />
+
+      {/* ── Dedicated Power-Hour Focus Mode Modal ──────────────────────── */}
+      <PowerHourModal
+        isOpen={powerHourOpen}
+        onClose={() => setPowerHourOpen(false)}
+        channel={powerHourChannel}
+        leads={powerHourLeads}
+        onLeadSent={(sentId) => {
+          setPowerHourLeads(prev => prev.filter(l => l.id !== sentId));
+        }}
       />
     </div>
   );

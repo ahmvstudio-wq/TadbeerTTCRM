@@ -163,9 +163,15 @@ export default function ProspectsPage() {
   useEffect(() => { fetchProspects(); }, [fetchProspects]);
   useEffect(() => { const t = setTimeout(() => fetchProspects(search, statusFilter), 300); return () => clearTimeout(t); }, [search, statusFilter, fetchProspects]);
 
-  const handleImport = async (data: Record<string, string>[]) => {
-    const result = await bulkImportCompanies(data);
-    addToast("success", `Imported ${result.imported} prospects`);
+  const handleImport = async (data: Record<string, string>[], channel?: any) => {
+    const result = await bulkImportCompanies(data, channel);
+    if (result.error) {
+      addToast("error", `Import error: ${result.error}`);
+    } else if (result.imported === 0 && result.failed > 0) {
+      addToast("error", `Failed to import ${result.failed} rows. Please check that company names are present.`);
+    } else {
+      addToast("success", `Successfully imported ${result.imported} prospects ${channel && channel !== 'all' ? `to ${channel}` : ''}!`);
+    }
     fetchProspects(search, statusFilter);
   };
 

@@ -122,3 +122,134 @@ export function formatPhoneNumberForDisplay(phone: string): string {
   }
   return `+${digits}`;
 }
+
+export interface ParsedLeadNotes {
+  category?: string;
+  instagram_handle?: string;
+  specific_observation?: string;
+  staged_sequence?: any;
+  original_notes?: string;
+  target_channel?: string;
+  draft_message?: string;
+  draft_angle_reasoning?: string;
+  phone?: string;
+  whatsapp?: string;
+  linkedin_url?: string;
+  email?: string;
+  rawText?: string;
+}
+
+export function parseLeadNotes(notes: any): ParsedLeadNotes {
+  if (!notes) return {};
+  if (typeof notes === 'object') return notes;
+  const trimmed = String(notes).trim();
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      const obj = JSON.parse(trimmed);
+      if (obj && typeof obj === 'object') return obj;
+    } catch {}
+  }
+  return { rawText: trimmed };
+}
+
+export function getCleanObservation(leadOrNotes: any): string {
+  if (!leadOrNotes) return 'No specific observation logged';
+  if (typeof leadOrNotes === 'object') {
+    if (leadOrNotes.specific_observation && typeof leadOrNotes.specific_observation === 'string' && !leadOrNotes.specific_observation.startsWith('{')) {
+      return leadOrNotes.specific_observation;
+    }
+    const parsed = parseLeadNotes(leadOrNotes.notes || leadOrNotes);
+    if (parsed.specific_observation && !parsed.specific_observation.startsWith('{')) return parsed.specific_observation;
+    if (parsed.staged_sequence?.touch_1?.specific_observation) return parsed.staged_sequence.touch_1.specific_observation;
+    if (parsed.original_notes) return parsed.original_notes;
+    if (parsed.rawText && !parsed.rawText.startsWith('{')) return parsed.rawText;
+    return 'Recent business growth & market positioning';
+  }
+  const parsed = parseLeadNotes(leadOrNotes);
+  return parsed.specific_observation || parsed.original_notes || (parsed.rawText && !parsed.rawText.startsWith('{') ? parsed.rawText : 'Recent business growth & market positioning');
+}
+
+export function getCleanDraftMessage(leadOrNotes: any): string {
+  if (!leadOrNotes) return 'Assalamu Alaikum, I came across your business today and wanted to share a quick observation.';
+  if (typeof leadOrNotes === 'object') {
+    if (leadOrNotes.draft_message && typeof leadOrNotes.draft_message === 'string' && !leadOrNotes.draft_message.startsWith('{')) {
+      return leadOrNotes.draft_message;
+    }
+    if (leadOrNotes.staged_sequence?.touch_1?.message) {
+      return leadOrNotes.staged_sequence.touch_1.message;
+    }
+    const parsed = parseLeadNotes(leadOrNotes.notes || leadOrNotes);
+    if (parsed.draft_message && !parsed.draft_message.startsWith('{')) return parsed.draft_message;
+    if (parsed.staged_sequence?.touch_1?.message) return parsed.staged_sequence.touch_1.message;
+    if (parsed.original_notes && !parsed.original_notes.startsWith('{')) return parsed.original_notes;
+    if (parsed.rawText && !parsed.rawText.startsWith('{')) return parsed.rawText;
+    return 'Assalamu Alaikum, I came across your business today and wanted to share a quick observation.';
+  }
+  const parsed = parseLeadNotes(leadOrNotes);
+  return parsed.draft_message || parsed.staged_sequence?.touch_1?.message || (parsed.rawText && !parsed.rawText.startsWith('{') ? parsed.rawText : 'Assalamu Alaikum, I came across your business today and wanted to share a quick observation.');
+}
+
+export function getCleanDisplayNotes(notes: any): string {
+  if (!notes) return '';
+  const parsed = parseLeadNotes(notes);
+  if (parsed.original_notes && parsed.original_notes.trim()) {
+    return parsed.original_notes;
+  }
+  if (parsed.rawText && !parsed.rawText.startsWith('{')) {
+    return parsed.rawText;
+  }
+  if (parsed.specific_observation && !parsed.specific_observation.startsWith('{')) {
+    return `Observation: ${parsed.specific_observation}`;
+  }
+  return '';
+}
+
+export type EmailClientType = 'gmail' | 'outlook' | 'default';
+
+export interface EmailComposeOptions {
+  client?: EmailClientType;
+  to: string;
+  subject?: string;
+  body?: string;
+  companyName?: string;
+  prospectName?: string;
+}
+
+export function createEmailComposeUrl({
+  client = 'gmail',
+  to,
+  subject,
+  body,
+  companyName,
+  prospectName,
+}: EmailComposeOptions): string {
+  const cleanTo = (to || '').trim();
+  const defSubject = subject || (companyName ? `Observation regarding ${companyName}` : 'Quick inquiry');
+  
+  let formattedBody = (body || '').trim();
+  if (prospectName && !formattedBody.toLowerCase().startsWith('hi') && !formattedBody.toLowerCase().startsWith('dear') && !formattedBody.toLowerCase().startsWith('assalamu')) {
+    formattedBody = `Hi ${prospectName},\n\n${formattedBody}`;
+  }
+
+  const encTo = encodeURIComponent(cleanTo);
+  const encSub = encodeURIComponent(defSubject);
+  const encBody = encodeURIComponent(formattedBody);
+
+  if (client === 'gmail') {
+    return `https://mail.google.com/mail/?view=cm&fs=1&to=${encTo}&su=${encSub}&body=${encBody}`;
+  } else if (client === 'outlook') {
+    return `https://outlook.office.com/mail/deeplink/compose?to=${encTo}&subject=${encSub}&body=${encBody}`;
+  } else {
+    return `mailto:${encTo}?subject=${encSub}&body=${encBody}`;
+  }
+}
+
+export function openEmailComposer(options: EmailComposeOptions) {
+  const url = createEmailComposeUrl(options);
+  if (options.client === 'default') {
+    window.location.href = url;
+  } else {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+}
+

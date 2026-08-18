@@ -50,19 +50,29 @@ export async function POST(req: NextRequest) {
       return text;
     };
 
-    // 1. Check for GROQ_API_KEY (Custom ReAct Loop to bypass Vercel SDK tool limits)
-    if (process.env.GROQ_API_KEY) {
+    // 1. Check for GEMINI_API_KEY or GROQ_API_KEY (Custom ReAct Loop to bypass Vercel SDK tool limits)
+    const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    if (geminiKey || process.env.GROQ_API_KEY) {
       const { generateText } = await import('ai');
-      const { groq } = await import('@ai-sdk/groq');
+      let chatModel;
+      
+      if (geminiKey) {
+        const { createGoogleGenerativeAI } = await import('@ai-sdk/google');
+        const google = createGoogleGenerativeAI({ apiKey: geminiKey });
+        chatModel = google('gemini-1.5-flash');
+      } else {
+        const { groq } = await import('@ai-sdk/groq');
+        chatModel = groq('llama-3.1-8b-instant');
+      }
       
       let responseContent = '';
       const executedTools: any[] = [];
       let toolResultsData: any[] = [];
 
       try {
-        // PASS 1: Ask Groq which tools to call
+        // PASS 1: Ask model which tools to call
         const toolDecisionResult = await generateText({
-          model: groq('llama-3.1-8b-instant'),
+          model: chatModel,
           system: `You are an elite AI Sales Operations Agent. You must decide which actions to take to fulfill the user's request.
 Output ONLY a raw JSON array of tool calls you want to execute. Do not output any markdown formatting, just the raw JSON.
 Example format:
@@ -130,7 +140,7 @@ Available tools:
 
         try {
           const finalResult = await generateText({
-            model: groq('llama-3.1-8b-instant'),
+            model: chatModel,
             system: TADBEER_AI_EMPLOYEE_PROMPT + (toolResultsData.length > 0 
               ? `\n\n[CRM DATA RETRIEVED]\nYou have retrieved/modified data by executing tools. Summarize the actions you took and the data found conversationally for the user. Do not output raw JSON.` 
               : ''),

@@ -50,7 +50,7 @@ export default function CallsPage() {
   const fetchCallsData = useCallback(async () => {
     setLoading(true);
     const res = await getAllLeadsForPipeline("all");
-    setOutreachLeads(res.data || []);
+    setOutreachLeads((res.data as OutreachLead[]) || []);
     setLoading(false);
   }, []);
 

@@ -18,10 +18,11 @@ import {
 } from "lucide-react";
 import { Company, Contact } from "@/lib/types/database";
 import { addCompanyActivity, updateCompany, upsertCompanyContact } from "@/lib/actions/companies";
-import { formatWhatsAppNumber, formatPhoneNumberForDisplay } from "@/lib/utils";
+import { formatWhatsAppNumber, formatPhoneNumberForDisplay, getCleanDraftMessage, getCleanObservation } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { EmailComposerModal } from "@/components/outreach/email-composer-modal";
 
 interface ContactChannelsGridProps {
   company: Company;
@@ -32,6 +33,23 @@ interface ContactChannelsGridProps {
 
 export function extractInstagramUrl(input: any): string {
   if (!input) return "";
+
+  // 0. Direct JSON check if input has notes or research_json
+  if (typeof input === "object") {
+    try {
+      if (input.instagram_handle) {
+        const clean = String(input.instagram_handle).replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^\/+/, '').replace(/\/+$/, '').replace(/^@+/, '').trim();
+        if (clean) return `https://www.instagram.com/${clean}/`;
+      }
+      if (input.notes && (input.notes.startsWith('{') || input.notes.startsWith('['))) {
+        const parsed = JSON.parse(input.notes);
+        if (parsed.instagram_handle) {
+          const clean = String(parsed.instagram_handle).replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^\/+/, '').replace(/\/+$/, '').replace(/^@+/, '').trim();
+          if (clean) return `https://www.instagram.com/${clean}/`;
+        }
+      }
+    } catch {}
+  }
 
   const textToScan = typeof input === "object"
     ? `${input.website || ""} ${input.notes || ""} ${input.pain_point || ""} ${(input.contacts || []).map((c: any) => c.notes || '').join(' ')}`
@@ -77,6 +95,7 @@ export function ContactChannelsGrid({
   const [loggingChannel, setLoggingChannel] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
 
   // Form states for contact channels modal
   const [formContactName, setFormContactName] = useState(primaryContact?.full_name || company.company_name || "");
@@ -225,8 +244,7 @@ export function ContactChannelsGrid({
       actionLabel: "Send Email",
       action: () => {
         if (email) {
-          window.location.href = `mailto:${email}`;
-          logQuickTouch("email", `Initiated email to ${email}`);
+          setEmailModalOpen(true);
         }
       }
     },
@@ -406,6 +424,20 @@ export function ContactChannelsGrid({
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Direct Email Composer with Gmail & Outlook Chooser */}
+      {email && (
+        <EmailComposerModal
+          isOpen={emailModalOpen}
+          onClose={() => setEmailModalOpen(false)}
+          email={email}
+          companyName={company.company_name}
+          prospectName={primaryContact?.full_name}
+          draftMessage={getCleanDraftMessage(company)}
+          observation={getCleanObservation(company)}
+          onSent={() => logQuickTouch("email", `Initiated email to ${email}`)}
+        />
+      )}
     </div>
   );
 }

@@ -16,7 +16,8 @@ import {
 } from "@/lib/types/outreach";
 import { ColdCallScriptModal } from "./cold-call-script-modal";
 import { DMEmailTemplateModal } from "./dm-email-template-modal";
-import { formatWhatsAppNumber, formatPhoneNumberForDisplay } from "@/lib/utils";
+import { EmailComposerModal } from "./email-composer-modal";
+import { formatWhatsAppNumber, formatPhoneNumberForDisplay, getCleanDisplayNotes, getCleanObservation, getCleanDraftMessage } from "@/lib/utils";
 
 interface ContactDetailDrawerProps {
   isOpen: boolean;
@@ -40,6 +41,7 @@ export function ContactDetailDrawer({
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
 
   // Form states
   const [companyName, setCompanyName] = useState("");
@@ -93,6 +95,7 @@ export function ContactDetailDrawer({
   };
 
   const phone = lead.phone || (lead.channel === "cold_call" || lead.channel === "whatsapp" ? lead.handle : null);
+  const email = lead.email || (lead.handle && lead.handle.includes('@') && !lead.handle.startsWith('@') ? lead.handle : null);
   const waDigits = phone ? formatWhatsAppNumber(phone) : "";
   const waUrl = waDigits ? `https://wa.me/${waDigits}` : null;
   const displayPhone = phone ? formatPhoneNumberForDisplay(phone) : null;
@@ -205,6 +208,16 @@ export function ContactDetailDrawer({
                   <span>WhatsApp Chat</span>
                 </a>
               )}
+              {email && (
+                <button
+                  type="button"
+                  onClick={() => setEmailModalOpen(true)}
+                  className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-slate-200/90 text-violet-900 font-bold hover:border-violet-300 transition-all cursor-pointer"
+                >
+                  <Mail className="h-4 w-4 text-violet-600" />
+                  <span>Send Email (Gmail/Outlook)</span>
+                </button>
+              )}
               {lead.handle && (
                 <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-slate-200/90 text-slate-800 font-semibold truncate">
                   <Send className="h-3.5 w-3.5 text-teal-600" />
@@ -244,38 +257,48 @@ export function ContactDetailDrawer({
               </div>
             )}
 
-            {lead.pain_point && (
-              <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3">
-                <span className="text-[9px] font-black text-amber-700 uppercase tracking-wider block mb-0.5">💡 Identified Pain Point</span>
-                <span className="text-amber-950 font-bold text-xs">{lead.pain_point}</span>
-              </div>
-            )}
+            {/* Specific Observation */}
+            {(() => {
+              const cleanObs = getCleanObservation(lead);
+              if (!cleanObs || cleanObs.includes('{')) return null;
+              return (
+                <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3">
+                  <span className="text-[9px] font-black text-amber-700 uppercase tracking-wider block mb-0.5">✨ Pre-Researched Observation</span>
+                  <span className="text-amber-950 font-bold text-xs">{cleanObs}</span>
+                </div>
+              );
+            })()}
+
+            {/* Staged Warm Opener Message */}
+            {(() => {
+              const cleanMsg = getCleanDraftMessage(lead);
+              if (!cleanMsg || cleanMsg.includes('{')) return null;
+              return (
+                <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3">
+                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider block mb-0.5">📨 Staged Gate-Opener Message</span>
+                  <p className="text-slate-800 font-medium text-xs italic leading-relaxed">&ldquo;{cleanMsg}&rdquo;</p>
+                </div>
+              );
+            })()}
 
             {lead.call_opening_line && (
               <div className="bg-teal-50/70 border border-teal-200 rounded-xl p-3">
-                <span className="text-[9px] font-black text-teal-800 uppercase tracking-wider block mb-0.5">📞 Customized Opening Line for Dr.</span>
-                <span className="text-teal-950 font-bold text-xs leading-relaxed">"{lead.call_opening_line}"</span>
+                <span className="text-[9px] font-black text-teal-800 uppercase tracking-wider block mb-0.5">📞 Cold Call Script Opener</span>
+                <span className="text-teal-950 font-bold text-xs leading-relaxed">&ldquo;{lead.call_opening_line}&rdquo;</span>
               </div>
             )}
 
-            {lead.notes && (
-              <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-0.5">📝 Logged Notes</span>
-                <span className="text-slate-800 font-medium text-xs">{lead.notes}</span>
-              </div>
-            )}
-
-            {!lead.prospect_reply && !lead.pain_point && !lead.notes && (
-              <div className="p-3 rounded-xl bg-amber-50/90 border border-amber-200 text-amber-900 text-xs font-medium space-y-1">
-                <div className="flex items-center gap-1.5 font-extrabold text-amber-950">
-                  <AlertTriangle className="h-3.5 w-3.5 text-amber-700 shrink-0" />
-                  <span>Limited Research Details Available</span>
+            {/* Clean Notes */}
+            {(() => {
+              const cleanNotes = getCleanDisplayNotes(lead.notes);
+              if (!cleanNotes || cleanNotes === getCleanObservation(lead)) return null;
+              return (
+                <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-0.5">📝 Logged Notes</span>
+                  <span className="text-slate-800 font-medium text-xs">{cleanNotes}</span>
                 </div>
-                <p className="text-[11px] leading-snug text-amber-900/90">
-                  There is currently not a lot of research details on this company due to lack of initial inputs.
-                </p>
-              </div>
-            )}
+              );
+            })()}
           </div>
 
           {/* Section 4: Edit Form Mode */}
@@ -352,6 +375,17 @@ export function ContactDetailDrawer({
             handle: lead.handle,
           }}
           onClose={() => setTemplateModalOpen(false)}
+        />
+      )}
+      {emailModalOpen && (
+        <EmailComposerModal
+          isOpen={emailModalOpen}
+          onClose={() => setEmailModalOpen(false)}
+          email={email || ""}
+          companyName={lead.company_name}
+          prospectName={lead.contact_name}
+          draftMessage={getCleanDraftMessage(lead)}
+          observation={getCleanObservation(lead)}
         />
       )}
     </div>

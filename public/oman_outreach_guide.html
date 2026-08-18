@@ -1,0 +1,1558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTT Outreach Operating System V9</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #184F5B;
+            --primary-light: #236C7C;
+            --primary-dark: #0F353D;
+            --secondary: #CAA94C;
+            --secondary-light: #DFBE65;
+            --bg: #FAF9F6;
+            --card-bg: #FFFFFF;
+            --text-main: #1C1B17;
+            --text-muted: #6A6A68;
+            --border: #E8E6E0;
+            --instagram: #E1306C;
+            --linkedin: #0A66C2;
+            --whatsapp: #25D366;
+            --real-estate: #7C3AED;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            line-height: 1.6;
+            padding-bottom: 80px;
+        }
+
+        .top-accent {
+            width: 100%;
+            height: 8px;
+            background: linear-gradient(90deg, var(--primary) 0%, var(--secondary) 50%, var(--primary) 100%);
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 24px 20px 32px 20px;
+            border-bottom: 3px solid var(--secondary);
+            border-radius: 0 0 20px 20px;
+            box-shadow: 0 10px 30px rgba(24, 79, 91, 0.12);
+        }
+
+        .header-content {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .brand-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .brand-title {
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 2px;
+            color: var(--secondary);
+            text-transform: uppercase;
+        }
+
+        .version-badge {
+            background: rgba(202, 169, 76, 0.15);
+            border: 1px solid var(--secondary);
+            color: var(--secondary-light);
+            padding: 4px 12px;
+            border-radius: 50px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 28px;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 8px;
+            color: #FFFFFF;
+        }
+
+        .header-desc {
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 14px;
+            max-width: 750px;
+        }
+
+        .main-nav {
+            display: flex;
+            background: var(--card-bg);
+            border-bottom: 1.5px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .main-nav::-webkit-scrollbar {
+            display: none;
+        }
+
+        .nav-tab {
+            flex: 1;
+            min-width: 120px;
+            text-align: center;
+            padding: 16px 8px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-muted);
+            border: none;
+            background: none;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .nav-tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px 16px;
+        }
+
+        .section-view {
+            display: none;
+        }
+
+        .section-view.active {
+            display: block;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1.5px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+        }
+
+        .card-header {
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+        }
+
+        .mindset-lead {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 18px;
+            color: var(--primary);
+            font-style: italic;
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+
+        .pace-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            margin: 16px 0;
+        }
+
+        @media (min-width: 600px) {
+            .pace-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .pace-card {
+            background: #F4F6F6;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .pace-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 700;
+            font-size: 13px;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+
+        .pace-badge {
+            background: var(--primary);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .pace-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .pills-scroll {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+            margin-bottom: 16px;
+            scrollbar-width: none;
+        }
+
+        .pills-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        .pill-btn {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 8px 16px;
+            border-radius: 50px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+
+        .pill-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .channel-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .channel-btn {
+            background: var(--card-bg);
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 6px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-muted);
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .channel-btn.ig.active { background: var(--instagram); color: white; border-color: var(--instagram); }
+        .channel-btn.li.active { background: var(--linkedin); color: white; border-color: var(--linkedin); }
+        .channel-btn.wa.active { background: var(--whatsapp); color: white; border-color: var(--whatsapp); }
+
+        .flow-navigator {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            background: #EAECE7;
+            padding: 4px;
+            border-radius: 10px;
+            margin-bottom: 16px;
+        }
+
+        .flow-btn {
+            background: none;
+            border: none;
+            padding: 8px 4px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .flow-btn.active {
+            background: var(--card-bg);
+            color: var(--primary);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+
+        .template-viewer {
+            background: #F4F6F6;
+            border-left: 4px solid var(--primary);
+            padding: 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            margin-bottom: 16px;
+            position: relative;
+            color: var(--text-main);
+            font-weight: 500;
+        }
+
+        .template-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .primary-action-btn {
+            flex: 1;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .sec-action-btn {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            color: var(--primary);
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .variable-panel {
+            background: #FFFDF9;
+            border: 1px solid #FFE8B8;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 12px;
+            margin-bottom: 16px;
+            color: #7A5C13;
+        }
+
+        .collapsible-header {
+            background: #F4F6F6;
+            padding: 14px 20px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 13px;
+            color: var(--primary);
+            margin-bottom: 12px;
+            border: 1px solid var(--border);
+            transition: background 0.2s ease;
+        }
+
+        .collapsible-header:hover {
+            background: #EAECE7;
+        }
+
+        .collapsible-content {
+            display: none;
+            padding: 16px 20px;
+            border: 1px solid var(--border);
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            margin-top: -16px;
+            margin-bottom: 16px;
+            background: #FFFFFF;
+        }
+
+        .revenue-tab-box {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            margin-bottom: 16px;
+        }
+
+        .journey-stepper {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .journey-node {
+            display: flex;
+            gap: 16px;
+            position: relative;
+        }
+
+        .journey-node::after {
+            content: '';
+            position: absolute;
+            left: 20px;
+            top: 40px;
+            bottom: -20px;
+            width: 2px;
+            background: var(--border);
+            z-index: 1;
+        }
+
+        .journey-node:last-child::after {
+            display: none;
+        }
+
+        .journey-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 12px;
+            z-index: 2;
+            flex-shrink: 0;
+            border: 2px solid var(--secondary);
+        }
+
+        .journey-content {
+            background: #F4F6F6;
+            border-radius: 12px;
+            padding: 14px;
+            flex-grow: 1;
+            border: 1px solid var(--border);
+        }
+
+        .journey-title {
+            font-size: 14px;
+            font-weight: 800;
+            color: var(--primary);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .journey-details {
+            font-size: 13px;
+            color: var(--text-main);
+        }
+
+        .handling-card {
+            border-left: 4px solid var(--secondary);
+            padding-left: 14px;
+            margin-bottom: 20px;
+        }
+
+        .handling-scenario {
+            font-size: 14px;
+            font-weight: 800;
+            color: var(--primary);
+            margin-bottom: 6px;
+        }
+
+        .handling-script {
+            background: #FAF9F6;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-style: italic;
+            color: #333333;
+            margin-bottom: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .task-item {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            font-size: 13px;
+            padding: 8px 0;
+            border-bottom: 1px solid #FAF9F6;
+        }
+
+        .task-item input[type="checkbox"] {
+            margin-top: 4px;
+            width: 16px;
+            height: 16px;
+            accent-color: var(--primary);
+        }
+
+        .toast-notify {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #333333;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-size: 13px;
+            font-weight: 700;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.25);
+            z-index: 1000;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .toast-notify.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .channel-profile-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        @media (min-width: 600px) {
+            .channel-profile-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .channel-profile-card {
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            background: var(--card-bg);
+        }
+
+        .channel-profile-title {
+            font-size: 14px;
+            font-weight: 800;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .channel-profile-title.ig { color: var(--instagram); }
+        .channel-profile-title.li { color: var(--linkedin); }
+        .channel-profile-title.wa { color: var(--whatsapp); }
+
+        .channel-profile-meta {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .channel-profile-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .step-scroll {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+            margin-bottom: 16px;
+            scrollbar-width: none;
+        }
+
+        .step-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        .matrix-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+        
+        .matrix-badge.ready { background: #E8F5E9; color: #2E7D32; }
+        .matrix-badge.scoped { background: #FFF3E0; color: #E65100; }
+        .matrix-badge.partner { background: #FFEBEE; color: #C62828; }
+
+        .pb-section {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+        }
+        .pb-section:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+            margin-bottom: 0;
+        }
+        .pb-heading {
+            font-size: 12px;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: var(--secondary);
+            margin-bottom: 6px;
+            letter-spacing: 1px;
+        }
+        .pb-body {
+            font-size: 14px;
+            color: var(--text-main);
+            line-height: 1.6;
+        }
+        .pb-bullets {
+            list-style: none;
+            margin-top: 8px;
+        }
+        .pb-bullets li {
+            position: relative;
+            padding-left: 20px;
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: var(--text-main);
+        }
+        .pb-bullets li::before {
+            content: "•";
+            color: var(--primary);
+            font-weight: bold;
+            font-size: 18px;
+            position: absolute;
+            left: 5px;
+            top: -2px;
+        }
+
+        /* Rationale blocks */
+        .rationale-panel {
+            background: #FFFDF9;
+            border-left: 4px solid var(--secondary);
+            padding: 12px 16px;
+            border-radius: 0 8px 8px 0;
+            font-size: 12.5px;
+            color: #7A5C13;
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+        .rationale-header {
+            font-weight: 800;
+            text-transform: uppercase;
+            font-size: 10px;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="top-accent"></div>
+
+    <header>
+        <div class="header-content">
+            <div class="brand-row">
+                <div class="brand-title">Tadbeer Transformations</div>
+                <div class="version-badge">OS V9 OPERATIONAL HUB</div>
+            </div>
+            <h1>TTT Outreach Operating System</h1>
+            <div class="header-desc">Non-linear customer acquisition system. Multi-channel mapping across Instagram, LinkedIn, and WhatsApp. Verified Omani B2B research integrated contextually throughout.</div>
+        </div>
+    </header>
+
+    <nav class="main-nav">
+        <button class="nav-tab active" onclick="switchSection('mindset')">Mindset & Channels</button>
+        <button class="nav-tab" onclick="switchSection('playgrounds')">Outreach Engine</button>
+        <button class="nav-tab" onclick="switchSection('playbooks')">Playbooks</button>
+        <button class="nav-tab" onclick="switchSection('revenue')">Conv → Revenue</button>
+        <button class="nav-tab" onclick="switchSection('positioning')">Capabilities</button>
+        <button class="nav-tab" onclick="switchSection('rhythm')">Daily planner</button>
+    </nav>
+
+    <div class="container">
+        
+        <!-- SECTION 1: MINDSET & CHANNELS -->
+        <section id="mindset" class="section-view active">
+            <div class="card">
+                <div class="card-header">📍 Flexible Pace & Target Channels</div>
+                <p class="mindset-lead">Outreach rules depend entirely on the target channel.</p>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+                    We do not use a single flow for all prospects. Different verticals require distinct channel behaviors and response pathways:
+                </p>
+
+                <div class="channel-profile-grid">
+                    <div class="channel-profile-card">
+                        <div class="channel-profile-title ig">
+                            <span>📸</span> Instagram
+                        </div>
+                        <div class="channel-profile-meta">Target: DTC, Aesthetics, Real Estate</div>
+                        <div class="channel-profile-desc">Short, visual observations. Fast, informal replies. High likelihood of direct conversion to discovery calls in DMs.</div>
+                    </div>
+
+                    <div class="channel-profile-card">
+                        <div class="channel-profile-title li">
+                            <span>💼</span> LinkedIn
+                        </div>
+                        <div class="channel-profile-meta">Target: Training, Hospitality, Real Estate</div>
+                        <div class="channel-profile-desc">Structured, B2B-focused. Longer observation threshold. Emphasizes operational optimization and lead qualification benchmarks.</div>
+                    </div>
+
+                    <div class="channel-profile-card">
+                        <div class="channel-profile-title wa">
+                            <span>💬</span> WhatsApp
+                        </div>
+                        <div class="channel-profile-meta">Target: Dental, Hospitality, Real Estate</div>
+                        <div class="channel-profile-desc">Concise, direct, highly personal. Move to WhatsApp to coordinate meeting locations or follow up on previous audits.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">📨 Opener Rule: Specific Observation > Praise</div>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+                    Standard flattery ("your profile looks beautiful") is ignored. Instead, open with a **low-friction observation** of a specific element that shows you did your research:
+                </p>
+                <div class="comparison-grid">
+                    <div class="comp-box bad">
+                        <div class="comp-title">❌ Generic Praise (Sells Nothing)</div>
+                        "The packaging details look very polished on your feed."<br>
+                        "The room layout looks clean on your maps profile."
+                    </div>
+                    <div class="comp-box good">
+                        <div class="comp-title">✅ Specific Observation</div>
+                        "The typography detailing on your [product/bean] packaging matches the premium positioning well."<br>
+                        "I noticed the [treatment name] transformation cases you posted yesterday show exceptionally natural skin textures."
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: INTERACTIVE OUTREACH ENGINE -->
+        <section id="playgrounds" class="section-view">
+            <div class="card">
+                <div class="card-header">⚡ Channel-Specific Template Generator</div>
+                
+                <span class="detail-label">1. Choose Outreach Channel</span>
+                <div class="channel-grid">
+                    <button class="channel-btn ig active" onclick="setPlayChannel('instagram')">Instagram DM</button>
+                    <button class="channel-btn li" onclick="setPlayChannel('linkedin')">LinkedIn InMail</button>
+                    <button class="channel-btn wa" onclick="setPlayChannel('whatsapp')">WhatsApp Direct</button>
+                </div>
+
+                <span class="detail-label">2. Target Vertical</span>
+                <div class="pills-scroll" id="play-cat-pills">
+                    <!-- Loaded dynamically -->
+                </div>
+
+                <span class="detail-label">3. Target Subsegment</span>
+                <div class="pills-scroll" id="play-sub-pills">
+                    <!-- Loaded dynamically -->
+                </div>
+
+                <span class="detail-label">4. Sequence Step</span>
+                <div class="step-scroll" id="play-step-pills">
+                    <!-- Loaded dynamically -->
+                </div>
+
+                <div class="variable-panel">
+                    💡 <strong>Observation Directive:</strong> Populate all bracketed fields (e.g., <code>[observed_signal]</code>, <code>[competitor]</code>) with real observed details prior to sending.
+                </div>
+
+                <div class="template-viewer" id="play-template-content">
+                    Select a channel and category to generate template.
+                </div>
+
+                <!-- Dynamic contextual research rationale -->
+                <div class="rationale-panel" id="play-rationale-box">
+                    <div class="rationale-header">🔍 Research Rationale</div>
+                    <div id="play-rationale-text">Why this works: Omani business owners expect relationship building before selling.</div>
+                </div>
+
+                <div class="template-controls">
+                    <button class="primary-action-btn" onclick="copyPlayTemplate()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        Copy Template
+                    </button>
+                    <button class="sec-action-btn" onclick="nextPlayVariant()">Next Variant</button>
+                </div>
+            </div>
+
+            <!-- Dynamic Branching Scenarios Card -->
+            <div class="card">
+                <div class="card-header">🔀 Dynamic Branching Scenarios</div>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+                    Outreach is not linear. Select a scenario based on how the prospect responds:
+                </p>
+
+                <div class="pills-scroll">
+                    <button class="pill-btn active scenario-nav-btn" onclick="showScenario('no_reply')">Prospect read, no reply</button>
+                    <button class="pill-btn scenario-nav-btn" onclick="showScenario('thumbs_up')">Replies with emoji / thumbs-up</button>
+                    <button class="pill-btn scenario-nav-btn" onclick="showScenario('price_inquiry')">Asks: "How much?" / "Send info"</button>
+                </div>
+
+                <div class="branch-flow" id="scenario-target">
+                    <!-- Loaded dynamically -->
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: PLAYBOOKS EXPLORER -->
+        <section id="playbooks" class="section-view">
+            <div class="pills-scroll">
+                <button class="pill-btn active pb-nav-btn" onclick="showPlaybook('aesthetic')">Aesthetic Clinics</button>
+                <button class="pill-btn pb-nav-btn" onclick="showPlaybook('dental')">Dental Clinics</button>
+                <button class="pill-btn pb-nav-btn" onclick="showPlaybook('dtc_brand')">DTC Brands</button>
+                <button class="pill-btn pb-nav-btn" onclick="showPlaybook('education')">Education</button>
+                <button class="pill-btn pb-nav-btn" onclick="showPlaybook('hospitality')">Hospitality/F&B</button>
+                <button class="pill-btn pb-nav-btn" onclick="showPlaybook('real_estate')">Real Estate</button>
+            </div>
+
+            <div id="playbook-viewer-target">
+                <!-- Dynamically filled by javascript -->
+            </div>
+        </section>
+
+        <!-- SECTION 4: CONVERSATION TO REVENUE -->
+        <section id="revenue" class="section-view">
+            <div class="card">
+                <div class="card-header">📊 Conversion to Revenue Journey</div>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+                    Select a category to view the custom, end-to-end customer journey from initial reply down to account close & expansion.
+                </p>
+
+                <div class="revenue-tab-box">
+                    <button class="pill-btn active rev-btn" onclick="showRevenueJourney('aesthetic')">Aesthetic</button>
+                    <button class="pill-btn rev-btn" onclick="showRevenueJourney('dental')">Dental</button>
+                    <button class="pill-btn rev-btn" onclick="showRevenueJourney('dtc')">DTC & Brands</button>
+                    <button class="pill-btn rev-btn" onclick="showRevenueJourney('education')">Training/Edu</button>
+                    <button class="pill-btn rev-btn" onclick="showRevenueJourney('hospitality')">Hospitality/F&B</button>
+                    <button class="pill-btn rev-btn" onclick="showRevenueJourney('real_estate')">Real Estate</button>
+                </div>
+
+                <div class="journey-stepper" id="journey-target">
+                    <!-- Dynamically rendered -->
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 5: CAPABILITIES & HANDLING -->
+        <section id="positioning" class="section-view">
+            <div class="card">
+                <div class="card-header">🤝 Handling Responses (The Oman Scriptbook)</div>
+                
+                <div class="handling-card">
+                    <div class="handling-scenario">How to handle: "How much is this?"</div>
+                    <div class="handling-script">"It depends on what makes sense for your business. Some of our clients work with us on a monthly marketing and systems retainer. Others prefer a project-based approach where we build something specific and hand it over. I'd rather understand your situation properly before throwing out a number — can we sit down and figure out what would actually move the needle for you?"</div>
+                    <p style="font-size: 11px; color: var(--text-muted);">Rule: Never quote prices in chat. The pricing conversation happens face-to-face.</p>
+                </div>
+
+                <div class="handling-card">
+                    <div class="handling-scenario">How to handle: "Not interested."</div>
+                    <div class="handling-script">"Completely understood. If anything changes or if you'd like a second opinion on anything in the future, I'm always around. Wishing you and the team continued success."</div>
+                    <p style="font-size: 11px; color: var(--text-muted);">Rule: Respect it immediately. Do not push. Revisit in 60-90 days with fresh value.</p>
+                </div>
+
+                <div class="handling-card">
+                    <div class="handling-scenario">How to handle: "We already work with an agency."</div>
+                    <div class="handling-script">"That's great — having someone handling that is important. I'm not suggesting replacing anyone. I'm more curious about whether you're seeing the results you're hoping for in terms of actual booked appointments coming through. If things are working well, that's brilliant. If there are gaps, happy to share some thoughts."</div>
+                    <p style="font-size: 11px; color: var(--text-muted);">Rule: Don't badmouth competitors. Shift focus to conversion/business results.</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">📊 TTT Capability Alignment Matrix</div>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Be transparent about what we do. Trust is built on clear boundaries.</p>
+
+                <div style="display: flex; flex-direction: column; gap: 14px;">
+                    <div>
+                        <span class="matrix-badge ready">Immediately Deliverable</span>
+                        <div style="font-size: 13px; font-weight: 700; color: var(--primary);">Digital Marketing & Local Visibility</div>
+                        <p style="font-size: 12px; color: var(--text-muted);">Meta/Google campaigns, Google Business Profile SEO, Lead Generation websites, basic CRM setups, standard WhatsApp Business routes.</p>
+                    </div>
+                    
+                    <div style="border-top: 1px solid var(--border); padding-top: 10px;">
+                        <span class="matrix-badge scoped">Project Scoped Build</span>
+                        <div style="font-size: 13px; font-weight: 700; color: var(--primary);">Custom Systems & Custom Bots</div>
+                        <p style="font-size: 12px; color: var(--text-muted);">Custom WhatsApp conversational agents, Direct booking workflows, Local payment checkouts (Thawani integration), automated internal database templates.</p>
+                    </div>
+
+                    <div style="border-top: 1px solid var(--border); padding-top: 10px;">
+                        <span class="matrix-badge partner">Requires External Partners</span>
+                        <div style="font-size: 13px; font-weight: 700; color: var(--primary);">Integrations & Infrastructure</div>
+                        <p style="font-size: 12px; color: var(--text-muted);">Direct courier delivery integrations (Asyad Express), Phase 2 fiscal e-invoicing (Fawtara compliance), complex hospital EMR system syncs.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 6: DAILY PLANNER -->
+        <section id="rhythm" class="section-view">
+            <div class="card">
+                <div class="card-header">⏰ Interactive Daily Planner</div>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Keep a structured daily loop to ensure consistent progress in Muscat's timezone.</p>
+
+                <div class="task-list">
+                    <div class="task-item">
+                        <input type="checkbox">
+                        <div>
+                            <strong>09:00 - 11:00 | Research & Preparation</strong>
+                            <p style="color: var(--text-muted); font-size: 12px; margin-top: 2px;">Find 5-8 new local prospects. Study their social layout, Maps status, and website. Note one specific detail for opening messages.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="task-item">
+                        <input type="checkbox">
+                        <div>
+                            <strong>11:00 - 13:00 | Outreach & Chats</strong>
+                            <p style="color: var(--text-muted); font-size: 12px; margin-top: 2px;">Send low-friction opening statements. Check WhatsApp and Instagram DMs for responses. Follow up on warm leads.</p>
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox">
+                        <div>
+                            <strong>15:00 - 17:00 | Meetings & Coffee / Calls</strong>
+                            <p style="color: var(--text-muted); font-size: 12px; margin-top: 2px;">In-person meetings or online calls. Follow up on yesterday's connections with a useful resource or screenshot comparison.</p>
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox">
+                        <div>
+                            <strong>19:00 - 21:00 | Social Interaction</strong>
+                            <p style="color: var(--text-muted); font-size: 12px; margin-top: 2px;">Engage with prospect profiles. Post genuine, specific comments on active targets. Send openers to boutique owners online.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <div class="toast-notify" id="notify-box">Template Copied!</div>
+
+    <script>
+        // Database
+        const database = {
+            channels: {
+                instagram: {
+                    label: "Instagram DM",
+                    categories: {
+                        aesthetic: {
+                            label: "Aesthetic",
+                            subs: {
+                                'Aesthetic Clinic': {
+                                    1: ["Dr. [Name], the before/after skin textures on the [treatment] cases you posted yesterday look exceptionally natural."],
+                                    2: ["I appreciate that. It's always interesting to see how clinical transformations are shared in Oman. Many profiles struggle to present them clearly."],
+                                    3: ["We help clinics in Muscat optimize their pipelines. Most practices have excellent cosmetic work but lose patient inquiries because DMs get backed up at the reception desk."],
+                                    4: ["I have a visual diagram of the automated patient booking workflows we use. Let's catch up for a coffee in Qurum next week to discuss."]
+                                }
+                            }
+                        },
+                        dtc: {
+                            label: "DTC & Brands",
+                            subs: {
+                                'Fashion & Abayas': {
+                                    1: ["Just saw your collection launch reel, the cuff embroidery stitch detailing is very distinct."],
+                                    2: ["It's striking. Most local abaya profiles use basic formats, but your detailing stands out."],
+                                    3: ["We build checkout workflows for designers. The most common bottleneck abaya brands tell us is managing sizing options and manual bank screenshots in DMs during high-traffic drop nights."],
+                                    4: ["I can show you a quick checkout flow we set up for local brands. Let's hop on a call or grab a coffee next Tuesday."]
+                                },
+                                'Specialty Coffee': {
+                                    1: ["Tried your single-origin roast last weekend, really clean flavor profile."],
+                                    2: ["It was genuinely good. Specialty coffee brands in Muscat are growing fast, but your identity feels very focused."],
+                                    3: ["We build direct subscription routes. The primary challenge roasters share with us is managing recurring corporate and home orders manually on WhatsApp."],
+                                    4: ["Let's connect for a brief coffee or call next week. I can show you how we build direct subscription paths."]
+                                }
+                            }
+                        },
+                        real_estate: {
+                            label: "Real Estate",
+                            subs: {
+                                'Boutique Broker': {
+                                    1: ["I noticed the [property name] listing details you uploaded this morning. The floorplan layouts match the Al Mouj waterfront sector guidelines well."],
+                                    2: ["Exactly. Visual layouts are key for high-net-worth buyers in Muscat. Providing clear details is much better than simple 'call us' flyers."],
+                                    3: ["We help brokers build premium search paths. A lot of agencies get flooded with unqualified WhatsApp pricing requests, which delays responses to serious villa buyers."],
+                                    4: ["Let's connect on a brief Zoom next Tuesday. I can show you how we filter and pre-qualify high-end listing leads."]
+                                }
+                            }
+                        }
+                    }
+                },
+                linkedin: {
+                    label: "LinkedIn InMail",
+                    categories: {
+                        training: {
+                            label: "Training/Edu",
+                            subs: {
+                                'Vocational Training': {
+                                    1: ["I saw your institute's announcement for the upcoming corporate certification training in Muscat. The PMP syllabus layout looks structured."],
+                                    2: ["It's valuable. Most training centers just post basic lists, but your certification details look well-organized."],
+                                    3: ["We optimize academy enrollments. The main problem centers tell us is the last-week rush to fill seats because ad inquiries aren't followed up fast enough via CRM routes."],
+                                    4: ["I can show you the PMP/NEBOSH enrollment pipelines we structured. Let's connect for a call this Thursday."]
+                                },
+                                'Study-Abroad Agency': {
+                                    1: ["I saw your guide details on the UK visa application process. The university placement testimonials you posted this week show a solid success rate."],
+                                    2: ["It's helpful. Navigating visa steps is stressful, so clear visual guides make a big difference for families."],
+                                    3: ["We optimize university pipelines. Consultancies tell us they lose track of applicant transcripts when managing 50+ chat conversations across multiple advisors' phones."],
+                                    4: ["I'd love to show you the student pipeline CRM we use. Free for a brief call next Tuesday?"]
+                                }
+                            }
+                        },
+                        hospitality: {
+                            label: "Hospitality/F&B",
+                            subs: {
+                                'Boutique Resort': {
+                                    1: ["The terrace view from your pool villas in [location] looks spectacular. The heritage restoration details of your mountain property look highly authentic."],
+                                    2: ["It's striking. Independent resorts in Oman have unique heritage value, and your visual layout reflects it well."],
+                                    3: ["We build direct booking routes. A major challenge boutique properties share is surrendering hefty commissions to OTAs because their own booking site has too much friction."],
+                                    4: ["I'd love to share the direct-booking flow design we use. Let's catch up for coffee next time I'm on property."]
+                                }
+                            }
+                        },
+                        real_estate: {
+                            label: "Real Estate",
+                            subs: {
+                                'Boutique Broker': {
+                                    1: ["I reviewed your agency's recent listing profile for the premium villas in [location]. The specific floorplan designs match Shatti's upscale market demands well."],
+                                    2: ["It is a high-value listing. Premium buyers in Muscat look for detailed, verified specs rather than simple sales hype."],
+                                    3: ["We help agencies organize lead distribution. Typically, brokerages lose premium buyers when the team takes 24 hours to email complete property brochures."],
+                                    4: ["I can show you how we build automated brochure delivery paths. Free for a call this Thursday?"]
+                                }
+                            }
+                        }
+                    }
+                },
+                whatsapp: {
+                    label: "WhatsApp Direct",
+                    categories: {
+                        dental: {
+                            label: "Dental",
+                            subs: {
+                                'Dental Practice': {
+                                    1: ["Dr. [Name], the veneer case cosmetic alignment you uploaded this morning shows very precise margins."],
+                                    2: ["It's valuable. Most dental clinics just post basic discount flyers, which can dilute clinical credibility."],
+                                    3: ["We help practices build search visibility. The main leak we see is dental offices losing implant and veneer inquiries because front-desk lines get busy during shift handovers."],
+                                    4: ["I'd love to share the clinic booking roadmap we designed. Let's grab a coffee near Shatti Al Qurum next week."]
+                                }
+                            }
+                        },
+                        hospitality: {
+                            label: "Hospitality/F&B",
+                            subs: {
+                                'Fine Dining': {
+                                    1: ["The plating detail on your custom tasting menu post matches the theme well. The terrace seating layout for your Shatti location looks exceptionally curated."],
+                                    2: ["It looks great. Muscat's premium F&B scene is rising, but your presentation quality stands out."],
+                                    3: ["We optimize guest reservation paths. Upscale clients prefer direct WhatsApp booking, but managing it manually during peak hours leads to missed bookings."],
+                                    4: ["I have a visual map of the F&B guest flow systems we build. Let's catch up for coffee next week to run through it."]
+                                }
+                            }
+                        },
+                        real_estate: {
+                            label: "Real Estate",
+                            subs: {
+                                'Boutique Broker': {
+                                    1: ["I saw your listing update for the [property name] townhouse. Is that unit still available for GCC buyer placement?"],
+                                    2: ["Yes it is. We are managing several inquiries on it this week."],
+                                    3: ["We build qualification filters for real estate agents. A key issue in Muscat is brokers wasting hours answering 'price?' on WhatsApp to unqualified leads while real buyers wait for listings updates."],
+                                    4: ["I have a visual guide on lead filters for listing agencies. Let's catch up for a brief coffee next Tuesday in Shatti Al Qurum."]
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            playbooks: {
+                aesthetic: {
+                    title: "Aesthetic & Dermatology Clinics",
+                    who: "Private cosmetic and dermatology hybrid setups. Owner is usually a doctor who invested in premium space and medical tech. One receptionist coordinates the front desk, calls, DMs, and WhatsApp manually on a single phone. Multiple DMs requesting pricing go ignored daily.",
+                    want: "Full appointment schedules for cosmetic procedures (fillers, boosters, veneers, laser). To win patients over newer clinics starting up in Shatti or Qurum.",
+                    whoto: "The owner-doctor. Do not pitch the practice manager or receptionist. Access via their personal clinical Instagram account.",
+                    problems: [
+                        "<strong>Inquiry leakages:</strong> DMs and comments are delayed or completely missed, losing warm leads.",
+                        "<strong>No-Shows:</strong> A solid portion of appointments cancel or ghost because confirmation/reminders are handled by memory.",
+                        "<strong>Weak Google SEO:</strong> They don't appear in the local top-3 search results for Botox or rejuvenation in their area."
+                    ],
+                    freebie: "Google Local Search maps ranking check. Shows exactly where they appear in their area vs competitors, including review count comparisons.",
+                    stop: "The doctor is entirely non-commercially minded; the clinic is tied to central hospital procurement; or they already run integrated, automated systems.",
+                    why: "Aesthetic buyers discover clinics visually on Instagram stories but require instant booking links to convert. Lags in reply result in bookings walking to competitor clinics in Qurum."
+                },
+                dental: {
+                    title: "Dental Clinics & Polyclinics",
+                    who: "2-chair family setups to 6-chair clinics. The owner is a dentist. Cares about treatment details and clinical standards. Historically rely on insurance directories or local referrals, less active on aesthetic social media.",
+                    want: "To maximize chair utilization. To acquire high-ticket cases (implants, aligners, veneers) to cover overheads. To prevent phones going unanswered during busy shifts.",
+                    whoto: "The owner-dentist or senior practice director. Reach out via WhatsApp or phone call.",
+                    problems: [
+                        "<strong>Unanswered Calls:</strong> Reception line is always busy, forcing prospective callers to try neighboring clinics.",
+                        "<strong>Idle Chair Time:</strong> Short-notice cancellations leave doctors and dental assistants sitting idle.",
+                        "<strong>Invisible Services:</strong> High-ticket cosmetic services aren't promoted online, only cleanings."
+                    ],
+                    freebie: "Google Map SEO analysis and competitor review comparison sheet.",
+                    stop: "Government dental center; dentist within 2 years of retirement; or clinic already ranks high and has structured scheduling tools.",
+                    why: "Dental patients search locally when experiencing pain. Ranking in Muscat's top local maps search listings secures the patient call before they contact competitors."
+                },
+                dtc_brand: {
+                    title: "Social-Commerce & DTC Brands",
+                    who: "Split into Fashion/Abaya designers (boutique setup), Specialty Coffee roasters, and local Beauty/Fragrance creators. Social-media forward businesses that coordinate entire orders through DMs and WhatsApp chat.",
+                    want: "Growth beyond basic social followers. Simple order paths for drops. Fast checkouts that don't rely on bank transfer screenshot sharing.",
+                    whoto: "The founder or business partner directly via IG direct messaging.",
+                    problems: [
+                        "<strong>WhatsApp Overload:</strong> Founder spends hours answering sizes, stock, and shipping inquiries.",
+                        "<strong>No payment integration:</strong> Asking for manual bank transfer photos slows transactions and increases drop-off.",
+                        "<strong>Attribution:</strong> No clue which local influencer drive actual order conversions."
+                    ],
+                    freebie: "Order pipeline walk. Make a tiny purchase, record the checkout path steps, and highlight where the flow drops off.",
+                    stop: "Hobby seller doing less than 10 orders per month, or founders resistant to setting up online payment gateways.",
+                    why: "DTC brands rely on rapid purchase paths during drops. Delays in manual bank verification result in abandoned shopping carts."
+                },
+                education: {
+                    title: "Training & Educational Consultancies",
+                    who: "Split into private training academies (offering safety or IT certifications like PMP, NEBOSH) and study-abroad counseling agencies. Academies target corporate levy programs; counselors deal with parents.",
+                    want: "Full classes/batches to maximize instructor costs. More student application enrollments. Efficient intake processes before autumn intake windows.",
+                    whoto: "Institute Director, Academic Head, or Business Development Leader.",
+                    problems: [
+                        "<strong>Slow Response:</strong> Student inquiries drop cold because enrollment staff take too long to reply to ad inquiries.",
+                        "<strong>No-Shows:</strong> High registration drop-off for free informational lectures or demo classes.",
+                        "<strong>Complex B2B quotes:</strong> Taking a week to draft training proposals for local companies."
+                    ],
+                    freebie: "Syllabus request audit. Submit an inquiry for a course and document the delay and experience.",
+                    stop: "Small unaccredited tutoring setups, or centers with zero active marketing efforts.",
+                    why: "Training buyers decide quickly when upskilling budgets open up. Delays in academic proposal delivery lead corporate managers to select other institutes."
+                },
+                hospitality: {
+                    title: "Hospitality & Premium F&B",
+                    who: "Boutique hotels/resorts (Jebel Akhdar, Wahiba Sands, Salalah) and independent premium restaurants/cafes. They lose high margins to Booking.com commissions or third-party delivery apps.",
+                    want: "Direct reservations (website/WhatsApp) to protect margins. Midweek occupancy to fill empty rooms and tables during Sunday-Wednesday.",
+                    whoto: "General Manager, F&B Director, or Hotel Owner.",
+                    problems: [
+                        "<strong>OTA/App Drag:</strong> Surrendering direct relationship and profits to platforms because their direct booking is too complex.",
+                        "<strong>Midweek Slump:</strong> fully booked weekends, but completely silent during weekdays.",
+                        "<strong>WhatsApp VIP Chaos:</strong> High-spending GCC visitors want VIP booking via WhatsApp, which gets lost on managers' personal phones."
+                    ],
+                    freebie: "Dine/Stay experience notes. Share a quick detail of the reservation journey and highlight where OTA options are pushed over direct bookings.",
+                    stop: "Large international hotel chains with corporate IT restrictions, or budget fast-food establishments.",
+                    why: "Independent properties depend on margin recovery. Shifting OTA traffic to direct booking keeps margins inside the property rather than feeding aggregators."
+                },
+                real_estate: {
+                    title: "Real Estate Agencies & Developers",
+                    who: "Boutique property agencies and luxury villa developers in Muscat (handling Al Mouj, Sifah, Shatti listings). Rely on property portals and visual social showcases targeting GCC buyers.",
+                    want: "High-intent buyer leads for sales team. Structured brochure delivery paths. Elimination of unqualified tire-kickers clogging the sales pipeline.",
+                    whoto: "Principal Broker, Agency MD, or Head of Real Estate Marketing.",
+                    problems: [
+                        "<strong>Lead Qualification Lag:</strong> Agents spend hours answering basic pricing DMs while genuine buyers wait for listings updates.",
+                        "<strong>Manual Brochure Delivery:</strong> PDF lists and villa details sent manually, resulting in late client follow-up.",
+                        "<strong>Weak Regional SEO:</strong> Missing international search volume for 'waterfront property Muscat' or 'Al Mouj villa'."
+                    ],
+                    freebie: "Brochure response audit. Submit a listing inquiry and document response time, follow-up quality, and presentation templates.",
+                    stop: "Low-end rental-only agencies, or companies with no active sales inventory.",
+                    why: "High-net-worth property buyers expect instant premium service. Delays in brochure routing mean other boutique brokers secure the inquiry representation."
+                }
+            },
+            revenueJourneys: {
+                aesthetic: [
+                    { stage: "Reply", desc: "Prospect responds to low-friction opener on Instagram DM. SDR validates clinical details, keeping conversation professional and focusing purely on patient presentation quality.", why: "Ensures prospect feels understood by an observant peer, establishing Aman (trust)." },
+                    { stage: "Diagnose", desc: "Investigate if patient DMs get stuck. Ask: <em>'Are you seeing patient inquiries convert smoothly, or do your front-desk lines get backed up?'</em>", why: "Identifies manual receptionist backlogs directly without sounding critical." },
+                    { stage: "Quantify", desc: "Help them calculate: <code>[Estimated unread DMs] * [Average treatment cost] = OMR [Monthly Lost Value]</code>. (Always mark as conditional).", why: "Calculates the exact revenue loss leaking through slow DM responses." },
+                    { stage: "Recommend", desc: "Suggest setting up a dedicated WhatsApp Patient Triage system alongside Google Local SEO optimization.", why: "Positions the system purely as a marketing/booking recovery tool rather than a technical expense." },
+                    { stage: "Meeting", desc: "Arrange coffee in Qurum or Shatti. Show visual mockups of a simplified patient flow.", why: "Builds physical trust (dates/coffee) aligned with Omani business culture." },
+                    { stage: "Proposal", desc: "Present local visibility and booking pipeline proposal.", why: "Presents scoped deliverables only after trust is established." },
+                    { stage: "Close", desc: "Integrate WhatsApp Business API and optimize Google Business Profile.", why: "Secures account by automating patient recovery pipelines." },
+                    { stage: "Expansion", desc: "Later, introduce custom automated reminders to reduce appointment no-shows.", why: "Upsells follow-up automation systems once initial SEO results are verified." }
+                ],
+                dental: [
+                    { stage: "Reply", desc: "Dentist responds to implant/veneer alignment appreciation on WhatsApp. Discuss local search visibility and clinical authority.", why: "Acknowledges clinical standards to engage dentists who value peer authority." },
+                    { stage: "Diagnose", desc: "Ask: <em>'Do patients mention finding you through Google Maps, or is it mostly manual referrals?'</em>", why: "Highlights maps visibility gaps where competitor clinics are outranking them." },
+                    { stage: "Quantify", desc: "Calculate: <code>[Average monthly dental searches in region] * [Est. click-through conversion] = [Potential Patients Lost]</code>.", why: "Quantifies the organic search lead opportunity lost to neighboring practices." },
+                    { stage: "Recommend", desc: "Suggest local SEO package to rank in the Google Maps Top 3, alongside automated appointment confirmation routes.", why: "Offers a clear organic lead acquisition setup." },
+                    { stage: "Meeting", desc: "Meet at their clinic. Review maps comparisons vs direct competitors.", why: "Demonstrates physical competitive gaps on their home ground." },
+                    { stage: "Proposal", desc: "Propose a structured local SEO search visibility optimization blueprint.", why: "Presents structured project steps with clear local timelines." },
+                    { stage: "Close", desc: "Optimize Google Business Profile, generate initial patient review workflows.", why: "Launches local review workflows to boost clinic search rankings." },
+                    { stage: "Expansion", desc: "Implement custom WhatsApp confirmation templates to resolve idle chair times.", why: "Upsells confirmation reminders to reduce empty chair hours." }
+                ],
+                dtc: [
+                    { stage: "Reply", desc: "Founder replies on Instagram. Keep it focused on product styling, sizing drops, and GCC shipping.", why: "DTC founders respond fast to visual design details." },
+                    { stage: "Diagnose", desc: "Ask: <em>'How do you handle order processing and payment confirmations during launch drops?'</em>", why: "Targets the manual transfer verification pain points that crush drops." },
+                    { stage: "Quantify", desc: "Calculate: <code>[Total Drop Inquiries] * [Abandoned Transfer Verification rate] = OMR [Lost Drop Value]</code>.", why: "Quantifies the shopping cart drop-offs due to manual payment friction." },
+                    { stage: "Recommend", desc: "Suggest implementing a streamlined checkout link utilizing local payment gateways (Thawani Pay).", why: "Proposes payment automation to secure warm sales instantly." },
+                    { stage: "Meeting", desc: "Quick Zoom call. Demo how an instant ordering checkout works on a mobile phone.", why: "Pivots quickly because DTC brand owners prefer online tools over long coffee meetings." },
+                    { stage: "Proposal", desc: "Deliver a fixed-scope checkout development and integration proposal.", why: "Limits scope to initial payment gateway configuration." },
+                    { stage: "Close", desc: "Launch the integrated check-out engine and run a live collection drop.", why: "Demonstrates immediate checkout success during drops." },
+                    { stage: "Expansion", desc: "Upsell automated catalog search assistants and customer retention flows.", why: "Upsells recurring product retention paths." }
+                ],
+                education: [
+                    { stage: "Reply", desc: "Director replies on LinkedIn. Focus on enrollment metrics and training levy circulars.", why: "Maintains formal, structured corporate tone." },
+                    { stage: "Diagnose", desc: "Ask: <em>'How does your admissions team route student inquiries—is it manual tracking or system-based?'</em>", why: "Finds the delay between ad registration and enrollment team contact." },
+                    { stage: "Quantify", desc: "Calculate: <code>[Average class size gap] * [Tuition fee per student] = OMR [Lost Batch Revenue]</code>.", why: "Calculates the lost tuition margins on half-empty class slots." },
+                    { stage: "Recommend", desc: "Propose an automated student enrollment database and rapid-response WhatsApp routing.", why: "Suggests simple CRM database paths to keep courses filled." },
+                    { stage: "Meeting", desc: "In-person meet at their institute. Showcase enrollment CRM templates.", why: "Gives directors an in-person walkthrough of student pipelines." },
+                    { stage: "Proposal", desc: "Present a customized pipeline structure proposal for student acquisition.", why: "Presents scoped syllabus integration steps." },
+                    { stage: "Close", desc: "Deploy the CRM pipeline and run staff training sessions on inquiry routing.", why: "Deploys rapid response database setups." },
+                    { stage: "Expansion", desc: "Add automatic WhatsApp class schedule reminders and corporate inquiry portals.", why: "Upsells corporate Levy portal integrations." }
+                ],
+                hospitality: [
+                    { stage: "Reply", desc: "GM responds on LinkedIn or WhatsApp. Focus on property positioning and direct booking strategies.", why: "Respects the GM's focus on room night metrics and direct profit margins." },
+                    { stage: "Diagnose", desc: "Ask: <em>'What percentage of your bookings are routed through OTA channels vs direct channels?'</em>", why: "Diagnoses commission leakages lost to Booking.com/Agoda." },
+                    { stage: "Quantify", desc: "Calculate: <code>[Total rooms booked via OTA] * [Average OTA commission] = OMR [Yearly Margin Drain]</code>.", why: "Shows the massive profit drain to external aggregators." },
+                    { stage: "Recommend", desc: "Recommend setting up a direct booking path and direct hospitality CRM.", why: "Proposes direct-booking paths to bypass OTA commissions." },
+                    { stage: "Meeting", desc: "On-property coffee meet-up. Review direct booking comparisons.", why: "Visits the GM on property to show direct hospitality comparisons." },
+                    { stage: "Proposal", desc: "Deliver direct booking portal and custom CRM workflow proposal.", why: "Presents scoped direct-booking implementation pathways." },
+                    { stage: "Close", desc: "Deploy booking pathways and run test bookings.", why: "Ensures checkout paths work for regional travelers." },
+                    { stage: "Expansion", desc: "Introduce automated guest concierge systems and weekday corporate packages.", why: "Upsells automated concierge features once direct margins increase." }
+                ],
+                real_estate: [
+                    { stage: "Reply", desc: "Broker responds to specific listing message. Discuss high-value property segments (Al Mouj/Sifah).", why: "Engages agents by discussing premium listing units." },
+                    { stage: "Diagnose", desc: "Ask: <em>'Are your listing agents manually delivering PDFs, or is there an automated qualification path?'</em>", why: "Finds delays in manual brochure delivery to prospective buyers." },
+                    { stage: "Quantify", desc: "Calculate: <code>[Total high-end inquiries] * [unqualified tire-kickers %] = [Lost time hours per broker]</code>.", why: "Calculates the sales agent hours lost to unqualified leads." },
+                    { stage: "Recommend", desc: "Propose an automated property lead qualifier bot and local SEO listing optimizations.", why: "Offers listing local SEO and lead pre-qualification." },
+                    { stage: "Meeting", desc: "Meet in Al Mouj. Show automated brochure delivery mockups.", why: "Presents automated flyer mockups in person near key listings." },
+                    { stage: "Proposal", desc: "Deliver automated lead filtering and listing optimization proposal.", why: "Delivers listing visibility proposal." },
+                    { stage: "Close", desc: "Implement property qualifier routes and update listing local SEO schemas.", why: "Integrates lead routing to active broker phones." },
+                    { stage: "Expansion", desc: "Add WhatsApp automated listing updates and international investor portals.", why: "Upsells listing update automation to GCC investor lists." }
+                ]
+            },
+            scenarios: {
+                no_reply: [
+                    { stage: "Trigger", desc: "Prospect read your opener but did not respond after 48 hours." },
+                    { stage: "Action Strategy", desc: "Do not follow up with a sales pitch. Add value on their channel. For Instagram, drop a genuine like or reaction on their next story. For LinkedIn, share a clean localized report snapshot without asking for a response." },
+                    { stage: "Sample Script", desc: "<em>'Dr. [Name], thought this localized search index showing aesthetic growth in [location] might be interesting for your team: [link]'</em>" }
+                ],
+                thumbs_up: [
+                    { stage: "Trigger", desc: "Prospect replies with a simple thumbs-up or 'Thank you, appreciate it'." },
+                    { stage: "Action Strategy", desc: "Validate their response. Mention a competitive dynamic you are observing in Muscat for their category. Shift to a diagnostic question." },
+                    { stage: "Sample Script", desc: "<em>'Of course. We analyze checkout drop-offs for local brands. Many find that transfer confirmations slow drops down. Is that a challenge your design team runs into?'</em>" }
+                ],
+                price_inquiry: [
+                    { stage: "Trigger", desc: "Prospect immediately asks: 'What is this about?' or 'How much do your services cost?'" },
+                    { stage: "Action Strategy", desc: "Use the Oman pricing handling script. Deflect from chat pricing. Transition to booking a local coffee or direct Zoom call." },
+                    { stage: "Sample Script", desc: "<em>'It depends on the scope. We configure direct pathways. Let's catch up for a brief call next week to see what would actually make sense for your brand.'</em>" }
+                ]
+            },
+            rationales: {
+                instagram: {
+                    1: "Omani founders are visually active. A specific, non-threatening observation about a product/treatment on their IG feed requests no action, bypassing their defensive filters.",
+                    2: "Polite validation keeps the conversation natural on DMs before transitioning to business metrics.",
+                    3: "Highlights common DM backlogs (pricing requests left unread) to see if they experience the same leak.",
+                    4: "Instagram buyers are comfortable with fast digital pathways—suggest a brief call or coffee."
+                },
+                linkedin: {
+                    1: "Corporate training directors and hotel GMs expect formal, structured credibility. Opening with a specific listing/syllabus check establishes authority.",
+                    2: "Polite B2B validation sets up your role as a regional visibility specialist studying Omani business metrics.",
+                    3: "Highlights structured B2B pain points (levy circular compliance, class capacity, OTA commission drains).",
+                    4: "B2B decision-makers operate on structured calendars. Arrange a call or direct coffee meeting on property."
+                },
+                whatsapp: {
+                    1: "WhatsApp is personal in Oman. A direct veneer alignment or property unit check creates immediate utility responses.",
+                    2: "Polite, focused responses on WhatsApp confirm you are a real person rather than an automated bot.",
+                    3: "Pinpoints high-value bottlenecks (idle chair time, manual checkout verification drops).",
+                    4: "WhatsApp chats are fast. Transition quickly to an in-person Qurum coffee meet-up."
+                }
+            }
+        };
+
+        // State Manager
+        let activeSection = 'mindset';
+        let activePlayChannel = 'instagram';
+        let activePlayCat = 'aesthetic';
+        let activePlaySub = 'Aesthetic Clinic';
+        let activePlayStep = 1;
+        let activePlayVar = 0;
+
+        function switchSection(sectName) {
+            activeSection = sectName;
+            document.querySelectorAll('.section-view').forEach(view => view.classList.remove('active'));
+            document.getElementById(sectName).classList.add('active');
+
+            document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+
+            if (sectName === 'playbooks') {
+                showPlaybook('aesthetic');
+            } else if (sectName === 'revenue') {
+                showRevenueJourney('aesthetic');
+            }
+        }
+
+        // Playbook Renderer
+        function showPlaybook(key) {
+            document.querySelectorAll('.pb-nav-btn').forEach(btn => btn.classList.remove('active'));
+            if (event && event.currentTarget && event.currentTarget.classList.contains('pb-nav-btn')) {
+                event.currentTarget.classList.add('active');
+            } else {
+                document.querySelector(`[onclick="showPlaybook('${key}')"]`)?.classList.add('active');
+            }
+
+            const data = database.playbooks[key];
+            const target = document.getElementById('playbook-viewer-target');
+
+            let probListHTML = '';
+            data.problems.forEach(p => {
+                probListHTML += `<li>${p}</li>`;
+            });
+
+            target.innerHTML = `
+                <div class="card">
+                    <div class="card-header">📊 ${data.title}</div>
+                    
+                    <div class="pb-section">
+                        <div class="pb-heading">Context & Profile</div>
+                        <div class="pb-body">${data.who}</div>
+                    </div>
+
+                    <div class="pb-section">
+                        <div class="pb-heading">What they actually want</div>
+                        <div class="pb-body" style="font-weight: 700; color: var(--primary);">${data.want}</div>
+                    </div>
+
+                    <div class="pb-section">
+                        <div class="pb-heading">Who is the decision maker?</div>
+                        <div class="pb-body">${data.whoto}</div>
+                    </div>
+
+                    <div class="pb-section">
+                        <div class="pb-heading">Core Gaps / Problems</div>
+                        <ul class="pb-bullets">${probListHTML}</ul>
+                    </div>
+
+                    <div class="rationale-panel" style="margin-top: 10px;">
+                        <div class="rationale-header">🔍 Research Rationale (Why this matters)</div>
+                        <div style="font-size: 13px;">${data.why}</div>
+                    </div>
+
+                    <div class="collapsible-header" onclick="toggleCollapse('col-free')">
+                        🎁 What to offer for free <span>▼</span>
+                    </div>
+                    <div class="collapsible-content" id="col-free">
+                        <p style="font-size: 13px; color: #4E4D49; line-height: 1.6;">${data.freebie}</p>
+                    </div>
+
+                    <div class="collapsible-header" onclick="toggleCollapse('col-stop')">
+                        🛑 Stop Conditions (When to walk away) <span>▼</span>
+                    </div>
+                    <div class="collapsible-content" id="col-stop">
+                        <p style="font-size: 13px; color: #4E4D49; line-height: 1.6;">${data.stop}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function toggleCollapse(id) {
+            const el = document.getElementById(id);
+            const span = el.previousElementSibling.querySelector('span');
+            if (el.style.display === 'block') {
+                el.style.display = 'none';
+                span.textContent = '▼';
+            } else {
+                el.style.display = 'block';
+                span.textContent = '▲';
+            }
+        }
+
+        // Generator Setup
+        function setPlayChannel(chanKey) {
+            activePlayChannel = chanKey;
+            document.querySelectorAll('.channel-btn').forEach(btn => btn.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+
+            const catContainer = document.getElementById('play-cat-pills');
+            catContainer.innerHTML = '';
+            
+            const cats = database.channels[chanKey].categories;
+            const catKeys = Object.keys(cats);
+            
+            catKeys.forEach((key, idx) => {
+                const btn = document.createElement('button');
+                btn.className = `pill-btn ${idx === 0 ? 'active' : ''}`;
+                btn.textContent = cats[key].label;
+                btn.onclick = (e) => {
+                    document.querySelectorAll('#play-cat-pills .pill-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    setPlayCategory(key);
+                };
+                catContainer.appendChild(btn);
+            });
+
+            setPlayCategory(catKeys[0]);
+        }
+
+        function setPlayCategory(catKey) {
+            activePlayCat = catKey;
+            const subContainer = document.getElementById('play-sub-pills');
+            subContainer.innerHTML = '';
+
+            const subs = database.channels[activePlayChannel].categories[catKey].subs;
+            const subKeys = Object.keys(subs);
+
+            subKeys.forEach((subKey, idx) => {
+                const btn = document.createElement('button');
+                btn.className = `pill-btn ${idx === 0 ? 'active' : ''}`;
+                btn.textContent = subKey;
+                btn.onclick = () => {
+                    document.querySelectorAll('#play-sub-pills .pill-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    setPlaySub(subKey);
+                };
+                subContainer.appendChild(btn);
+            });
+
+            setPlaySub(subKeys[0]);
+        }
+
+        function setPlaySub(subName) {
+            activePlaySub = subName;
+            
+            const stepContainer = document.getElementById('play-step-pills');
+            stepContainer.innerHTML = '';
+            
+            const steps = [1, 2, 3, 4];
+            const stepLabels = {
+                1: "1. Opener",
+                2: "2. Respond",
+                3: "3. Transition",
+                4: "4. Call/Coffee"
+            };
+
+            steps.forEach((step, idx) => {
+                const btn = document.createElement('button');
+                btn.className = `pill-btn ${idx === 0 ? 'active' : ''}`;
+                btn.textContent = stepLabels[step];
+                btn.onclick = () => {
+                    document.querySelectorAll('#play-step-pills .pill-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    setPlayStep(step);
+                };
+                stepContainer.appendChild(btn);
+            });
+
+            setPlayStep(1);
+        }
+
+        function setPlayStep(stepNum) {
+            activePlayStep = stepNum;
+            activePlayVar = 0;
+            updatePlaygroundUI();
+        }
+
+        function updatePlaygroundUI() {
+            const pool = database.channels[activePlayChannel].categories[activePlayCat].subs[activePlaySub][activePlayStep];
+            if (!pool) {
+                document.getElementById('play-template-content').textContent = "[Unavailable for this channel configuration]";
+                document.getElementById('play-rationale-text').textContent = "[No rationale available]";
+                return;
+            }
+
+            if (activePlayVar >= pool.length) {
+                activePlayVar = 0;
+            }
+
+            document.getElementById('play-template-content').textContent = pool[activePlayVar];
+            
+            // Set contextual rationale
+            const rat = database.rationales[activePlayChannel][activePlayStep];
+            document.getElementById('play-rationale-text').textContent = rat;
+        }
+
+        function nextPlayVariant() {
+            const pool = database.channels[activePlayChannel].categories[activePlayCat].subs[activePlaySub][activePlayStep];
+            activePlayVar = (activePlayVar + 1) % pool.length;
+            updatePlaygroundUI();
+        }
+
+        // Scenario Display
+        function showScenario(key) {
+            document.querySelectorAll('.scenario-nav-btn').forEach(btn => btn.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+
+            const data = database.scenarios[key];
+            const target = document.getElementById('scenario-target');
+            target.innerHTML = '';
+
+            data.forEach(node => {
+                const item = document.createElement('div');
+                item.className = 'branch-card';
+                item.innerHTML = `
+                    <div class="branch-badge action">${node.stage}</div>
+                    <div class="branch-title">${node.desc}</div>
+                `;
+                target.appendChild(item);
+            });
+        }
+
+        // Revenue Journey Renderer
+        function showRevenueJourney(key) {
+            document.querySelectorAll('.rev-btn').forEach(btn => btn.classList.remove('active'));
+            if (event && event.currentTarget && event.currentTarget.classList.contains('rev-btn')) {
+                event.currentTarget.classList.add('active');
+            } else {
+                document.querySelector(`[onclick="showRevenueJourney('${key}')"]`)?.classList.add('active');
+            }
+
+            const journey = database.revenueJourneys[key];
+            const target = document.getElementById('journey-target');
+            target.innerHTML = '';
+
+            journey.forEach((node, idx) => {
+                const item = document.createElement('div');
+                item.className = 'journey-node';
+                item.innerHTML = `
+                    <div class="journey-icon">${idx + 1}</div>
+                    <div class="journey-content">
+                        <div class="journey-title">${node.stage}</div>
+                        <div class="journey-details" style="margin-bottom: 8px;">${node.desc}</div>
+                        <div style="font-size: 11px; color: #7A5C13; border-top: 1px dashed var(--border); padding-top: 6px; font-style: italic;">
+                            💡 Rationale: ${node.why}
+                        </div>
+                    </div>
+                `;
+                target.appendChild(item);
+            });
+        }
+
+        function copyPlayTemplate() {
+            const txt = document.getElementById('play-template-content').textContent;
+            navigator.clipboard.writeText(txt).then(() => {
+                const toast = document.getElementById('notify-box');
+                toast.classList.add('show');
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 2000);
+            });
+        }
+
+        // Init
+        setPlayChannel('instagram');
+        showScenario('no_reply');
+    </script>
+</body>
+</html>

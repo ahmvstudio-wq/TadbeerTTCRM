@@ -81,7 +81,7 @@ export default function DailyCadenceCalendarPage() {
       window.location.href = "/login";
       return;
     }
-    setLeads(res.data || []);
+    setLeads((res.data as OutreachLead[]) || []);
     setLoading(false);
   }, [selectedDate, channelFilter]);
 

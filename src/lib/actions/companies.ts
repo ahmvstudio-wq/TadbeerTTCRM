@@ -87,7 +87,7 @@ export async function getCompany(id: string) {
       .eq('id', cleanId)
       .single()
 
-    if (companyError) {
+    if (companyError || !company) {
       const { data: fallbackCo, error: fbErr } = await supabase
         .from('companies')
         .select('*')
@@ -110,16 +110,22 @@ export async function getCompany(id: string) {
       }
     }
 
+    // Also fetch outreach_touches and outreach_preparations
+    const [{ data: touches }, { data: preps }] = await Promise.all([
+      supabase.from('outreach_touches').select('*').eq('lead_id', cleanId).order('sent_at', { ascending: false }),
+      supabase.from('outreach_preparations').select('*').eq('company_id', cleanId).order('updated_at', { ascending: false })
+    ])
+
     return {
       data: {
         ...company,
         contacts: company.contacts || [],
         activities: (company.activities || []).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 100),
-        preparations: [],
+        preparations: preps || [],
         follow_ups: (company.follow_ups || []).sort((a: any, b: any) => String(a.due_date || '').localeCompare(String(b.due_date || ''))),
         meetings: (company.meetings || []).sort((a: any, b: any) => String(b.meeting_date || '').localeCompare(String(a.meeting_date || ''))),
         opportunities: (company.opportunities || []).sort((a: any, b: any) => String(b.created_at || '').localeCompare(String(a.created_at || ''))),
-        outreach_touches: []
+        outreach_touches: touches || []
       },
       error: null
     }
@@ -137,7 +143,6 @@ export async function createCompany(data: {
     await requireAuth()
     const { firstContact, instagram_url, research_notes, lead_source, ...companyData } = data
 
-    // Gracefully fold extra fields into notes if columns don't exist
     let enrichedNotes = companyData.notes || ''
     if (instagram_url) enrichedNotes += `\nInstagram: ${instagram_url}`
     if (research_notes) enrichedNotes += `\n\nResearch Notes:\n${research_notes}`
@@ -147,7 +152,6 @@ export async function createCompany(data: {
       .insert({
         ...companyData,
         notes: enrichedNotes || undefined,
-        lead_type: lead_source || companyData.notes ? undefined : 'new_lead',
         status: 'prospect',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -155,17 +159,17 @@ export async function createCompany(data: {
       .select()
       .single()
 
-    if (companyError) return { data: null, error: companyError.message }
+    if (companyError || !company) return { data: null, error: companyError?.message || 'Failed to create company' }
 
     if (firstContact && firstContact.full_name) {
       const { error: contactError } = await supabase.from('contacts').insert({
         company_id: company.id,
         full_name: firstContact.full_name,
-        email: firstContact.email,
-        phone: firstContact.phone,
-        title: firstContact.title,
-        whatsapp: firstContact.whatsapp,
-        linkedin_url: firstContact.linkedin_url,
+        email: firstContact.email || null,
+        phone: firstContact.phone || null,
+        title: firstContact.title || null,
+        whatsapp: firstContact.whatsapp || firstContact.phone || null,
+        linkedin_url: firstContact.linkedin_url || null,
         is_primary: true,
         created_at: new Date().toISOString()
       })
@@ -182,10 +186,8 @@ export async function createCompany(data: {
       created_at: new Date().toISOString()
     })
 
-    // Auto-generate research-grounded outreach message draft if research notes provided
-    if (enrichedNotes || research_notes) {
-      generateOutreachMessage(company.id).catch(err => console.error("Auto draft error:", err))
-    }
+    // Auto-generate pre-staged sequence and warm draft
+    generateOutreachMessage(company.id).catch(err => console.error("Auto draft error:", err))
 
     return { data: company, error: null }
   } catch (error) {

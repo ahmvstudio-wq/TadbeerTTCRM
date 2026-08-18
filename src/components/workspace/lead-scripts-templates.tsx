@@ -50,20 +50,45 @@ export function LeadScriptsTemplates({
     if (onRefresh) onRefresh();
   };
 
-  // Generate channel-specific tailored templates
+  // Extract staged sequence if available
+  let stagedSeq: any = null;
+  try {
+    if ((company as any).research_json && typeof (company as any).research_json === 'object') {
+      stagedSeq = (company as any).research_json.staged_sequence;
+    } else if (company.notes && (company.notes.startsWith('{') || company.notes.startsWith('['))) {
+      stagedSeq = JSON.parse(company.notes)?.staged_sequence;
+    }
+  } catch {}
+
+  const observation = (company as any).research_json?.specific_observation || "your active presence and high quality standards";
+
+  // Generate channel-specific tailored templates according to Oman Operating System
   const getTailoredTemplates = () => {
+    const t1 = stagedSeq?.touch_1?.message || `Assalamu Alaikum ${contactName}, I was looking at ${companyName}'s work in ${industry} and noticed ${observation}.\n\nWho is the best person on your team to speak with about operations and customer inquiries in Muscat?`;
+    const t2 = stagedSeq?.touch_2?.message || `Hi ${contactName}, following up on my previous note. We've been observing how top ${industry} businesses in Muscat handle customer response times and booking flow.\n\nWould you be open to a casual 15-minute coffee sit-down sometime this week?`;
+    const t3 = stagedSeq?.touch_3?.message || `Hi ${contactName}, I know you're busy running ${companyName}. If now isn't the right time, no worries at all. Wishing you continued success!`;
+
+    const ccOpener = stagedSeq?.cold_call_script?.opener || `Assalamu Alaikum ${contactName}, am I speaking with the owner or manager for ${companyName}?`;
+    const ccBridge = stagedSeq?.cold_call_script?.context_bridge || `I was reviewing your business in ${industry} and noticed ${observation}. I work with local leaders in Muscat optimizing customer inquiry conversion.`;
+    const ccClose = stagedSeq?.cold_call_script?.close_for_coffee || `I'm going to be around your area in Muscat this Thursday — would you be open to a casual 20-minute coffee just to share observations?`;
+
     switch (selectedChannel) {
       case "whatsapp":
         return [
           {
-            id: "wa_1",
-            title: "Direct Value Offer (Free Website/Audit)",
-            body: `Hi ${contactName}, I noticed ${companyName}'s digital presence in the ${industry} space. We're currently working with companies in your market to double lead response rates using Tadbeer TT CRM and automated WhatsApp routing. Would you be open to a quick 5-min chat this week?`
+            id: "wa_t1",
+            title: "Touch 1: Gate-Opener (Warm Compliment, Zero Pitch)",
+            body: t1
           },
           {
-            id: "wa_2",
-            title: "Short Curiosity Follow-Up",
-            body: `Hi ${contactName}, just wanted to check if you had a moment to review my earlier message regarding ${companyName}'s digital transformation? We have 2 slots open this week for complimentary audits.`
+            id: "wa_t2",
+            title: "Touch 2: Value Observation (Day 3-5 Follow-Up)",
+            body: t2
+          },
+          {
+            id: "wa_t3",
+            title: "Touch 3: Breakaway / Graceful Close (Day 7-10)",
+            body: t3
           }
         ];
 
@@ -71,17 +96,34 @@ export function LeadScriptsTemplates({
         return [
           {
             id: "cc_1",
-            title: "High-Converting Cold Call Script (Ramij Framework)",
-            body: `[Greeting]: Hi ${contactName}, am I speaking with the owner / lead for ${companyName}?\n` +
-                  `[Permission]: Is this a good time to speak for just 60 seconds?\n` +
-                  `[Intro]: My name is Ramij from Tadbeer Transformation. We help businesses in ${industry} scale their sales operations and lead handling.\n` +
-                  `[Qualifying Question]: Are you currently handling your customer inquiries manually or looking to automate lead routing?\n` +
-                  `[Meeting Ask]: Would you be open to a short 15-minute demo meeting this Thursday to see how this works for your team?`
+            title: "Oman 30-Second Cold Call Script (Permission → Observation → Coffee)",
+            body: `[1. Permission & Greeting]:\n"${ccOpener} Do you have 30 seconds?"\n\n` +
+                  `[2. Context & Observation Bridge]:\n"${ccBridge}"\n\n` +
+                  `[3. Muscat Coffee Invitation]:\n"${ccClose}"`
           },
           {
-            id: "cc_2",
-            title: "Objection Response: 'We already have a system'",
-            body: `"That's completely understandable ${contactName}. Most of our clients were already using basic tools before switching to Tadbeer's unified WhatsApp workflow. Would you be open to seeing a 2-minute comparison deck before deciding?"`
+            id: "cc_obj1",
+            title: "Objection Battlecard: 'Send profile on WhatsApp'",
+            body: `"I can certainly send you a note on WhatsApp. But since every business operations are unique, a quick 10-minute sit-down or call is usually 10x more useful. Are you free Thursday morning or afternoon?"`
+          },
+          {
+            id: "cc_obj2",
+            title: "Objection Battlecard: 'We already have an agency / system'",
+            body: `"Completely understand ${contactName}. Most leaders we speak with already have partners. We're not asking you to replace anyone — simply sharing what we're seeing across top ${industry} brands in Muscat over coffee."`
+          }
+        ];
+
+      case "instagram":
+        return [
+          {
+            id: "ig_t1",
+            title: "Instagram DM Gate-Opener (3-5 Lines Max)",
+            body: t1
+          },
+          {
+            id: "ig_t2",
+            title: "Instagram DM Follow-Up (Curiosity Hook)",
+            body: t2
           }
         ];
 
@@ -89,17 +131,8 @@ export function LeadScriptsTemplates({
         return [
           {
             id: "li_1",
-            title: "Connection & Partnership Pitch",
-            body: `Hi ${contactName}, impressed by ${companyName}'s growth in ${industry}. We're helping leadership teams unify their multi-channel sales history and lead tracking into a single workspace. Great to connect!`
-          }
-        ];
-
-      case "instagram":
-        return [
-          {
-            id: "ig_1",
-            title: "Instagram DM Opening Script",
-            body: `Hey ${contactName}! Love the content on ${companyName}'s page. Quick question: how are you currently managing lead inquiries coming in through Instagram & WhatsApp?`
+            title: "LinkedIn Executive Note",
+            body: `Assalamu Alaikum ${contactName}, impressed by ${companyName}'s growth in ${industry}. Would love to connect and exchange observations on operations in the Oman market.`
           }
         ];
 
@@ -107,8 +140,8 @@ export function LeadScriptsTemplates({
         return [
           {
             id: "em_1",
-            title: "Formal Executive Intro",
-            body: `Subject: Digital Transformation Opportunity for ${companyName}\n\nDear ${contactName},\n\nI hope this email finds you well.\n\nWe specialize in assisting ${industry} organizations streamline their sales workflows, unify customer interaction history, and implement automated lead follow-ups.\n\nWould you have 15 minutes available for a brief introductory call this week?\n\nBest regards,\nTadbeer Transformation Team`
+            title: "Direct Executive Observation",
+            body: `Subject: Observation regarding ${companyName}'s operations in Muscat\n\nAssalamu Alaikum ${contactName},\n\nI was reviewing ${companyName} and was impressed by your presence in ${industry}. Specifically noticed ${observation}.\n\nI'm based in Muscat and work with business owners optimizing front-desk customer flow and response times. Would you be open to a casual 20-minute coffee this week in Qurum or Al Mouj?\n\nBest regards,\nRamij | Tadbeer Transformation`
           }
         ];
     }
