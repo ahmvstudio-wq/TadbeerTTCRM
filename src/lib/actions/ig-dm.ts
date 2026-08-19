@@ -398,15 +398,78 @@ export async function getAllLeadsForPipeline(
       })
     })
 
-    let combined: OutreachLead[] = Array.from(leadMap.values())
+    let combined: OutreachLead[] = []
 
-    // Apply date filters if specified
-    if (dateFilter === 'today') {
-      const today = new Date(); today.setHours(0, 0, 0, 0)
-      combined = combined.filter(l => new Date(l.sent_at).getTime() >= today.getTime())
-    } else if (dateFilter === 'week') {
-      const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7)
-      combined = combined.filter(l => new Date(l.sent_at).getTime() >= weekAgo.getTime())
+    if (dateFilter === 'all') {
+      combined = Array.from(leadMap.values())
+    } else {
+      let targetDateStr: string | null = null
+      let isWeek = false
+
+      if (dateFilter === 'today') {
+        targetDateStr = new Date().toISOString().split('T')[0]
+      } else if (dateFilter === 'week') {
+        isWeek = true
+      } else if (dateFilter.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        targetDateStr = dateFilter
+      }
+
+      const weekAgo = new Date()
+      weekAgo.setDate(weekAgo.getDate() - 7)
+      weekAgo.setHours(0, 0, 0, 0)
+
+      const matchedActs = (activities || []).filter(act => {
+        if (!act.created_at) return false
+        if (targetDateStr) {
+          return act.created_at.split('T')[0] === targetDateStr
+        }
+        if (isWeek) {
+          return new Date(act.created_at).getTime() >= weekAgo.getTime()
+        }
+        return true
+      })
+
+      combined = matchedActs.map(act => {
+        let payload: any = {}
+        try { payload = act.description ? JSON.parse(act.description) : {} } catch {}
+
+        const co = act.companies || {}
+        const channel: OutreachChannel = payload.channel || (act.activity_type === 'ig_dm' ? 'instagram_dm' : (act.activity_type === 'whatsapp_sent' ? 'whatsapp' : (act.activity_type === 'email_sent' ? 'email' : 'cold_call')))
+        let status: OutreachStatus = payload.status || 'gate_opener_sent'
+        if (status === 'sent') status = 'gate_opener_sent'
+        if (status === 'reply_received') status = 'warm_up'
+        if (status === 'replied_interested' || status === 'replied_objection') status = 'opening_identified'
+
+        const baseLead = act.company_id ? leadMap.get(act.company_id) : undefined
+
+        return {
+          id: act.id,
+          company_id: act.company_id,
+          company_name: co.company_name || baseLead?.company_name || 'Unknown',
+          contact_name: baseLead?.contact_name || 'Decision Maker',
+          contact_title: baseLead?.contact_title || 'Owner',
+          industry: co.industry || baseLead?.industry || 'General',
+          sector: baseLead?.sector || 'general',
+          phone: co.phone || baseLead?.phone || null,
+          instagram_handle: baseLead?.instagram_handle || payload.handle || null,
+          linkedin_url: baseLead?.linkedin_url || null,
+          email: baseLead?.email || null,
+          channel,
+          handle: payload.handle || baseLead?.handle || '',
+          template_used: (payload.template_used || 'gate_opener') as OutreachTemplate,
+          status,
+          stage: status as any,
+          touch_count: 1,
+          specific_observation: payload.pain_point || baseLead?.specific_observation || '',
+          prospect_reply: payload.prospect_reply || '',
+          pain_point: payload.pain_point || '',
+          call_opening_line: payload.call_opening_line || baseLead?.call_opening_line || '',
+          notes: payload.notes || act.notes || baseLead?.notes || '',
+          staged_sequence: baseLead?.staged_sequence,
+          sent_at: act.created_at,
+          updated_at: act.updated_at || act.created_at,
+        } as OutreachLead
+      })
     }
 
     if (channelFilter) {
