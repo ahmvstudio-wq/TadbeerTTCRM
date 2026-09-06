@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Poppins, Inter } from "next/font/google";
+import { Poppins, Geist } from "next/font/google";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -9,10 +9,9 @@ const poppins = Poppins({
   display: "swap",
 });
 
-const inter = Inter({
-  weight: ["300", "400", "500", "600", "700"],
+const geist = Geist({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-geist",
   display: "swap",
 });
 
@@ -27,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${poppins.variable} ${inter.variable} h-full antialiased`}>
+    <html lang="en" className={`${poppins.variable} ${geist.variable} h-full antialiased`}>
       <body className="min-h-full font-sans antialiased text-[#0c0d0f] bg-[#fbfbfd]">
         {children}
       </body>

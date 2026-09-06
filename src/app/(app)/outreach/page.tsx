@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Plus, X, ChevronDown, ChevronUp, Phone, MessageCircle,
   Loader2, Trash2, CheckCircle2, RefreshCw, Moon, Send,
@@ -25,6 +25,7 @@ import { ContactDetailDrawer } from "@/components/outreach/contact-detail-drawer
 import { PowerHourModal } from "@/components/outreach/power-hour-modal";
 import { EmailComposerModal } from "@/components/outreach/email-composer-modal";
 import { CsvImport } from "@/components/ui/csv-import";
+import { Pagination } from "@/components/ui/pagination";
 import { bulkImportCompanies } from "@/lib/actions/import";
 import { PLAYBOOK_TEMPLATES } from "@/lib/outreach-messages-library";
 import { useUnifiedLead } from "@/context/unified-lead-context";
@@ -124,6 +125,14 @@ export default function OutreachPipelinePage() {
   const [powerHourLeads, setPowerHourLeads] = useState<OutreachLead[]>([]);
   const [isFreshImportOpen, setIsFreshImportOpen] = useState(false);
 
+  // Pagination State for Table View
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  // Kanban Drag & Drop State
+  const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+
   const fetchLeads = useCallback(async (isSilent = false) => {
     if (!isSilent) setInitialLoading(true);
     const result = await getAllLeadsForPipeline(
@@ -160,6 +169,36 @@ export default function OutreachPipelinePage() {
     }
     return true;
   });
+
+  // Reset pagination on filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [dateFilter, channelFilter, sectorFilter, stageFilter, searchQuery]);
+
+  const totalItems = filteredLeads.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const paginatedLeads = useMemo(() => {
+    if (pageSize >= 999999) return filteredLeads;
+    const start = (currentPage - 1) * pageSize;
+    return filteredLeads.slice(start, start + pageSize);
+  }, [filteredLeads, currentPage, pageSize]);
+
+  const handleDropToColumn = async (leadId: string, targetCol: "call_tonight" | "reply_received" | "pipeline" | "done") => {
+    let targetStatus: OutreachStatus = "sent";
+    if (targetCol === "call_tonight") targetStatus = "ready_for_call";
+    else if (targetCol === "reply_received") targetStatus = "reply_received";
+    else if (targetCol === "pipeline") targetStatus = "sent";
+    else if (targetCol === "done") targetStatus = "called";
+
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: targetStatus } : l));
+    try {
+      await updateOutreachStatus(leadId, { status: targetStatus });
+      handleSilentUpdate();
+    } catch (err) {
+      console.error("Failed to update status on drop:", err);
+      fetchLeads(true);
+    }
+  };
 
   const handleLaunchPowerHour = () => {
     const ch = channelFilter === "all" ? "instagram_dm" : channelFilter;
@@ -389,174 +428,360 @@ export default function OutreachPipelinePage() {
               <p className="text-xs text-slate-400 mt-0.5">Try clearing search or changing filters.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-100/70 border-b border-slate-200 text-slate-700 font-black text-[11px] tracking-wide">
-                  <tr>
-                    <th className="p-3">Company / Business</th>
-                    <th className="p-3">Channel & Handle</th>
-                    <th className="p-3">Pipeline Status</th>
-                    <th className="p-3">Outreach Date</th>
-                    <th className="p-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-                  {filteredLeads.map(lead => {
-                    const daysAgo = getDaysElapsed(lead.sent_at);
-                    const phone = lead.phone || (lead.channel === "cold_call" || lead.channel === "whatsapp" ? lead.handle : null);
-                    const waDigits = phone ? formatWhatsAppNumber(phone) : "";
-                    const waUrl = waDigits ? `https://wa.me/${waDigits}` : null;
-                    const cleanH = (lead.handle || "").trim();
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-slate-100/70 border-b border-slate-200 text-slate-700 font-black text-[11px] tracking-wide">
+                    <tr>
+                      <th className="p-3">Company / Business</th>
+                      <th className="p-3">Channel & Handle</th>
+                      <th className="p-3">Pipeline Status</th>
+                      <th className="p-3">Outreach Date</th>
+                      <th className="p-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                    {paginatedLeads.map(lead => {
+                      const daysAgo = getDaysElapsed(lead.sent_at);
+                      const phone = lead.phone || (lead.channel === "cold_call" || lead.channel === "whatsapp" ? lead.handle : null);
+                      const waDigits = phone ? formatWhatsAppNumber(phone) : "";
+                      const waUrl = waDigits ? `https://wa.me/${waDigits}` : null;
+                      const cleanH = (lead.handle || "").trim();
 
-                    return (
-                      <tr key={lead.id} className="hover:bg-slate-50/80 transition-colors group">
-                        {/* Company & Industry */}
-                        <td className="p-3">
-                          <span className="font-black text-slate-900 text-xs block truncate max-w-[220px]">
-                            {lead.company_name}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-medium block truncate max-w-[200px]">
-                            {lead.industry || "General"}
-                          </span>
-                        </td>
-
-                        {/* Channel & Contact Handle */}
-                        <td className="p-3">
-                          <div className="flex items-center gap-1.5">
-                            <span className="p-1 rounded bg-slate-100 text-slate-700 shrink-0">
-                              <ChannelIcon channel={lead.channel} size={12} />
+                      return (
+                        <tr key={lead.id} className="hover:bg-slate-50/80 transition-colors group">
+                          {/* Company & Industry */}
+                          <td className="p-3">
+                            <span className="font-black text-slate-900 text-xs block truncate max-w-[220px]">
+                              {lead.company_name}
                             </span>
-                            <span className="font-bold text-slate-700 truncate max-w-[160px]">
-                              {cleanH || CHANNEL_CONFIG[lead.channel]?.label}
+                            <span className="text-[10px] text-slate-400 font-medium block truncate max-w-[220px]">
+                              {lead.industry || lead.sector || "General"}
                             </span>
-                          </div>
-                        </td>
+                          </td>
 
-                        {/* Status Select Inline Dropdown */}
-                        <td className="p-3">
-                          <select
-                            value={lead.status}
-                            onChange={async (e) => {
-                              const newStatus = e.target.value as OutreachStatus;
-                              await updateOutreachStatus(lead.id, { status: newStatus });
-                              handleSilentUpdate();
-                            }}
-                            className={cn(
-                              "text-[10px] font-black px-2.5 py-1 rounded-lg border focus:outline-none cursor-pointer transition-all",
-                              STATUS_CHIP[lead.status] || "bg-slate-100 text-slate-700 border-slate-200"
-                            )}
-                          >
-                            {STATUSES.map(s => (
-                              <option key={s} value={s}>
-                                {STATUS_CONFIG[s].label}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
+                          {/* Channel & Handle */}
+                          <td className="p-3">
+                            <div className="flex items-center gap-1.5">
+                              <span className="p-1 rounded bg-slate-100 text-slate-700">
+                                <ChannelIcon channel={lead.channel} size={13} />
+                              </span>
+                              <span className="font-mono text-[11px] text-slate-600 truncate max-w-[140px]">
+                                {cleanH || "—"}
+                              </span>
+                            </div>
+                          </td>
 
-                        {/* Outreach Date */}
-                        <td className="p-3 text-slate-500 font-mono text-[11px]">
-                          {daysAgo === 0 ? (
-                            <span className="text-teal-700 font-extrabold bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">Today</span>
-                          ) : (
-                            <span>{daysAgo}d ago</span>
-                          )}
-                        </td>
-
-                        {/* Actions Row */}
-                        <td className="p-3 text-right">
-                          <div className="inline-flex items-center gap-1 justify-end">
-                            {waUrl && (
-                              <a
-                                href={waUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-2 py-1 rounded-md bg-emerald-100 text-emerald-900 text-[10px] font-extrabold hover:bg-emerald-200 transition-colors"
-                                title="WhatsApp"
-                              >
-                                WA
-                              </a>
-                            )}
-                            {phone && (
-                              <a
-                                href={`tel:${phone}`}
-                                className="px-2 py-1 rounded-md bg-slate-900 text-white text-[10px] font-extrabold hover:bg-slate-800 transition-colors"
-                                title="Call"
-                              >
-                                Call
-                              </a>
-                            )}
-                            <button
-                              onClick={() => openLead(lead.company_id || lead.id)}
-                              className="px-2.5 py-1 rounded-md bg-teal-600 text-white text-[10px] font-extrabold hover:bg-teal-700 transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                          {/* Status */}
+                          <td className="p-3">
+                            <select
+                              value={lead.status}
+                              onChange={async (e) => {
+                                const newStatus = e.target.value as OutreachStatus;
+                                await updateOutreachStatus(lead.id, { status: newStatus });
+                                handleSilentUpdate();
+                              }}
+                              className={cn("text-[10px] font-bold rounded-lg px-2 py-1 border cursor-pointer font-mono", STATUS_CHIP[lead.status])}
                             >
-                              <Sparkles className="h-3 w-3" />
-                              Open Lead Workspace
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                              {STATUSES.map(s => (
+                                <option key={s} value={s}>
+                                  {STATUS_CONFIG[s].label}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+
+                          {/* Outreach Date */}
+                          <td className="p-3 text-slate-500 font-mono text-[11px]">
+                            {daysAgo === 0 ? (
+                              <span className="text-teal-700 font-extrabold bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">Today</span>
+                            ) : (
+                              <span>{daysAgo}d ago</span>
+                            )}
+                          </td>
+
+                          {/* Actions Row */}
+                          <td className="p-3 text-right">
+                            <div className="inline-flex items-center gap-1 justify-end">
+                              {waUrl && (
+                                <a
+                                  href={waUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-2 py-1 rounded-md bg-emerald-100 text-emerald-900 text-[10px] font-extrabold hover:bg-emerald-200 transition-colors"
+                                  title="WhatsApp"
+                                >
+                                  WA
+                                </a>
+                              )}
+                              {phone && (
+                                <a
+                                  href={`tel:${phone}`}
+                                  className="px-2 py-1 rounded-md bg-slate-900 text-white text-[10px] font-extrabold hover:bg-slate-800 transition-colors"
+                                  title="Call"
+                                >
+                                  Call
+                                </a>
+                              )}
+                              <button
+                                onClick={() => openLead(lead.company_id || lead.id)}
+                                className="px-2.5 py-1 rounded-md bg-teal-600 text-white text-[10px] font-extrabold hover:bg-teal-700 transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                              >
+                                <Sparkles className="h-3 w-3" />
+                                Open Lead Workspace
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {/* Table View Pagination */}
+              <div className="p-3 bg-white/60 border-t border-slate-100">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalItems={totalItems}
+                  pageSize={pageSize}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={setPageSize}
+                  pageSizeOptions={[25, 50, 100]}
+                />
+              </div>
+            </>
           )}
         </div>
       ) : (
-        /* ── KANBAN BOARD VIEW (WITH INTERNAL SCROLLING) ─────────────────── */
+        /* ── KANBAN BOARD VIEW (WITH SMOOTH DRAG & DROP) ─────────────────── */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
 
           {/* ── Col 1: Call Tonight ─────────────────────────────────────────── */}
-          <div className="space-y-2.5">
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              if (dragOverColumn !== "call_tonight") setDragOverColumn("call_tonight");
+            }}
+            onDragLeave={(e) => {
+              if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+              if (dragOverColumn === "call_tonight") setDragOverColumn(null);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOverColumn(null);
+              const id = e.dataTransfer.getData("text/plain") || draggedLeadId;
+              if (id) handleDropToColumn(id, "call_tonight");
+            }}
+            className={cn(
+              "space-y-2.5 p-2 rounded-2xl transition-all duration-200",
+              dragOverColumn === "call_tonight" && "ring-2 ring-teal-500/50 bg-teal-50/50 scale-[1.01]"
+            )}
+          >
             <ColumnHeader emoji="📞" title="Call Tonight" subtitle="Warm leads" count={callList.length} color="teal" />
             <div className="space-y-2.5 max-h-[680px] overflow-y-auto pr-1">
               {callList.length === 0 ? (
-                <EmptyCol icon={<Phone className="h-6 w-6 text-slate-300" />} text="No warm leads queued" sub="Mark Ready for Call to add here" />
+                <EmptyCol icon={<Phone className="h-6 w-6 text-slate-300" />} text="No warm leads queued" sub="Drag cards or mark Ready for Call" />
               ) : callList.map(lead => (
-                <CallReadyCard key={lead.id} lead={lead} expanded={activeCard === lead.id} onToggle={() => setActiveCard(activeCard === lead.id ? null : lead.id)} onUpdate={handleSilentUpdate} />
+                <div
+                  key={lead.id}
+                  draggable={true}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("text/plain", lead.id);
+                    e.dataTransfer.effectAllowed = "move";
+                    setDraggedLeadId(lead.id);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedLeadId(null);
+                    setDragOverColumn(null);
+                  }}
+                  className={cn(
+                    "cursor-grab active:cursor-grabbing transition-all duration-150 select-none",
+                    draggedLeadId === lead.id && "opacity-35 scale-95 rotate-1"
+                  )}
+                >
+                  <CallReadyCard lead={lead} expanded={activeCard === lead.id} onToggle={() => setActiveCard(activeCard === lead.id ? null : lead.id)} onUpdate={handleSilentUpdate} />
+                </div>
               ))}
+
+              {dragOverColumn === "call_tonight" && draggedLeadId && (
+                <div className="h-16 rounded-xl border-2 border-dashed border-teal-500/40 bg-teal-500/10 flex items-center justify-center text-[11px] font-mono font-bold text-teal-700 animate-pulse">
+                  Drop to move to Call Tonight
+                </div>
+              )}
             </div>
           </div>
 
           {/* ── Col 2: Reply Received ────────────────────────────────────────── */}
-          <div className="space-y-2.5">
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              if (dragOverColumn !== "reply_received") setDragOverColumn("reply_received");
+            }}
+            onDragLeave={(e) => {
+              if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+              if (dragOverColumn === "reply_received") setDragOverColumn(null);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOverColumn(null);
+              const id = e.dataTransfer.getData("text/plain") || draggedLeadId;
+              if (id) handleDropToColumn(id, "reply_received");
+            }}
+            className={cn(
+              "space-y-2.5 p-2 rounded-2xl transition-all duration-200",
+              dragOverColumn === "reply_received" && "ring-2 ring-indigo-500/50 bg-indigo-50/50 scale-[1.01]"
+            )}
+          >
             <ColumnHeader emoji="📬" title="Reply Received" subtitle="Needs review" count={replyReceivedList.length} color="indigo" />
             <div className="space-y-2.5 max-h-[680px] overflow-y-auto pr-1">
               {replyReceivedList.length === 0 ? (
                 <EmptyCol icon={<Mail className="h-6 w-6 text-slate-300" />} text="No replies received yet" sub="Prospect replies appear here" />
               ) : replyReceivedList.map(lead => (
-                <OutreachCard key={lead.id} lead={lead} expanded={activeCard === lead.id} onToggle={() => setActiveCard(activeCard === lead.id ? null : lead.id)} onUpdate={handleSilentUpdate} />
+                <div
+                  key={lead.id}
+                  draggable={true}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("text/plain", lead.id);
+                    e.dataTransfer.effectAllowed = "move";
+                    setDraggedLeadId(lead.id);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedLeadId(null);
+                    setDragOverColumn(null);
+                  }}
+                  className={cn(
+                    "cursor-grab active:cursor-grabbing transition-all duration-150 select-none",
+                    draggedLeadId === lead.id && "opacity-35 scale-95 rotate-1"
+                  )}
+                >
+                  <OutreachCard lead={lead} expanded={activeCard === lead.id} onToggle={() => setActiveCard(activeCard === lead.id ? null : lead.id)} onUpdate={handleSilentUpdate} />
+                </div>
               ))}
+
+              {dragOverColumn === "reply_received" && draggedLeadId && (
+                <div className="h-16 rounded-xl border-2 border-dashed border-indigo-500/40 bg-indigo-500/10 flex items-center justify-center text-[11px] font-mono font-bold text-indigo-700 animate-pulse">
+                  Drop to move to Reply Received
+                </div>
+              )}
             </div>
           </div>
 
           {/* ── Col 3: Active Pipeline ──────────────────────────────────────── */}
-          <div className="space-y-2.5">
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              if (dragOverColumn !== "pipeline") setDragOverColumn("pipeline");
+            }}
+            onDragLeave={(e) => {
+              if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+              if (dragOverColumn === "pipeline") setDragOverColumn(null);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOverColumn(null);
+              const id = e.dataTransfer.getData("text/plain") || draggedLeadId;
+              if (id) handleDropToColumn(id, "pipeline");
+            }}
+            className={cn(
+              "space-y-2.5 p-2 rounded-2xl transition-all duration-200",
+              dragOverColumn === "pipeline" && "ring-2 ring-slate-500/50 bg-slate-50/50 scale-[1.01]"
+            )}
+          >
             <ColumnHeader emoji="💬" title="Active Pipeline" subtitle="In progress" count={pipeList.length} color="slate" />
             <div className="space-y-2.5 max-h-[680px] overflow-y-auto pr-1">
               {pipeList.length === 0 ? (
                 <EmptyCol icon={<Send className="h-6 w-6 text-slate-300" />} text="Nothing active" sub='Log Outreach to start' />
               ) : pipeList.map(lead => (
-                <OutreachCard key={lead.id} lead={lead} expanded={activeCard === lead.id} onToggle={() => setActiveCard(activeCard === lead.id ? null : lead.id)} onUpdate={handleSilentUpdate} />
+                <div
+                  key={lead.id}
+                  draggable={true}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("text/plain", lead.id);
+                    e.dataTransfer.effectAllowed = "move";
+                    setDraggedLeadId(lead.id);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedLeadId(null);
+                    setDragOverColumn(null);
+                  }}
+                  className={cn(
+                    "cursor-grab active:cursor-grabbing transition-all duration-150 select-none",
+                    draggedLeadId === lead.id && "opacity-35 scale-95 rotate-1"
+                  )}
+                >
+                  <OutreachCard lead={lead} expanded={activeCard === lead.id} onToggle={() => setActiveCard(activeCard === lead.id ? null : lead.id)} onUpdate={handleSilentUpdate} />
+                </div>
               ))}
+
+              {dragOverColumn === "pipeline" && draggedLeadId && (
+                <div className="h-16 rounded-xl border-2 border-dashed border-slate-500/40 bg-slate-500/10 flex items-center justify-center text-[11px] font-mono font-bold text-slate-700 animate-pulse">
+                  Drop to move to Active Pipeline
+                </div>
+              )}
             </div>
           </div>
 
           {/* ── Col 4: Done ─────────────────────────────────────────────────── */}
-          <div className="space-y-2.5">
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              if (dragOverColumn !== "done") setDragOverColumn("done");
+            }}
+            onDragLeave={(e) => {
+              if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+              if (dragOverColumn === "done") setDragOverColumn(null);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOverColumn(null);
+              const id = e.dataTransfer.getData("text/plain") || draggedLeadId;
+              if (id) handleDropToColumn(id, "done");
+            }}
+            className={cn(
+              "space-y-2.5 p-2 rounded-2xl transition-all duration-200",
+              dragOverColumn === "done" && "ring-2 ring-violet-500/50 bg-violet-50/50 scale-[1.01]"
+            )}
+          >
             <ColumnHeader emoji="✅" title="Done" subtitle="Completed" count={doneList.length} color="violet" />
-            {doneList.length === 0 ? (
-              <EmptyCol icon={<CheckCircle2 className="h-6 w-6 text-slate-300" />} text="No completions" sub="Called leads appear here" />
-            ) : doneList.map(lead => (
-              <OutreachCard key={lead.id} lead={lead} expanded={activeCard === lead.id} onToggle={() => setActiveCard(activeCard === lead.id ? null : lead.id)} onUpdate={handleSilentUpdate} compact />
-            ))}
+            <div className="space-y-2.5 max-h-[680px] overflow-y-auto pr-1">
+              {doneList.length === 0 ? (
+                <EmptyCol icon={<CheckCircle2 className="h-6 w-6 text-slate-300" />} text="No completions" sub="Called leads appear here" />
+              ) : doneList.map(lead => (
+                <div
+                  key={lead.id}
+                  draggable={true}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("text/plain", lead.id);
+                    e.dataTransfer.effectAllowed = "move";
+                    setDraggedLeadId(lead.id);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedLeadId(null);
+                    setDragOverColumn(null);
+                  }}
+                  className={cn(
+                    "cursor-grab active:cursor-grabbing transition-all duration-150 select-none",
+                    draggedLeadId === lead.id && "opacity-35 scale-95 rotate-1"
+                  )}
+                >
+                  <OutreachCard lead={lead} expanded={activeCard === lead.id} onToggle={() => setActiveCard(activeCard === lead.id ? null : lead.id)} onUpdate={handleSilentUpdate} compact />
+                </div>
+              ))}
+
+              {dragOverColumn === "done" && draggedLeadId && (
+                <div className="h-16 rounded-xl border-2 border-dashed border-violet-500/40 bg-violet-500/10 flex items-center justify-center text-[11px] font-mono font-bold text-violet-700 animate-pulse">
+                  Drop to move to Done
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
-
-      {/* ── Log Modal ──────────────────────────────────────────────────────── */}
-      {logOpen && <LogModal onClose={() => setLogOpen(false)} onSuccess={() => { setLogOpen(false); fetchLeads(true); }} />}
 
       {/* ── Standardized Contact Detail Drawer ─────────────────────────────── */}
       <ContactDetailDrawer

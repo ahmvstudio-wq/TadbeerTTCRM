@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CsvImport } from "@/components/ui/csv-import";
+import { Pagination } from "@/components/ui/pagination";
 import { ToastContainer, addToast } from "@/components/ui/toast";
 import { COMPANY_STATUSES, type CompanyStatus } from "@/lib/constants";
 import { getCompanies, updateCompanyStatus, updateCompanyLeadType, addCompanyActivity, triggerDraftGeneration, triggerBatchDraftGeneration } from "@/lib/actions/companies";
@@ -113,6 +114,14 @@ export default function ProspectsPage() {
   // UI Modes
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [sortBy, setSortBy] = useState<SortOption>('urgency');
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  // Kanban Drag & Drop State
+  const [draggedProspectId, setDraggedProspectId] = useState<string | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
 
   const fetchProspects = useCallback(async (searchVal?: string, statusVal?: string, isRetry = false) => {
     setLoading(true);
@@ -481,6 +490,19 @@ export default function ProspectsPage() {
       return 0;
     });
   }, [filteredProspects, sortBy]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter, dateFilter, channelFilter, leadSegment, sortBy]);
+
+  const totalItems = sortedProspects.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const paginatedProspects = useMemo(() => {
+    if (pageSize >= 999999) return sortedProspects;
+    const start = (currentPage - 1) * pageSize;
+    return sortedProspects.slice(start, start + pageSize);
+  }, [sortedProspects, currentPage, pageSize]);
 
   const handleExport = () => {
     const dataToExport = selectedIds.length > 0
@@ -998,7 +1020,7 @@ export default function ProspectsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100 text-xs font-medium">
-                {sortedProspects.map((prospect) => {
+                {paginatedProspects.map((prospect) => {
                   const contact = prospect.contacts?.[0];
                   const primaryName = contact?.full_name || prospect.company_name;
                   const companySub = contact?.full_name ? prospect.company_name : 'Company Lead';
@@ -1052,82 +1074,134 @@ export default function ProspectsPage() {
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-1.5 text-neutral-500 text-[11px] mt-0.5 truncate">
-                              {titleSub && <span className="text-neutral-700">{titleSub}</span>}
-                              {titleSub && <span>·</span>}
-                              <span className="font-semibold text-neutral-900">{companySub}</span>
-                            </div>
+                            <p className="text-[11px] text-neutral-500 truncate mt-0.5">
+                              {titleSub ? `${titleSub} @ ` : ''}{companySub}
+                            </p>
                           </div>
                         </div>
                       </td>
 
                       {/* Source Channel */}
                       <td className="py-3.5 px-4 hidden md:table-cell font-mono">
-                        {source.type === 'linkedin' ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-100 text-black border border-neutral-200">
-                            <LinkedInIcon size={10} />
-                            LinkedIn
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-100 text-neutral-800 border border-neutral-200">
-                            {source.label}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          {source.type === 'linkedin' ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-neutral-100 text-black border border-neutral-200 flex items-center gap-1">
+                              <LinkedInIcon size={10} /> LinkedIn
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-neutral-100 text-neutral-800 border border-neutral-200">
+                              {source.label}
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Industry */}
                       <td className="py-3.5 px-4 hidden md:table-cell">
-                        <span className="font-bold text-neutral-800 text-xs px-2 py-0.5 rounded bg-neutral-100 border border-neutral-200 truncate inline-block max-w-[170px]">
+                        <span className="text-neutral-700 text-xs font-semibold truncate block max-w-[160px]">
                           {getCleanIndustry(prospect.industry || prospect.company_name)}
+                        </span>
+                        <span className="text-[10px] text-neutral-400 font-mono block">
+                          {[prospect.city, prospect.country].filter(Boolean).join(", ") || 'Oman'}
                         </span>
                       </td>
 
                       {/* Date Added */}
-                      <td className="py-3.5 px-4 hidden lg:table-cell text-neutral-500 font-mono text-[11px]">
-                        <span className={isAddedToday ? "font-bold text-black" : ""}>{addedDate}</span>
+                      <td className="py-3.5 px-4 hidden lg:table-cell font-mono text-[11px] text-neutral-500">
+                        {addedDate}
                       </td>
 
-                      {/* Stage */}
-                      <td className="py-3.5 px-4">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-neutral-100 text-black border border-neutral-200">
-                          {COMPANY_STATUSES[prospect.status as CompanyStatus]?.label || prospect.status}
-                        </span>
+                      {/* Pipeline Stage */}
+                      <td className="py-3.5 px-4" onClick={(e) => e.stopPropagation()}>
+                        <select
+                          value={prospect.status}
+                          onChange={(e) => handleStatusChange(prospect.id, e.target.value)}
+                          className={cn(
+                            "text-[10px] font-mono font-bold rounded px-2 py-1 border transition-all cursor-pointer",
+                            statusColor[prospect.status as CompanyStatus]?.bg || "bg-neutral-100",
+                            statusColor[prospect.status as CompanyStatus]?.text || "text-neutral-700",
+                            statusColor[prospect.status as CompanyStatus]?.border || "border-neutral-200"
+                          )}
+                        >
+                          {statusOrder.map((s) => (
+                            <option key={s} value={s}>
+                              {COMPANY_STATUSES[s]?.label || s}
+                            </option>
+                          ))}
+                        </select>
                       </td>
 
-                      {/* Cadence Actions */}
+                      {/* Quick Contact & Action Buttons */}
                       <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
+                          {/* Send to Cadence */}
                           <Button
                             size="sm"
-                            variant="outline"
                             onClick={() => handleSendToCadence(prospect.id, primaryName)}
-                            className="bg-neutral-100 hover:bg-black hover:text-white text-black border-neutral-200 text-xs font-mono font-bold h-7 px-2.5 rounded flex items-center gap-1 shadow-2xs"
-                            title="Send directly to Daily Cadence Call Queue"
+                            className="bg-neutral-100 text-black hover:bg-black hover:text-white border border-neutral-200 text-xs font-bold font-mono h-7 px-2 rounded transition-colors"
                           >
-                            <PhoneCall className="h-3 w-3" />
-                            <span className="hidden xl:inline">+ Cadence</span>
+                            + Cadence
                           </Button>
+
+                          {/* WhatsApp Link */}
                           {waUrl && (
-                            <a href={waUrl} target="_blank" rel="noopener noreferrer" className="p-1 rounded bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white transition-colors" title="WhatsApp (+968 Oman format)">
+                            <a
+                              href={waUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1.5 rounded bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white transition-colors"
+                              title="Chat on WhatsApp"
+                            >
                               <MessageCircle className="h-3.5 w-3.5" />
                             </a>
                           )}
-                          {linkedinUrl && (
-                            <a href={linkedinUrl.startsWith('http') ? linkedinUrl : `https://${linkedinUrl}`} target="_blank" rel="noopener noreferrer" className="p-1 rounded bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white transition-colors" title="Verified LinkedIn Profile">
-                              <LinkedInIcon size={12} />
-                            </a>
-                          )}
-                          {prospect.website && (
-                            <a href={prospect.website.startsWith('http') ? prospect.website : `https://${prospect.website}`} target="_blank" rel="noopener noreferrer" className="p-1 rounded bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white transition-colors" title="Website">
-                              <Globe className="h-3.5 w-3.5" />
-                            </a>
-                          )}
+
+                          {/* Instagram Link */}
                           {igUrl && (
-                            <a href={igUrl} target="_blank" rel="noopener noreferrer" className="p-1 rounded bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white transition-colors" title="Instagram">
+                            <a
+                              href={igUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1.5 rounded bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white transition-colors"
+                              title="Instagram Profile"
+                            >
                               <Camera className="h-3.5 w-3.5" />
                             </a>
                           )}
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded text-neutral-400 hover:text-black" onClick={() => openDrawer(prospect)}>
+
+                          {/* LinkedIn Link */}
+                          {linkedinUrl && (
+                            <a
+                              href={linkedinUrl.startsWith('http') ? linkedinUrl : `https://${linkedinUrl}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1.5 rounded bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white transition-colors"
+                              title="LinkedIn Profile"
+                            >
+                              <LinkedInIcon size={14} />
+                            </a>
+                          )}
+
+                          {/* Website Link */}
+                          {prospect.website && (
+                            <a
+                              href={prospect.website.startsWith('http') ? prospect.website : `https://${prospect.website}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1.5 rounded bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white transition-colors"
+                              title="Company Website"
+                            >
+                              <Globe className="h-3.5 w-3.5" />
+                            </a>
+                          )}
+
+                          {/* Open Drawer */}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 rounded text-neutral-400 hover:text-black"
+                            onClick={() => openDrawer(prospect)}
+                          >
                             <ChevronRight className="h-4 w-4" />
                           </Button>
                         </div>
@@ -1138,23 +1212,74 @@ export default function ProspectsPage() {
               </tbody>
             </table>
           </div>
+          {/* Pagination Controls */}
+          <div className="p-3 bg-white/60 border-t border-black/[0.05]">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+              pageSizeOptions={[25, 50, 100]}
+            />
+          </div>
         </div>
       ) : viewMode === 'board' ? (
 
         /* ── KANBAN BOARD VIEW ───────────────────────────────────────────── */
-        <div className="flex gap-3 overflow-x-auto pb-6 scrollbar-hide" style={{ minHeight: '650px' }}>
+        <div className="flex gap-3.5 overflow-x-auto pb-6 scrollbar-hide" style={{ minHeight: '680px' }}>
           {statusOrder.map((statusKey) => {
             const columnProspects = sortedProspects.filter(p => p.status === statusKey);
             const statusConfig = COMPANY_STATUSES[statusKey];
+            const isDragOver = dragOverColumn === statusKey;
             
             return (
-              <div key={statusKey} className="flex-shrink-0 w-80 bg-neutral-100/70 rounded-xl border border-neutral-200 flex flex-col max-h-[800px]">
-                <div className="p-3.5 border-b border-neutral-200 bg-white rounded-t-xl flex items-center justify-between sticky top-0 z-10 shadow-2xs font-mono">
+              <div
+                key={statusKey}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  if (dragOverColumn !== statusKey) setDragOverColumn(statusKey);
+                }}
+                onDragLeave={(e) => {
+                  if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                  if (dragOverColumn === statusKey) setDragOverColumn(null);
+                }}
+                onDrop={async (e) => {
+                  e.preventDefault();
+                  setDragOverColumn(null);
+                  const prospectId = e.dataTransfer.getData("text/plain") || draggedProspectId;
+                  if (!prospectId) return;
+                  const targetProspect = prospects.find(p => p.id === prospectId);
+                  if (!targetProspect || targetProspect.status === statusKey) return;
+
+                  // Optimistic local UI update
+                  setProspects(prev => prev.map(p => p.id === prospectId ? { ...p, status: statusKey } : p));
+                  addToast("success", `Moved "${targetProspect.company_name}" to ${statusConfig?.label || statusKey}`);
+
+                  try {
+                    const res = await updateCompanyStatus(prospectId, statusKey);
+                    if (res.error) {
+                      addToast("error", `Failed to update stage: ${res.error}`);
+                      fetchProspects(search, statusFilter);
+                    }
+                  } catch (err) {
+                    console.error("Drop stage error:", err);
+                    fetchProspects(search, statusFilter);
+                  }
+                }}
+                className={cn(
+                  "flex-shrink-0 w-80 bg-white/70 backdrop-blur-xl rounded-2xl border border-black/[0.06] shadow-glass flex flex-col max-h-[820px] transition-all duration-200",
+                  isDragOver && "ring-2 ring-brand-teal/50 bg-teal-500/[0.06] border-brand-teal/40 scale-[1.01]"
+                )}
+              >
+                <div className="p-3.5 border-b border-black/[0.06] bg-white/80 backdrop-blur-md rounded-t-2xl flex items-center justify-between sticky top-0 z-10 shadow-2xs font-mono">
                   <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-black" />
-                    <h3 className="text-xs font-black text-black uppercase tracking-wider">{statusConfig?.label}</h3>
+                    <div className={cn("h-2 w-2 rounded-full", statusColor[statusKey]?.dot || "bg-black")} />
+                    <h3 className="text-xs font-bold text-black uppercase tracking-wider">{statusConfig?.label}</h3>
                   </div>
-                  <span className="bg-neutral-100 text-black text-[10px] font-black px-2 py-0.5 rounded border border-neutral-200">{columnProspects.length}</span>
+                  <span className="bg-neutral-100 text-black text-[10px] font-mono font-bold px-2 py-0.5 rounded border border-neutral-200">{columnProspects.length}</span>
                 </div>
 
                 <div className="p-2.5 flex-1 overflow-y-auto space-y-2.5">
@@ -1162,12 +1287,26 @@ export default function ProspectsPage() {
                     const contact = prospect.contacts?.[0];
                     const primaryName = contact?.full_name || prospect.company_name;
                     const source = getLeadSource(prospect);
+                    const isBeingDragged = draggedProspectId === prospect.id;
 
                     return (
                       <div
                         key={prospect.id}
+                        draggable={true}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("text/plain", prospect.id);
+                          e.dataTransfer.effectAllowed = "move";
+                          setDraggedProspectId(prospect.id);
+                        }}
+                        onDragEnd={() => {
+                          setDraggedProspectId(null);
+                          setDragOverColumn(null);
+                        }}
                         onClick={() => openDrawer(prospect)}
-                        className="bg-white rounded-lg p-3 border border-neutral-200 shadow-2xs hover:border-black transition-all cursor-pointer group relative space-y-2 font-sans"
+                        className={cn(
+                          "bg-white/95 backdrop-blur-md rounded-xl p-3 border border-black/[0.06] shadow-2xs hover:border-black/30 hover:shadow-md transition-all duration-150 cursor-grab active:cursor-grabbing group relative space-y-2 select-none",
+                          isBeingDragged && "opacity-35 scale-95 border-dashed border-black/40 rotate-1 shadow-lg"
+                        )}
                       >
                         <div className="flex items-center justify-between gap-1 font-mono">
                           {source.type === 'linkedin' ? (
@@ -1180,21 +1319,21 @@ export default function ProspectsPage() {
                             </span>
                           )}
 
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                             {prospect.website && (
-                              <a href={prospect.website.startsWith('http') ? prospect.website : `https://${prospect.website}`} target="_blank" rel="noopener noreferrer" className="p-1 bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white rounded transition-colors" title="Website" onClick={e => e.stopPropagation()}>
+                              <a href={prospect.website.startsWith('http') ? prospect.website : `https://${prospect.website}`} target="_blank" rel="noopener noreferrer" className="p-1 bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white rounded transition-colors" title="Website">
                                 <Globe className="h-3 w-3" />
                               </a>
                             )}
                             {extractInstagramUrl(prospect) && (
-                              <a href={extractInstagramUrl(prospect)!} target="_blank" rel="noopener noreferrer" className="p-1 bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white rounded transition-colors" title="Instagram" onClick={e => e.stopPropagation()}>
+                              <a href={extractInstagramUrl(prospect)!} target="_blank" rel="noopener noreferrer" className="p-1 bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white rounded transition-colors" title="Instagram">
                                 <Camera className="h-3 w-3" />
                               </a>
                             )}
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={(e) => { e.stopPropagation(); handleSendToCadence(prospect.id, primaryName); }}
+                              onClick={() => handleSendToCadence(prospect.id, primaryName)}
                               className="h-5 text-[9px] font-mono font-bold text-black bg-neutral-100 hover:bg-black hover:text-white px-1.5 rounded"
                             >
                               + Cadence
@@ -1218,6 +1357,13 @@ export default function ProspectsPage() {
                       </div>
                     );
                   })}
+
+                  {/* Drop Placeholder when hovering */}
+                  {isDragOver && draggedProspectId && !columnProspects.some(p => p.id === draggedProspectId) && (
+                    <div className="h-16 rounded-xl border-2 border-dashed border-brand-teal/40 bg-teal-500/10 flex items-center justify-center text-[11px] font-mono font-bold text-brand-teal animate-pulse">
+                      Drop to move to {statusConfig?.label}
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -1226,94 +1372,107 @@ export default function ProspectsPage() {
       ) : (
 
         /* ── GRID CARDS VIEW ─────────────────────────────────────────────── */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {sortedProspects.map((prospect) => {
-            const contact = prospect.contacts?.[0];
-            const primaryName = contact?.full_name || prospect.company_name;
-            const source = getLeadSource(prospect);
-            const waPhone = contact?.whatsapp || contact?.phone || prospect?.phone;
-            const waUrl = formatOmanWhatsAppUrl(waPhone);
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {paginatedProspects.map((prospect) => {
+              const contact = prospect.contacts?.[0];
+              const primaryName = contact?.full_name || prospect.company_name;
+              const source = getLeadSource(prospect);
+              const waPhone = contact?.whatsapp || contact?.phone || prospect?.phone;
+              const waUrl = formatOmanWhatsAppUrl(waPhone);
 
-            return (
-              <div
-                key={prospect.id}
-                onClick={() => openDrawer(prospect)}
-                className="bg-white rounded-xl p-4 border border-neutral-200 shadow-xs hover:border-black transition-all cursor-pointer group flex flex-col justify-between font-sans"
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-3 font-mono">
-                    {source.type === 'linkedin' ? (
-                      <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-neutral-100 text-black border border-neutral-200 flex items-center gap-1">
-                        <LinkedInIcon size={10} /> LinkedIn
+              return (
+                <div
+                  key={prospect.id}
+                  onClick={() => openDrawer(prospect)}
+                  className="bg-white rounded-xl p-4 border border-neutral-200 shadow-xs hover:border-black transition-all cursor-pointer group flex flex-col justify-between font-sans"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-3 font-mono">
+                      {source.type === 'linkedin' ? (
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-neutral-100 text-black border border-neutral-200 flex items-center gap-1">
+                          <LinkedInIcon size={10} /> LinkedIn
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-neutral-100 text-neutral-800 border border-neutral-200">
+                          {source.label}
+                        </span>
+                      )}
+
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold border border-neutral-200 bg-neutral-100 text-black">
+                        {COMPANY_STATUSES[prospect.status as CompanyStatus]?.label || prospect.status}
                       </span>
-                    ) : (
-                      <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-neutral-100 text-neutral-800 border border-neutral-200">
-                        {source.label}
-                      </span>
-                    )}
-
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold border border-neutral-200 bg-neutral-100 text-black">
-                      {COMPANY_STATUSES[prospect.status as CompanyStatus]?.label || prospect.status}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="h-10 w-10 rounded-lg bg-black text-white flex items-center justify-center font-mono font-black text-base flex-shrink-0">
-                      {primaryName.charAt(0).toUpperCase()}
                     </div>
-                    <div className="min-w-0">
-                      <h3 className="text-sm font-bold text-black group-hover:underline truncate">{primaryName}</h3>
-                      <p className="text-xs text-neutral-500 truncate">{contact?.title ? `${contact.title} @ ` : ''}{prospect.company_name}</p>
-                    </div>
-                  </div>
 
-                  <div className="bg-neutral-50 rounded-lg p-2.5 border border-neutral-200 space-y-1 mb-3 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-neutral-400 font-mono font-bold uppercase text-[9px]">Industry</span>
-                      <span className="font-semibold text-black truncate max-w-[170px]">{getCleanIndustry(prospect.industry || prospect.company_name)}</span>
-                    </div>
-                    {contact?.email && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-neutral-400 font-mono font-bold uppercase text-[9px]">Email</span>
-                        <span className="font-medium text-neutral-800 truncate max-w-[170px]">{contact.email}</span>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="h-10 w-10 rounded-lg bg-black text-white flex items-center justify-center font-mono font-black text-base flex-shrink-0">
+                        {primaryName.charAt(0).toUpperCase()}
                       </div>
-                    )}
-                  </div>
-                </div>
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-bold text-black group-hover:underline truncate">{primaryName}</h3>
+                        <p className="text-xs text-neutral-500 truncate">{contact?.title ? `${contact.title} @ ` : ''}{prospect.company_name}</p>
+                      </div>
+                    </div>
 
-                <div className="pt-2.5 border-t border-neutral-100 flex items-center justify-between text-xs text-neutral-500 font-mono" onClick={(e) => e.stopPropagation()}>
-                  <span className="text-[10px]">Added {prospect.created_at ? new Date(prospect.created_at).toLocaleDateString() : 'recent'}</span>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      size="sm"
-                      onClick={() => handleSendToCadence(prospect.id, primaryName)}
-                      className="bg-neutral-100 text-black hover:bg-black hover:text-white border border-neutral-200 text-xs font-bold h-7 px-2 rounded"
-                    >
-                      + Cadence
-                    </Button>
-                    {waUrl && (
-                      <a href={waUrl} target="_blank" rel="noopener noreferrer" className="p-1 rounded bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white transition-colors">
-                        <MessageCircle className="h-3.5 w-3.5" />
-                      </a>
-                    )}
-                    {prospect.website && (
-                      <a href={prospect.website.startsWith('http') ? prospect.website : `https://${prospect.website}`} target="_blank" rel="noopener noreferrer" className="p-1 rounded bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white transition-colors" title="Website" onClick={e => e.stopPropagation()}>
-                        <Globe className="h-3.5 w-3.5" />
-                      </a>
-                    )}
-                    {extractInstagramUrl(prospect) && (
-                      <a href={extractInstagramUrl(prospect)!} target="_blank" rel="noopener noreferrer" className="p-1 rounded bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white transition-colors" title="Instagram" onClick={e => e.stopPropagation()}>
-                        <Camera className="h-3.5 w-3.5" />
-                      </a>
-                    )}
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded text-neutral-400 hover:text-black" onClick={() => openDrawer(prospect)}>
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
+                    <div className="bg-neutral-50 rounded-lg p-2.5 border border-neutral-200 space-y-1 mb-3 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-neutral-400 font-mono font-bold uppercase text-[9px]">Industry</span>
+                        <span className="font-semibold text-black truncate max-w-[170px]">{getCleanIndustry(prospect.industry || prospect.company_name)}</span>
+                      </div>
+                      {contact?.email && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-neutral-400 font-mono font-bold uppercase text-[9px]">Email</span>
+                          <span className="font-medium text-neutral-800 truncate max-w-[170px]">{contact.email}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="pt-2.5 border-t border-neutral-100 flex items-center justify-between text-xs text-neutral-500 font-mono" onClick={(e) => e.stopPropagation()}>
+                    <span className="text-[10px]">Added {prospect.created_at ? new Date(prospect.created_at).toLocaleDateString() : 'recent'}</span>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        onClick={() => handleSendToCadence(prospect.id, primaryName)}
+                        className="bg-neutral-100 text-black hover:bg-black hover:text-white border border-neutral-200 text-xs font-bold h-7 px-2 rounded"
+                      >
+                        + Cadence
+                      </Button>
+                      {waUrl && (
+                        <a href={waUrl} target="_blank" rel="noopener noreferrer" className="p-1 rounded bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white transition-colors">
+                          <MessageCircle className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                      {prospect.website && (
+                        <a href={prospect.website.startsWith('http') ? prospect.website : `https://${prospect.website}`} target="_blank" rel="noopener noreferrer" className="p-1 rounded bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white transition-colors" title="Website" onClick={e => e.stopPropagation()}>
+                          <Globe className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                      {extractInstagramUrl(prospect) && (
+                        <a href={extractInstagramUrl(prospect)!} target="_blank" rel="noopener noreferrer" className="p-1 rounded bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white transition-colors" title="Instagram" onClick={e => e.stopPropagation()}>
+                          <Camera className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded text-neutral-400 hover:text-black" onClick={() => openDrawer(prospect)}>
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+
+          {/* Grid View Pagination */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            pageSizeOptions={[25, 50, 100]}
+          />
         </div>
       )}
 
