@@ -75,12 +75,12 @@ export default function LoginPage() {
               )}
 
               <div className="space-y-1">
-                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Admin Email</label>
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Email</label>
                 <Input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@tadbeertt.com"
+                  placeholder="Enter your email"
                   required
                   className="bg-slate-900/90 border-slate-700 text-white text-xs h-10 rounded-xl focus:border-teal-500 focus:ring-teal-500"
                 />
@@ -101,7 +101,7 @@ export default function LoginPage() {
               <div className="pt-2">
                 <Button
                   type="submit"
-                  className="w-full h-10 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-lg transition-all"
+                  className="w-full h-10 bg-slate-900 hover:bg-black text-white font-extrabold text-xs rounded-xl shadow-lg border border-slate-700 transition-all cursor-pointer"
                   disabled={loading}
                 >
                   {loading ? (

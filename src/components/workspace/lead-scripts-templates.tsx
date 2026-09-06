@@ -66,7 +66,8 @@ export function LeadScriptsTemplates({
   const getTailoredTemplates = () => {
     const t1 = stagedSeq?.touch_1?.message || `Assalamu Alaikum ${contactName}, I was looking at ${companyName}'s work in ${industry} and noticed ${observation}.\n\nWho is the best person on your team to speak with about operations and customer inquiries in Muscat?`;
     const t2 = stagedSeq?.touch_2?.message || `Hi ${contactName}, following up on my previous note. We've been observing how top ${industry} businesses in Muscat handle customer response times and booking flow.\n\nWould you be open to a casual 15-minute coffee sit-down sometime this week?`;
-    const t3 = stagedSeq?.touch_3?.message || `Hi ${contactName}, I know you're busy running ${companyName}. If now isn't the right time, no worries at all. Wishing you continued success!`;
+    const t3 = stagedSeq?.touch_3?.message || `Hi ${contactName}, one thing we notice with ${industry} operations is how quickly inquiries can drop off during peak hours without dedicated response automation.\n\nAre you guys handling direct messages in-house or through staff?`;
+    const t4 = stagedSeq?.touch_4?.message || `Hi ${contactName}, I'm going to be around Muscat this week. Would love to buy you a 20-minute coffee just to share a few observations on what's working for local ${industry} brands. How does Thursday look?`;
 
     const ccOpener = stagedSeq?.cold_call_script?.opener || `Assalamu Alaikum ${contactName}, am I speaking with the owner or manager for ${companyName}?`;
     const ccBridge = stagedSeq?.cold_call_script?.context_bridge || `I was reviewing your business in ${industry} and noticed ${observation}. I work with local leaders in Muscat optimizing customer inquiry conversion.`;
@@ -77,18 +78,23 @@ export function LeadScriptsTemplates({
         return [
           {
             id: "wa_t1",
-            title: "Touch 1: Gate-Opener (Warm Compliment, Zero Pitch)",
+            title: "Touch 1: Human Opener (Zero Pitch)",
             body: t1
           },
           {
             id: "wa_t2",
-            title: "Touch 2: Value Observation (Day 3-5 Follow-Up)",
+            title: "Touch 2: Warm-up & Positioning (Day +3)",
             body: t2
           },
           {
             id: "wa_t3",
-            title: "Touch 3: Breakaway / Graceful Close (Day 7-10)",
+            title: "Touch 3: Transition & Operational Angle (Day +5)",
             body: t3
+          },
+          {
+            id: "wa_t4",
+            title: "Touch 4: Muscat Coffee CTA (Day +7)",
+            body: t4
           }
         ];
 
@@ -117,13 +123,23 @@ export function LeadScriptsTemplates({
         return [
           {
             id: "ig_t1",
-            title: "Instagram DM Gate-Opener (3-5 Lines Max)",
+            title: "Touch 1: Instagram DM Human Opener",
             body: t1
           },
           {
             id: "ig_t2",
-            title: "Instagram DM Follow-Up (Curiosity Hook)",
+            title: "Touch 2: Warm-up & Positioning (Day +3)",
             body: t2
+          },
+          {
+            id: "ig_t3",
+            title: "Touch 3: Transition & Inquiry Question (Day +5)",
+            body: t3
+          },
+          {
+            id: "ig_t4",
+            title: "Touch 4: Direct Coffee CTA (Day +7)",
+            body: t4
           }
         ];
 

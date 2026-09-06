@@ -41,7 +41,7 @@ export function getFrameworks(ctx: ScriptContext): ScriptFramework[] {
       id: "tadbeer_ismail",
       master: "Tadbeer (Ismail)",
       title: "Value & GCC Transformation Script",
-      badge: "⭐ Recommended",
+      badge: "Recommended",
       tagline: "Directly bridges DM/Outreach context into a warm, authoritative evening call by Dr.",
       steps: [
         {
@@ -405,7 +405,7 @@ export function ColdCallScriptModal({
         {/* Footer matching LogModal */}
         <div className="bg-slate-50 border-t border-slate-100 px-6 py-4 flex items-center justify-between flex-shrink-0 text-xs">
           <p className="text-slate-500 font-medium">
-            💡 All placeholders automatically pre-filled for <span className="font-extrabold text-slate-900">{ctx.companyName}</span>.
+            All placeholders automatically pre-filled for <span className="font-extrabold text-slate-900">{ctx.companyName}</span>.
           </p>
           <Button onClick={onClose} className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs h-9 px-5 rounded-xl">
             Close Engine

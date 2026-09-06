@@ -3,8 +3,11 @@
 import { createClient } from '@supabase/supabase-js'
 import { requireAuth } from '@/lib/auth-guard'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const FALLBACK_URL = 'https://gmwogtyjqmwluspcxbzb.supabase.co'
+const FALLBACK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdtd29ndHlqcW13bHVzcGN4YnpiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDI4Njk2MCwiZXhwIjoyMDk5ODYyOTYwfQ.n8z4qlZt3S5LfnwYH_mKVy2cM3r5Hyz-Ob-8vAO9a6g'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || FALLBACK_URL
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || FALLBACK_KEY
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 // ─── Daily Cadence Sessions ──────────────────────────────────────────
@@ -947,5 +950,299 @@ export async function generateDailyCallBatch(count = 20, assignedTo = "Ramij") {
 
 export async function loadMoreCallBatch(count = 20, assignedTo = "Ramij") {
   return await generateDailyCallBatch(count, assignedTo);
+}
+
+export interface OutreachMetricsResult {
+  totalOutreaches: number;
+  totalReplies: number;
+  overallReplyRate: number;
+  positiveReplies: number;
+  positiveInterestRate: number;
+  meetingsBooked: number;
+  objectionsCount: number;
+  noReplyCount: number;
+  byChannel: {
+    channel: string;
+    label: string;
+    sentCount: number;
+    replyCount: number;
+    replyRate: number;
+    positiveCount: number;
+    meetingCount: number;
+  }[];
+  byIndustry: {
+    industry: string;
+    outreachCount: number;
+    replyCount: number;
+    replyRate: number;
+    positiveCount: number;
+    percentage: number;
+  }[];
+  dailyTrend: {
+    date: string;
+    displayDate: string;
+    totalSent: number;
+    calls: number;
+    whatsapp: number;
+    instagram: number;
+    linkedin: number;
+    email: number;
+    replies: number;
+  }[];
+  byStatus: {
+    status: string;
+    label: string;
+    count: number;
+    percentage: number;
+  }[];
+  recentReplies: {
+    id: string;
+    companyId?: string;
+    companyName: string;
+    industry: string;
+    channel: string;
+    status: string;
+    replyText: string;
+    painPoint?: string;
+    date: string;
+  }[];
+}
+
+export async function getComprehensiveOutreachMetrics(days: number = 30): Promise<{ data: OutreachMetricsResult | null; error: string | null }> {
+  try {
+    await requireAuth();
+
+    // 1. Fetch activities with company joins
+    const [activitiesRes, companiesRes, callsRes, meetingsRes] = await Promise.all([
+      supabase
+        .from('activities')
+        .select('id, company_id, activity_type, title, description, created_at, companies(id, company_name, industry, category, research_json)')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('companies')
+        .select('id, company_name, industry, category, status, research_json, created_at'),
+      supabase
+        .from('calls')
+        .select('id, outcome, created_at, company_id'),
+      supabase
+        .from('meetings')
+        .select('id, status, meeting_date, company_id')
+    ]);
+
+    const activities = activitiesRes.data || [];
+    const companies = companiesRes.data || [];
+    const calls = callsRes.data || [];
+    const meetings = meetingsRes.data || [];
+
+    // Parse activities
+    let totalOutreaches = 0;
+    let totalReplies = 0;
+    let positiveReplies = 0;
+    let meetingsBooked = meetings.length;
+    let objectionsCount = 0;
+    let noReplyCount = 0;
+
+    const channelStats: Record<string, { sent: number; replies: number; positive: number; meetings: number }> = {
+      instagram_dm: { sent: 0, replies: 0, positive: 0, meetings: 0 },
+      whatsapp: { sent: 0, replies: 0, positive: 0, meetings: 0 },
+      cold_call: { sent: 0, replies: 0, positive: 0, meetings: 0 },
+      linkedin: { sent: 0, replies: 0, positive: 0, meetings: 0 },
+      email: { sent: 0, replies: 0, positive: 0, meetings: 0 },
+      referral: { sent: 0, replies: 0, positive: 0, meetings: 0 },
+    };
+
+    const industryStats: Record<string, { sent: number; replies: number; positive: number }> = {};
+    const statusCounts: Record<string, number> = {};
+    const recentRepliesList: OutreachMetricsResult['recentReplies'] = [];
+
+    // Calculate cutoff date for dailyTrend
+    const now = new Date();
+    const trendMap = new Map<string, { totalSent: number; calls: number; whatsapp: number; instagram: number; linkedin: number; email: number; replies: number }>();
+    
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(now.getDate() - i);
+      const dateKey = d.toISOString().split('T')[0];
+      trendMap.set(dateKey, { totalSent: 0, calls: 0, whatsapp: 0, instagram: 0, linkedin: 0, email: 0, replies: 0 });
+    }
+
+    // Process activities
+    activities.forEach((act: any) => {
+      let payload: any = {};
+      try {
+        if (act.description) payload = JSON.parse(act.description);
+      } catch {}
+
+      const channel = String(payload.channel || (act.activity_type === 'call_made' ? 'cold_call' : (act.activity_type === 'whatsapp_sent' ? 'whatsapp' : (act.activity_type === 'email_sent' ? 'email' : 'instagram_dm'))));
+      const status = String(payload.status || 'sent');
+      const prospectReply = String(payload.prospect_reply || payload.reply || '').trim();
+      const rawIndustry = String(act.companies?.industry || act.companies?.category || 'General').trim();
+      const cleanIndustry = rawIndustry.startsWith('@') || rawIndustry.toLowerCase().startsWith('hey') ? 'Fashion & Boutiques' : rawIndustry;
+
+      totalOutreaches++;
+
+      // Channel metrics
+      if (!channelStats[channel]) {
+        channelStats[channel] = { sent: 0, replies: 0, positive: 0, meetings: 0 };
+      }
+      channelStats[channel].sent++;
+
+      // Status metrics
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
+
+      // Industry metrics
+      if (!industryStats[cleanIndustry]) {
+        industryStats[cleanIndustry] = { sent: 0, replies: 0, positive: 0 };
+      }
+      industryStats[cleanIndustry].sent++;
+
+      const isReply = Boolean(prospectReply || ['reply_received', 'replied_interested', 'replied_objection', 'interested', 'meeting_booked'].includes(status));
+      const isPositive = ['replied_interested', 'interested', 'meeting_booked'].includes(status) || (prospectReply && (prospectReply.toLowerCase().includes('yes') || prospectReply.toLowerCase().includes('interested') || prospectReply.toLowerCase().includes('share') || prospectReply.toLowerCase().includes('call')));
+      const isObjection = ['replied_objection', 'objection'].includes(status);
+
+      if (isReply) {
+        totalReplies++;
+        channelStats[channel].replies++;
+        industryStats[cleanIndustry].replies++;
+
+        if (recentRepliesList.length < 15 && (prospectReply || act.companies?.company_name)) {
+          recentRepliesList.push({
+            id: act.id,
+            companyId: act.company_id,
+            companyName: act.companies?.company_name || 'Prospect',
+            industry: cleanIndustry,
+            channel,
+            status,
+            replyText: prospectReply || (isPositive ? 'Showed direct interest in proposal' : 'Replied to sequence'),
+            painPoint: payload.pain_point,
+            date: act.created_at
+          });
+        }
+      }
+
+      if (isPositive) {
+        positiveReplies++;
+        channelStats[channel].positive++;
+        industryStats[cleanIndustry].positive++;
+      }
+
+      if (isObjection) {
+        objectionsCount++;
+      }
+
+      if (status === 'meeting_booked') {
+        meetingsBooked++;
+        channelStats[channel].meetings++;
+      }
+
+      if (['sent', 'no_reply', 'gate_opener_staged'].includes(status)) {
+        noReplyCount++;
+      }
+
+      // Trend data
+      const actDate = act.created_at ? act.created_at.split('T')[0] : '';
+      if (trendMap.has(actDate)) {
+        const item = trendMap.get(actDate)!;
+        item.totalSent++;
+        if (channel === 'cold_call') item.calls++;
+        else if (channel === 'whatsapp') item.whatsapp++;
+        else if (channel === 'instagram_dm') item.instagram++;
+        else if (channel === 'linkedin') item.linkedin++;
+        else if (channel === 'email') item.email++;
+
+        if (isReply) item.replies++;
+      }
+    });
+
+    // Also include calls and meetings
+    calls.forEach(c => {
+      if (c.outcome === 'connected' || c.outcome === 'interested' || c.outcome === 'scheduled_meeting') {
+        positiveReplies++;
+      }
+    });
+
+    const overallReplyRate = totalOutreaches > 0 ? Math.round((totalReplies / totalOutreaches) * 100) : 0;
+    const positiveInterestRate = totalReplies > 0 ? Math.round((positiveReplies / totalReplies) * 100) : 0;
+
+    // Format channel output
+    const CHANNEL_LABELS: Record<string, string> = {
+      instagram_dm: 'Instagram DM',
+      whatsapp: 'WhatsApp Business',
+      cold_call: 'Cold Call',
+      linkedin: 'LinkedIn InMail / Note',
+      email: 'Direct Email',
+      referral: 'Referral / Event'
+    };
+
+    const byChannel = Object.entries(channelStats).map(([ch, stat]) => ({
+      channel: ch,
+      label: CHANNEL_LABELS[ch] || ch,
+      sentCount: stat.sent,
+      replyCount: stat.replies,
+      replyRate: stat.sent > 0 ? Math.round((stat.replies / stat.sent) * 100) : 0,
+      positiveCount: stat.positive,
+      meetingCount: stat.meetings
+    })).sort((a, b) => b.sentCount - a.sentCount);
+
+    // Format industry output
+    const byIndustry = Object.entries(industryStats).map(([ind, stat]) => ({
+      industry: ind,
+      outreachCount: stat.sent,
+      replyCount: stat.replies,
+      replyRate: stat.sent > 0 ? Math.round((stat.replies / stat.sent) * 100) : 0,
+      positiveCount: stat.positive,
+      percentage: totalOutreaches > 0 ? Math.round((stat.sent / totalOutreaches) * 100) : 0
+    })).sort((a, b) => b.outreachCount - a.outreachCount).slice(0, 8);
+
+    // Format daily trend
+    const dailyTrend = Array.from(trendMap.entries()).map(([date, counts]) => {
+      const d = new Date(date);
+      const displayDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return {
+        date,
+        displayDate,
+        ...counts
+      };
+    });
+
+    const STATUS_LABELS: Record<string, string> = {
+      sent: 'Sent / Gate-Opener',
+      no_reply: 'No Reply (Follow-Up Due)',
+      reply_received: 'Replied (In Conversation)',
+      replied_interested: 'Positive Interest',
+      replied_objection: 'Objection Handled',
+      meeting_booked: 'Meeting Booked',
+      ready_for_call: 'Ready for Cold Call',
+      called: 'Call Completed'
+    };
+
+    const byStatus = Object.entries(statusCounts).map(([st, count]) => ({
+      status: st,
+      label: STATUS_LABELS[st] || st,
+      count,
+      percentage: totalOutreaches > 0 ? Math.round((count / totalOutreaches) * 100) : 0
+    })).sort((a, b) => b.count - a.count);
+
+    return {
+      data: {
+        totalOutreaches,
+        totalReplies,
+        overallReplyRate,
+        positiveReplies,
+        positiveInterestRate,
+        meetingsBooked,
+        objectionsCount,
+        noReplyCount,
+        byChannel,
+        byIndustry,
+        dailyTrend,
+        byStatus,
+        recentReplies: recentRepliesList
+      },
+      error: null
+    };
+  } catch (error) {
+    return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch outreach metrics' };
+  }
 }
 

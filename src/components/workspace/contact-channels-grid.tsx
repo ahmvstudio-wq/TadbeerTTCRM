@@ -34,15 +34,33 @@ interface ContactChannelsGridProps {
 export function extractInstagramUrl(input: any): string {
   if (!input) return "";
 
-  // 0. Direct JSON check if input has notes or research_json
+  // 0. Direct check if input has research_json or root fields
   if (typeof input === "object") {
     try {
+      if (input.research_json?.instagram_url) {
+        return input.research_json.instagram_url;
+      }
+      if (input.research_json?.instagram_handle) {
+        const clean = String(input.research_json.instagram_handle).replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^\/+/, '').replace(/\/+$/, '').replace(/^@+/, '').trim();
+        if (clean) return `https://www.instagram.com/${clean}/`;
+      }
+      if (input.instagram_url) {
+        return input.instagram_url;
+      }
       if (input.instagram_handle) {
         const clean = String(input.instagram_handle).replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^\/+/, '').replace(/\/+$/, '').replace(/^@+/, '').trim();
         if (clean) return `https://www.instagram.com/${clean}/`;
       }
+      if (input.industry && typeof input.industry === 'string') {
+        const indTrim = input.industry.trim();
+        if (indTrim.startsWith('@') || indTrim.toLowerCase().includes('instagram.com/')) {
+          const clean = indTrim.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^\/+/, '').replace(/\/+$/, '').replace(/^@+/, '').trim();
+          if (clean && !clean.includes(' ')) return `https://www.instagram.com/${clean}/`;
+        }
+      }
       if (input.notes && (input.notes.startsWith('{') || input.notes.startsWith('['))) {
         const parsed = JSON.parse(input.notes);
+        if (parsed.instagram_url) return parsed.instagram_url;
         if (parsed.instagram_handle) {
           const clean = String(parsed.instagram_handle).replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^\/+/, '').replace(/\/+$/, '').replace(/^@+/, '').trim();
           if (clean) return `https://www.instagram.com/${clean}/`;
@@ -52,7 +70,7 @@ export function extractInstagramUrl(input: any): string {
   }
 
   const textToScan = typeof input === "object"
-    ? `${input.website || ""} ${input.notes || ""} ${input.pain_point || ""} ${(input.contacts || []).map((c: any) => c.notes || '').join(' ')}`
+    ? `${input.industry || ""} ${input.company_name || ""} ${input.website || ""} ${input.notes || ""} ${input.pain_point || ""} ${JSON.stringify(input.research_json || {})} ${(input.contacts || []).map((c: any) => `${c.notes || ''} ${c.full_name || ''} ${c.title || ''} ${c.instagram_url || ''}`).join(' ')}`
     : String(input);
 
   // 1. Direct http(s) Instagram URL anywhere in text
@@ -203,7 +221,7 @@ export function ContactChannelsGrid({
       id: "instagram",
       name: "Instagram",
       available: !!instagram,
-      value: instagram ? (instagram.length > 28 ? instagram.slice(0, 26) + "..." : instagram) : null,
+      value: (company as any).research_json?.instagram_handle || (instagram ? '@' + instagram.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/\/$/, '') : null),
       icon: Camera,
       color: "bg-pink-600 text-white border-pink-700 hover:bg-pink-700",
       missingColor: "bg-slate-50 text-slate-400 border-slate-200",
@@ -239,8 +257,8 @@ export function ContactChannelsGrid({
       available: !!email,
       value: email,
       icon: Mail,
-      color: "bg-indigo-600 text-white border-indigo-700 hover:bg-indigo-700",
-      missingColor: "bg-slate-50 text-slate-400 border-slate-200",
+      color: "bg-black text-white border-black hover:bg-neutral-800",
+      missingColor: "bg-neutral-50 text-neutral-400 border-neutral-200",
       actionLabel: "Send Email",
       action: () => {
         if (email) {
@@ -254,8 +272,8 @@ export function ContactChannelsGrid({
       available: !!corporateWebsite,
       value: corporateWebsite ? (corporateWebsite.length > 25 ? corporateWebsite.slice(0, 23) + "..." : corporateWebsite) : null,
       icon: Globe,
-      color: "bg-slate-800 text-white border-slate-900 hover:bg-slate-900",
-      missingColor: "bg-slate-50 text-slate-400 border-slate-200",
+      color: "bg-black text-white border-black hover:bg-neutral-800",
+      missingColor: "bg-neutral-50 text-neutral-400 border-neutral-200",
       actionLabel: "Visit Site",
       action: () => {
         if (cleanWebsite) {
@@ -280,77 +298,96 @@ export function ContactChannelsGrid({
   const availableCount = channels.filter(c => c.available).length;
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs space-y-4 font-sans">
+    <div className="bg-white rounded-xl border border-neutral-200 p-4 shadow-xs space-y-3 font-sans">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2.5">
-          <span className="text-xs font-black text-slate-900 uppercase tracking-wider">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono font-black text-black uppercase tracking-wider">
             Verified Contact Channels
           </span>
-          <span className="px-2.5 py-0.5 text-[10px] font-black rounded-full bg-teal-100 text-teal-900 border border-teal-200">
-            {availableCount} / {channels.length} Configured
+          <span className="px-2 py-0.5 text-[10px] font-mono font-bold rounded bg-[#0f343c] text-white border border-[#16434d]">
+            {availableCount} / {channels.length} ACTIVE
           </span>
         </div>
 
         <button
           onClick={() => setShowEditModal(true)}
-          className="text-xs text-teal-800 font-black hover:text-teal-950 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-xl border border-teal-200 flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs"
+          className="text-xs text-black font-mono font-bold hover:bg-neutral-100 bg-white px-2.5 py-1 rounded-lg border border-neutral-200 flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs"
         >
-          <Pencil className="h-3.5 w-3.5 text-teal-700" /> Edit Contact Info
+          <Pencil className="h-3 w-3 text-black" /> Edit Channels
         </button>
       </div>
 
       {/* Grid Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
         {channels.map((ch) => {
           const Icon = ch.icon;
           return (
             <div
               key={ch.id}
-              className={`p-3 rounded-2xl border flex flex-col justify-between transition-all ${
+              className={`p-2.5 rounded-lg border flex flex-col justify-between transition-all ${
                 ch.available
-                  ? "bg-slate-50/90 border-slate-200/90 hover:border-slate-300"
+                  ? "bg-neutral-50/80 border-neutral-200 hover:border-[#0f343c]"
                   : ch.missingColor
               }`}
             >
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-1.5 min-w-0">
                   <Icon
-                    className={`h-4 w-4 shrink-0 ${
-                      ch.available ? "text-slate-800" : "text-slate-400"
+                    className={`h-3.5 w-3.5 shrink-0 ${
+                      ch.available ? "text-[#0f343c]" : "text-neutral-400"
                     }`}
                   />
-                  <span className="text-[11px] font-black truncate text-slate-900">
+                  <span className="text-[11px] font-bold truncate text-black font-sans">
                     {ch.name}
                   </span>
                 </div>
                 {ch.available ? (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                  <CheckCircle2 className="h-3 w-3 text-[#0f343c] shrink-0" />
                 ) : (
-                  <span className="text-[9px] font-black text-slate-400 uppercase shrink-0">
+                  <span className="text-[8px] font-mono font-bold text-neutral-400 uppercase shrink-0">
                     MISSING
                   </span>
                 )}
               </div>
 
-              {ch.available ? (
-                <div className="space-y-2">
-                  <p className="text-[10px] font-bold text-slate-700 truncate" title={String(ch.value)}>
+              <div className="my-1 text-xs">
+                {ch.available ? (
+                  <span className="text-black font-bold truncate block font-mono text-[11px]">
                     {ch.value}
-                  </p>
+                  </span>
+                ) : (
+                  <span className="text-neutral-400 italic text-[10px] block">
+                    Not provided
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-2 pt-2 border-t border-neutral-100 font-mono">
+                {ch.available ? (
                   <button
                     onClick={ch.action}
                     disabled={loggingChannel === ch.id}
-                    className={`w-full text-[10px] font-extrabold py-1.5 px-2 rounded-xl border shadow-2xs transition-all flex items-center justify-center gap-1 cursor-pointer ${ch.color}`}
+                    className="w-full py-1 px-1.5 bg-[#0f343c] hover:bg-[#091f24] text-white border border-[#16434d] text-[10px] font-bold rounded shadow-2xs flex items-center justify-center gap-1 transition-all cursor-pointer"
                   >
-                    <span>{ch.actionLabel}</span>
-                    <ExternalLink className="h-2.5 w-2.5" />
+                    {loggingChannel === ch.id ? (
+                      <Loader2 className="h-3 w-3 animate-spin text-white" />
+                    ) : (
+                      <>
+                        <span>{ch.actionLabel}</span>
+                        <ExternalLink className="h-2.5 w-2.5 text-white" />
+                      </>
+                    )}
                   </button>
-                </div>
-              ) : (
-                <div className="mt-2">
-                  <p className="text-[10px] font-medium italic text-slate-400">Not provided</p>
-                </div>
-              )}
+                ) : (
+                  <button
+                    onClick={() => setShowEditModal(true)}
+                    className="w-full py-1 px-1.5 bg-neutral-100 text-neutral-600 hover:bg-neutral-200 text-[10px] font-bold rounded flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <Plus className="h-2.5 w-2.5" />
+                    <span>Add</span>
+                  </button>
+                )}
+              </div>
             </div>
           );
         })}

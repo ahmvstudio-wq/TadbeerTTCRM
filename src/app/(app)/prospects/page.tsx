@@ -11,7 +11,7 @@ import {
   Sparkles, Flame, UserCheck, X, FileText, Send, CheckCircle2,
   Grid, Calendar, Filter, Zap, Globe, MapPin, Tag, User, Layers, PhoneCall, Bot, Camera, Copy
 } from "lucide-react";
-import { cn, formatWhatsAppNumber, formatPhoneNumberForDisplay } from "@/lib/utils";
+import { cn, formatWhatsAppNumber, formatPhoneNumberForDisplay, formatOmanWhatsAppUrl, isValidLinkedInUrl } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,8 @@ import { deleteCompany } from "@/lib/actions/delete";
 import { bulkImportCompanies } from "@/lib/actions/import";
 import { exportToCsv } from "@/lib/export-csv";
 import { useUnifiedLead } from "@/context/unified-lead-context";
+import { extractInstagramUrl as sharedExtractInstagramUrl } from "@/components/workspace/contact-channels-grid";
+import { getCleanIndustry } from "@/lib/utils";
 
 // Inline LinkedIn Icon
 function LinkedInIcon({ size = 12 }: { size?: number }) {
@@ -32,27 +34,6 @@ function LinkedInIcon({ size = 12 }: { size?: number }) {
       <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
     </svg>
   );
-}
-
-// Oman WhatsApp Helper Function
-export function formatOmanWhatsAppUrl(phone?: string, message?: string): string | null {
-  if (!phone || typeof phone !== 'string') return null;
-  const digits = formatWhatsAppNumber(phone);
-  if (!digits) return null;
-
-  const baseUrl = `https://wa.me/${digits}`;
-  if (message) {
-    return `${baseUrl}?text=${encodeURIComponent(message)}`;
-  }
-  return baseUrl;
-}
-
-// Legitimate LinkedIn URL Validator
-export function isValidLinkedInUrl(url?: string): boolean {
-  if (!url || typeof url !== 'string') return false;
-  const trimmed = url.trim().toLowerCase();
-  if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined' || trimmed === '#' || trimmed === 'n/a') return false;
-  return trimmed.includes('linkedin.com') || (trimmed.startsWith('http') && trimmed.includes('linkedin'));
 }
 
 // Stage styling configs
@@ -72,12 +53,12 @@ const statusOrder: CompanyStatus[] = [
 
 // Lead Temperature Badges
 const LEAD_TYPES = [
-  { key: 'Hot', label: '🔥 Hot Lead', bg: 'bg-red-50 text-red-700 border-red-200' },
-  { key: 'Warm', label: '☀️ Warm Lead', bg: 'bg-amber-50 text-amber-700 border-amber-200' },
-  { key: 'Cold', label: '❄️ Cold Lead', bg: 'bg-blue-50 text-blue-700 border-blue-200' },
-  { key: 'VIP', label: '👑 VIP Account', bg: 'bg-purple-50 text-purple-700 border-purple-200' },
-  { key: 'Inbound', label: '📥 Inbound Lead', bg: 'bg-teal-50 text-teal-700 border-teal-200' },
-  { key: 'Referral', label: '🤝 Referral', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  { key: 'Hot', label: 'Hot Lead', bg: 'bg-red-50 text-red-700 border-red-200' },
+  { key: 'Warm', label: 'Warm Lead', bg: 'bg-amber-50 text-amber-700 border-amber-200' },
+  { key: 'Cold', label: 'Cold Lead', bg: 'bg-blue-50 text-blue-700 border-blue-200' },
+  { key: 'VIP', label: 'VIP Account', bg: 'bg-purple-50 text-purple-700 border-purple-200' },
+  { key: 'Inbound', label: 'Inbound Lead', bg: 'bg-teal-50 text-teal-700 border-teal-200' },
+  { key: 'Referral', label: 'Referral', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
 ];
 
 const avatarGradients = [
@@ -227,53 +208,9 @@ export default function ProspectsPage() {
     fetchProspects(search, statusFilter);
   };
 
-  const extractInstagramUrl = (input: any): string => {
-    if (!input) return "";
-
-    const textToScan = typeof input === "object"
-      ? `${input.company_name || ""} ${input.website || ""} ${input.notes || ""} ${input.pain_point || ""} ${input.lead_source || ""} ${(input.contacts || []).map((c: any) => `${c.notes || ''} ${c.full_name || ''} ${c.linkedin_url || ''}`).join(' ')}`
-      : String(input);
-
-    // 1. Direct http(s) Instagram URL anywhere in text
-    const directMatch = textToScan.match(/https?:\/\/(?:www\.)?instagram\.com\/([a-zA-Z0-9_.]+)(?:\/[^\s\n"']*)?/i);
-    if (directMatch) {
-      return `https://www.instagram.com/${directMatch[1].replace(/\/$/, '')}/`;
-    }
-
-    // 2. Pattern: Instagram: @handle OR Instagram: handle OR Instagram: https://...
-    const handleMatch = textToScan.match(/Instagram:\s*@?([a-zA-Z0-9_./:]+)/i);
-    if (handleMatch && handleMatch[1]) {
-      const val = handleMatch[1].trim();
-      if (val.toLowerCase().startsWith("http")) {
-        return val;
-      }
-      const handle = val.replace(/^@/, '').replace(/\/$/, '');
-      if (handle && handle.length >= 2) {
-        return `https://www.instagram.com/${handle}/`;
-      }
-    }
-
-    // 3. Pattern: @handle in company_name or text
-    const atMatch = textToScan.match(/@([a-zA-Z0-9_.]+)/);
-    if (atMatch && atMatch[1]) {
-      const handle = atMatch[1].trim();
-      if (handle.length >= 2 && !['gmail', 'yahoo', 'hotmail', 'outlook', 'today', 'team', 'gmail.com', 'tadbeer', 'tadbeertt'].includes(handle.toLowerCase())) {
-        return `https://www.instagram.com/${handle}/`;
-      }
-    }
-
-    // 4. Fallback if source indicates Instagram
-    if (typeof input === "object") {
-      const leadSource = (input.lead_source || "").toLowerCase();
-      const isIgSource = leadSource.includes("instagram") || leadSource.includes("ig dm") || leadSource === "ig";
-      if (isIgSource) {
-        const cleanCompName = (input.company_name || 'prospect').toLowerCase().replace(/[^a-z0-9_.]/g, '');
-        return `https://www.instagram.com/${cleanCompName}/`;
-      }
-    }
-
-    return "";
-  };
+  const extractInstagramUrl = useCallback((input: any): string => {
+    return sharedExtractInstagramUrl(input);
+  }, []);
 
   // Strict channel contact validators
   const hasValidWhatsApp = useCallback((p: any): boolean => {
@@ -391,7 +328,7 @@ export default function ProspectsPage() {
       prospect.status === 'insights';
       
     if (isInsights) {
-      return { type: 'insights', label: '⚡ Insight Generated Contacts', bg: 'bg-[#174E59]/10 text-[#174E59] border-[#174E59]/30 font-black' };
+      return { type: 'insights', label: 'Insight Generated Contacts', bg: 'bg-[#174E59]/10 text-[#174E59] border-[#174E59]/30 font-black' };
     }
 
     const isInstagramSource =
@@ -628,21 +565,21 @@ export default function ProspectsPage() {
       <ToastContainer />
 
       {/* ── BDM Command Header ────────────────────────────────────────────── */}
-      <div className="rounded-3xl bg-white text-slate-900 p-5 sm:p-6 border border-slate-200 shadow-xs space-y-5">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+      <div className="rounded-xl bg-white text-black p-5 border border-neutral-200 shadow-xs space-y-4 font-sans">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-50 border border-teal-200 text-teal-700 text-xs font-bold mb-2">
-              <Zap className="h-3.5 w-3.5 text-teal-600 fill-teal-600" />
-              <span>BDM Outreach Directory</span>
+            <div className="inline-flex items-center gap-2 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-[#0f343c] border border-[#16434d] text-white mb-1">
+              <Zap className="h-3 w-3 text-white" />
+              <span>LEADS DIRECTORY</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">Prospect & Lead Intelligence</h1>
-            <p className="text-slate-500 text-xs mt-1 max-w-2xl font-medium leading-relaxed">
-              Date distinction, 1-click batch sending to Daily Cadence, verified LinkedIn channel tracking, and automatic Oman (+968) WhatsApp formatting.
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-black">Prospects & Leads</h1>
+            <p className="text-neutral-500 text-xs mt-0.5 max-w-2xl font-medium">
+              View, search, and reach out to all your leads.
             </p>
           </div>
 
           {/* Quick Header Actions */}
-          <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button
               variant="outline"
               size="sm"
@@ -652,64 +589,64 @@ export default function ProspectsPage() {
                 setBatchGenerating(false);
                 const ready = results.filter(r => r.status === 'ready_to_send').length;
                 if (ready > 0) {
-                  addToast("success", `Generated ${ready} autonomous outreach drafts!`);
+                  addToast("success", `Generated ${ready} message drafts!`);
                 } else {
-                  addToast("error", "No pending prospects with research data found.");
+                  addToast("error", "No pending leads found.");
                 }
                 fetchProspects(search, statusFilter);
               }}
               disabled={batchGenerating}
-              className="bg-teal-700 hover:bg-teal-800 text-white border-teal-700 text-xs font-black h-9 rounded-xl transition-all cursor-pointer shadow-2xs flex items-center gap-1.5"
+              className="bg-[#0f343c] hover:bg-[#091f24] text-white border border-[#16434d] text-xs font-mono font-bold h-8 rounded-lg transition-all cursor-pointer shadow-xs flex items-center gap-1.5"
             >
-              {batchGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 text-teal-300" />}
-              Generate AI Drafts
+              {batchGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 text-white" />}
+              AI Drafts
             </Button>
             <Link href="/daily-cadence">
-              <Button className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold h-9 rounded-xl px-4 transition-all cursor-pointer">
-                <PhoneCall className="h-3.5 w-3.5 mr-2 text-teal-400" />Open Daily Cadence
+              <Button className="bg-[#0f343c] hover:bg-[#091f24] text-white border border-[#16434d] text-xs font-mono font-bold h-8 rounded-lg px-3 transition-all cursor-pointer">
+                <PhoneCall className="h-3.5 w-3.5 mr-1.5 text-white" />Daily Cadence
               </Button>
             </Link>
             <Button
               variant="outline"
               size="sm"
               onClick={handleExport}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 text-xs font-black h-9 rounded-xl transition-all cursor-pointer shadow-2xs flex items-center gap-1.5"
+              className="bg-white hover:bg-neutral-100 text-black border-neutral-200 text-xs font-mono font-bold h-8 rounded-lg transition-all cursor-pointer shadow-xs flex items-center gap-1.5"
             >
-              <Download className="h-4 w-4" />
-              Export {channelFilter !== 'all' ? `${channelFilter.toUpperCase()} ` : ""}CSV ({sortedProspects.length})
+              <Download className="h-3.5 w-3.5" />
+              Export CSV
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setCsvOpen(true)}
-              className="bg-white hover:bg-slate-50 text-slate-700 border-slate-200 text-xs font-bold h-9 rounded-xl transition-all cursor-pointer"
+              className="bg-white hover:bg-neutral-100 text-black border-neutral-200 text-xs font-mono font-bold h-8 rounded-lg transition-all cursor-pointer"
             >
-              <Upload className="h-3.5 w-3.5 mr-2 text-slate-500" />Import Prospects
+              <Upload className="h-3.5 w-3.5 mr-1.5 text-black" />Import CSV
             </Button>
           </div>
         </div>
 
         {/* ── Metric Bar Highlights ────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t border-slate-100">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-neutral-100 font-mono">
           
-          {/* Card 1: Total Database */}
+          {/* Card 1: Total Leads */}
           <div
             onClick={() => { setSourceFilter(""); setChannelFilter("all"); }}
             className={cn(
-              "rounded-2xl p-3.5 border flex items-center gap-3 cursor-pointer transition-all hover:scale-[1.01]",
-              !sourceFilter && channelFilter === "all" ? "bg-[#174E59]/10 border-[#174E59]/30 shadow-xs" : "bg-slate-50/70 border-slate-200"
+              "rounded-lg p-3 border flex items-center gap-3 cursor-pointer transition-all",
+              !sourceFilter && channelFilter === "all" ? "bg-[#0f343c] text-white border-[#16434d] shadow-xs" : "bg-neutral-50/70 border-neutral-200 hover:bg-white"
             )}
           >
-            <div className="h-9 w-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-700 flex-shrink-0 shadow-xs">
-              <Users className="h-4 w-4 text-[#174E59]" />
+            <div className={cn("h-8 w-8 rounded flex items-center justify-center flex-shrink-0", !sourceFilter && channelFilter === "all" ? "bg-[#091f24] text-white" : "bg-white border border-neutral-200 text-black")}>
+              <Users className="h-4 w-4" />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Database</p>
-              <p className="text-xl font-black text-slate-900 leading-tight mt-0.5">{totalCount}</p>
+              <p className={cn("text-[9px] font-bold uppercase tracking-wider", !sourceFilter && channelFilter === "all" ? "text-neutral-300" : "text-neutral-500")}>Total Leads</p>
+              <p className="text-lg font-black leading-tight mt-0.5">{totalCount}</p>
             </div>
           </div>
 
-          {/* Card 2: ⚡ Insight Generated Contacts (Interactive Clickable Filter!) */}
+          {/* Card 2: Discovered Leads */}
           <div 
             onClick={() => {
               if (channelFilter === "insights") {
@@ -721,30 +658,18 @@ export default function ProspectsPage() {
               }
             }}
             className={cn(
-              "rounded-2xl p-4 border transition-all duration-300 cursor-pointer flex flex-col justify-between",
+              "rounded-lg p-3 border transition-all cursor-pointer flex items-center gap-3",
               channelFilter === "insights" || sourceFilter === "insights"
-                ? "bg-[#174E59] border-[#174E59] shadow-lg shadow-[#174E59]/20 scale-[1.02] ring-2 ring-white/20"
-                : "bg-white border-slate-200 shadow-sm hover:shadow-md hover:border-[#174E59]/30"
+                ? "bg-[#0f343c] text-white border-[#16434d] shadow-xs"
+                : "bg-neutral-50/70 border-neutral-200 hover:bg-white"
             )}
           >
-            <div className="flex items-center justify-between mb-3">
-              <div className={cn(
-                "p-2.5 rounded-xl transition-colors duration-300",
-                channelFilter === "insights" || sourceFilter === "insights" ? "bg-white/10" : "bg-[#174E59]/10"
-              )}>
-                <Zap className={cn("w-5 h-5", channelFilter === "insights" || sourceFilter === "insights" ? "text-teal-300" : "text-[#174E59]")} />
-              </div>
+            <div className={cn("h-8 w-8 rounded flex items-center justify-center flex-shrink-0", channelFilter === "insights" || sourceFilter === "insights" ? "bg-[#091f24] text-white" : "bg-white border border-neutral-200 text-[#0f343c]")}>
+              <Zap className="h-4 w-4 text-[#0f343c]" />
             </div>
-            
             <div>
-              <div className="flex items-center justify-between">
-                <p className={cn("text-[10px] font-extrabold uppercase tracking-wider", channelFilter === "insights" || sourceFilter === "insights" ? "text-teal-200" : "text-[#174E59]")}>
-                  ⚡ Insight Generated Contacts
-                </p>
-              </div>
-              <p className={cn("text-xl font-black leading-tight mt-0.5", channelFilter === "insights" || sourceFilter === "insights" ? "text-white" : "text-slate-900")}>
-                {insightsCount} <span className={cn("text-[10px] font-bold", channelFilter === "insights" || sourceFilter === "insights" ? "text-teal-200" : "text-[#174E59]")}>(Click to Filter)</span>
-              </p>
+              <p className={cn("text-[9px] font-bold uppercase tracking-wider", channelFilter === "insights" || sourceFilter === "insights" ? "text-neutral-300" : "text-neutral-500")}>Discovered</p>
+              <p className="text-lg font-black leading-tight mt-0.5">{insightsCount}</p>
             </div>
           </div>
 
@@ -760,41 +685,41 @@ export default function ProspectsPage() {
               }
             }}
             className={cn(
-              "rounded-2xl p-3.5 border flex items-center gap-3 cursor-pointer transition-all hover:scale-[1.01]",
-              channelFilter === "linkedin" || sourceFilter === "linkedin" ? "bg-blue-600 text-white border-blue-600 shadow-md" : "bg-slate-50/70 border-slate-200"
+              "rounded-lg p-3 border flex items-center gap-3 cursor-pointer transition-all",
+              channelFilter === "linkedin" || sourceFilter === "linkedin" ? "bg-[#0f343c] text-white border-[#16434d] shadow-xs" : "bg-neutral-50/70 border-neutral-200 hover:bg-white"
             )}
           >
-            <div className="h-9 w-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-700 flex-shrink-0 shadow-xs">
-              <LinkedInIcon size={16} />
+            <div className={cn("h-8 w-8 rounded flex items-center justify-center flex-shrink-0", channelFilter === "linkedin" || sourceFilter === "linkedin" ? "bg-[#091f24] text-white" : "bg-white border border-neutral-200 text-black")}>
+              <LinkedInIcon size={14} />
             </div>
             <div>
-              <p className={cn("text-[10px] font-bold uppercase tracking-wider", channelFilter === "linkedin" || sourceFilter === "linkedin" ? "text-blue-100" : "text-slate-400")}>LinkedIn Prospects</p>
-              <p className={cn("text-xl font-black leading-tight mt-0.5", channelFilter === "linkedin" || sourceFilter === "linkedin" ? "text-white" : "text-slate-900")}>{linkedinCount}</p>
+              <p className={cn("text-[9px] font-bold uppercase tracking-wider", channelFilter === "linkedin" || sourceFilter === "linkedin" ? "text-neutral-300" : "text-neutral-500")}>LinkedIn</p>
+              <p className="text-lg font-black leading-tight mt-0.5">{linkedinCount}</p>
             </div>
           </div>
 
-          {/* Card 4: Cadence Workflow */}
-          <div className="bg-slate-50/70 rounded-2xl p-3.5 border border-slate-200 flex items-center justify-between">
+          {/* Card 4: Added Today */}
+          <div className="bg-neutral-50/70 rounded-lg p-3 border border-neutral-200 flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-bold text-[#174E59] uppercase tracking-wider">Cadence Workflow</p>
-              <p className="text-xs font-bold text-slate-800 mt-0.5">1-Click Batch Send</p>
+              <p className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider">Added Today</p>
+              <p className="text-lg font-black text-black mt-0.5">{todayCount} Leads</p>
             </div>
-            <PhoneCall className="h-5 w-5 text-[#174E59] opacity-80" />
+            <PhoneCall className="h-4 w-4 text-black opacity-80" />
           </div>
         </div>
       </div>
 
       {/* ── BDM Control Bar & Compact Filters ─────────────────────────────── */}
-      <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+      <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-xs space-y-3 font-sans">
         {/* Row 1: Search + Sort + View Toggle + Lead Count */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5">
           <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" />
             <Input
-              placeholder="Search contact, company, or title..."
+              placeholder="Search contact, company, handle, or title..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-8 text-xs w-full bg-slate-50 border-slate-200 rounded-xl focus:bg-white font-semibold"
+              className="pl-9 h-8 text-xs w-full bg-neutral-50 border-neutral-200 rounded-lg focus:bg-white font-medium"
             />
           </div>
 
@@ -802,7 +727,7 @@ export default function ProspectsPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 h-8 px-2.5 focus:bg-white cursor-pointer"
+              className="bg-neutral-50 border border-neutral-200 rounded-lg text-xs font-bold text-neutral-700 h-8 px-2.5 focus:bg-white cursor-pointer font-mono"
             >
               <option value="">All Stages ({prospects.length})</option>
               {statusOrder.map((sKey) => (
@@ -815,56 +740,56 @@ export default function ProspectsPage() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 h-8 px-2.5 focus:bg-white cursor-pointer"
+              className="bg-neutral-50 border border-neutral-200 rounded-lg text-xs font-bold text-neutral-700 h-8 px-2.5 focus:bg-white cursor-pointer"
             >
-              <option value="urgency">Sort: 🎯 Urgency</option>
-              <option value="newest">Sort: 📅 Newest</option>
-              <option value="oldest">Sort: 📅 Oldest</option>
-              <option value="name">Sort: 👤 Name (A-Z)</option>
-              <option value="status">Sort: 📊 Stage</option>
+              <option value="urgency">Sort: Urgency</option>
+              <option value="newest">Sort: Newest</option>
+              <option value="oldest">Sort: Oldest</option>
+              <option value="name">Sort: Name (A-Z)</option>
+              <option value="status">Sort: Stage</option>
             </select>
 
-            <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200">
+            <div className="flex items-center bg-neutral-100 p-0.5 rounded-lg border border-neutral-200">
               <button
                 onClick={() => setViewMode('table')}
-                className={cn("px-2.5 py-1 rounded-lg transition-all text-xs font-bold flex items-center gap-1", viewMode === 'table' ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-900")}
+                className={cn("px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1 cursor-pointer", viewMode === 'table' ? "bg-black text-white shadow-xs" : "text-neutral-500 hover:text-black")}
               >
                 <List className="h-3.5 w-3.5" />
                 <span>Table</span>
               </button>
               <button
                 onClick={() => setViewMode('board')}
-                className={cn("px-2.5 py-1 rounded-lg transition-all text-xs font-bold flex items-center gap-1", viewMode === 'board' ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-900")}
+                className={cn("px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1 cursor-pointer", viewMode === 'board' ? "bg-black text-white shadow-xs" : "text-neutral-500 hover:text-black")}
               >
                 <LayoutGrid className="h-3.5 w-3.5" />
                 <span>Board</span>
               </button>
             </div>
             
-            <span className="text-xs text-slate-500 font-extrabold px-2 py-1 bg-slate-100 border border-slate-200 rounded-xl">
+            <span className="text-xs text-neutral-700 font-mono font-bold px-2 py-1 bg-neutral-100 border border-neutral-200 rounded-lg">
               {sortedProspects.length} shown
             </span>
           </div>
         </div>
 
         {/* Row 2: Compact Date & Segment Pill Bar */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-0.5 pt-1.5 border-t border-slate-100 scrollbar-hide text-xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">Filter:</span>
+        <div className="flex items-center gap-2 overflow-x-auto pb-0.5 pt-1.5 border-t border-neutral-100 scrollbar-hide text-xs">
+          <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-wider shrink-0">SCOPE:</span>
           
           {(['all', 'new', 'database'] as const).map(seg => (
             <button
               key={seg}
               onClick={() => setLeadSegment(seg)}
               className={cn(
-                "px-2.5 py-0.5 rounded-lg text-xs font-bold transition-all border cursor-pointer shrink-0",
-                leadSegment === seg ? "bg-slate-900 text-white border-slate-900 shadow-xs" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                "px-2.5 py-0.5 rounded text-xs font-bold transition-all border cursor-pointer shrink-0 font-mono",
+                leadSegment === seg ? "bg-black text-white border-black shadow-xs" : "bg-neutral-50 border-neutral-200 text-neutral-600 hover:bg-neutral-100"
               )}
             >
-              {seg === 'all' ? 'All Leads' : seg === 'new' ? '🆕 New Leads' : '📦 Database'}
+              {seg === 'all' ? 'All Leads' : seg === 'new' ? 'New Leads' : 'Database'}
             </button>
           ))}
 
-          <span className="text-slate-300">|</span>
+          <span className="text-neutral-300">|</span>
 
           {[
             { key: 'all', label: 'All Dates' },
@@ -876,8 +801,8 @@ export default function ProspectsPage() {
               key={df.key}
               onClick={() => setDateFilter(df.key)}
               className={cn(
-                "px-2.5 py-0.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all border cursor-pointer shrink-0",
-                dateFilter === df.key ? "bg-teal-700 text-white border-teal-700 shadow-xs" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                "px-2.5 py-0.5 rounded text-xs font-bold whitespace-nowrap transition-all border cursor-pointer shrink-0 font-mono",
+                dateFilter === df.key ? "bg-black text-white border-black shadow-xs" : "bg-neutral-50 border-neutral-200 text-neutral-600 hover:bg-neutral-100"
               )}
             >
               {df.label}
@@ -886,34 +811,34 @@ export default function ProspectsPage() {
         </div>
 
         {/* ── Row 3: Dynamic Channel Categories Filter Buttons ────────────────── */}
-        <div className="pt-2.5 border-t border-slate-100 flex flex-wrap items-center gap-1.5 text-xs">
-          <span className="text-[11px] font-black text-slate-400 uppercase tracking-wider mr-1 flex items-center gap-1">
-            <Filter className="h-3.5 w-3.5 text-teal-600" /> Channel Categories:
+        <div className="pt-2 border-t border-neutral-100 flex flex-wrap items-center gap-1.5 text-xs font-mono">
+          <span className="text-[10px] font-black text-neutral-400 uppercase tracking-wider mr-1 flex items-center gap-1 font-mono">
+            <Filter className="h-3 w-3 text-black" /> CHANNELS:
           </span>
           
           <button
             onClick={() => setChannelFilter("all")}
             className={cn(
-              "px-3 py-1 rounded-xl text-xs font-extrabold border transition-all cursor-pointer flex items-center gap-1.5",
+              "px-2.5 py-1 rounded text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5",
               channelFilter === "all"
-                ? "bg-slate-900 text-white border-slate-900 shadow-2xs font-black"
-                : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900"
+                ? "bg-black text-white border-black font-black"
+                : "bg-neutral-50 text-neutral-600 border-neutral-200 hover:bg-neutral-100 hover:text-black"
             )}
           >
-            All Channels ({channelCategoryCounts.all})
+            All ({channelCategoryCounts.all})
           </button>
 
           <button
             onClick={() => setChannelFilter("whatsapp")}
             className={cn(
-              "px-3 py-1 rounded-xl text-xs font-extrabold border transition-all cursor-pointer flex items-center gap-1.5",
+              "px-2.5 py-1 rounded text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5",
               channelFilter === "whatsapp"
-                ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs font-black"
-                : "bg-white text-emerald-800 border-emerald-200 hover:bg-emerald-50"
+                ? "bg-black text-white border-black font-black"
+                : "bg-white text-neutral-800 border-neutral-200 hover:bg-neutral-50"
             )}
           >
-            <span>💬 WhatsApp</span>
-            <span className={cn("text-[10px] px-1.5 py-0.2 rounded-full font-black", channelFilter === "whatsapp" ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-800")}>
+            <span>WhatsApp</span>
+            <span className={cn("text-[9px] px-1.5 py-0.2 rounded font-black", channelFilter === "whatsapp" ? "bg-white/20 text-white" : "bg-neutral-100 text-neutral-800")}>
               {channelCategoryCounts.whatsapp}
             </span>
           </button>
@@ -921,14 +846,14 @@ export default function ProspectsPage() {
           <button
             onClick={() => setChannelFilter("instagram")}
             className={cn(
-              "px-3 py-1 rounded-xl text-xs font-extrabold border transition-all cursor-pointer flex items-center gap-1.5",
+              "px-2.5 py-1 rounded text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5",
               channelFilter === "instagram"
-                ? "bg-pink-600 text-white border-pink-600 shadow-2xs font-black"
-                : "bg-white text-pink-800 border-pink-200 hover:bg-pink-50"
+                ? "bg-black text-white border-black font-black"
+                : "bg-white text-neutral-800 border-neutral-200 hover:bg-neutral-50"
             )}
           >
-            <span>📸 Instagram</span>
-            <span className={cn("text-[10px] px-1.5 py-0.2 rounded-full font-black", channelFilter === "instagram" ? "bg-white/20 text-white" : "bg-pink-100 text-pink-800")}>
+            <span>Instagram</span>
+            <span className={cn("text-[9px] px-1.5 py-0.2 rounded font-black", channelFilter === "instagram" ? "bg-white/20 text-white" : "bg-neutral-100 text-neutral-800")}>
               {channelCategoryCounts.instagram}
             </span>
           </button>
@@ -936,15 +861,15 @@ export default function ProspectsPage() {
           <button
             onClick={() => setChannelFilter("linkedin")}
             className={cn(
-              "px-3 py-1 rounded-xl text-xs font-extrabold border transition-all cursor-pointer flex items-center gap-1.5",
+              "px-2.5 py-1 rounded text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5",
               channelFilter === "linkedin"
-                ? "bg-blue-600 text-white border-blue-600 shadow-2xs font-black"
-                : "bg-white text-blue-800 border-blue-200 hover:bg-blue-50"
+                ? "bg-black text-white border-black font-black"
+                : "bg-white text-neutral-800 border-neutral-200 hover:bg-neutral-50"
             )}
           >
             <LinkedInIcon size={12} />
             <span>LinkedIn</span>
-            <span className={cn("text-[10px] px-1.5 py-0.2 rounded-full font-black", channelFilter === "linkedin" ? "bg-white/20 text-white" : "bg-blue-100 text-blue-800")}>
+            <span className={cn("text-[9px] px-1.5 py-0.2 rounded font-black", channelFilter === "linkedin" ? "bg-white/20 text-white" : "bg-neutral-100 text-neutral-800")}>
               {channelCategoryCounts.linkedin}
             </span>
           </button>
@@ -952,18 +877,17 @@ export default function ProspectsPage() {
           <button
             onClick={() => setChannelFilter("phone")}
             className={cn(
-              "px-3 py-1 rounded-xl text-xs font-extrabold border transition-all cursor-pointer flex items-center gap-1.5",
+              "px-2.5 py-1 rounded text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5",
               channelFilter === "phone"
-                ? "bg-amber-600 text-white border-amber-600 shadow-2xs font-black"
-                : "bg-white text-amber-800 border-amber-200 hover:bg-amber-50"
+                ? "bg-black text-white border-black font-black"
+                : "bg-white text-neutral-800 border-neutral-200 hover:bg-neutral-50"
             )}
           >
-            <span>📞 Cold Call / Phone</span>
-            <span className={cn("text-[10px] px-1.5 py-0.2 rounded-full font-black", channelFilter === "phone" ? "bg-white/20 text-white" : "bg-amber-100 text-amber-800")}>
+            <span>Phone</span>
+            <span className={cn("text-[9px] px-1.5 py-0.2 rounded font-black", channelFilter === "phone" ? "bg-white/20 text-white" : "bg-neutral-100 text-neutral-800")}>
               {channelCategoryCounts.phone}
             </span>
           </button>
-
           <button
             onClick={() => setChannelFilter("email")}
             className={cn(
@@ -973,7 +897,7 @@ export default function ProspectsPage() {
                 : "bg-white text-violet-800 border-violet-200 hover:bg-violet-50"
             )}
           >
-            <span>✉️ Email</span>
+            <span>Email</span>
             <span className={cn("text-[10px] px-1.5 py-0.2 rounded-full font-black", channelFilter === "email" ? "bg-white/20 text-white" : "bg-violet-100 text-violet-800")}>
               {channelCategoryCounts.email}
             </span>
@@ -1044,45 +968,43 @@ export default function ProspectsPage() {
           <Button size="sm" className="mt-4 bg-brand-teal text-white" onClick={() => fetchProspects(search, statusFilter)}>Retry</Button>
         </div>
       ) : sortedProspects.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-3xl border border-slate-200 border-dashed">
-          <Building2 className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-slate-800">No prospects match filters</h3>
-          <p className="text-xs text-slate-500 mt-1">Try clearing date or stage filters.</p>
+        <div className="text-center py-20 bg-white rounded-xl border border-neutral-200 border-dashed">
+          <Building2 className="h-10 w-10 text-neutral-300 mx-auto mb-2" />
+          <h3 className="text-sm font-bold text-neutral-800">No prospects match filters</h3>
+          <p className="text-xs text-neutral-400 mt-0.5">Try clearing date or stage filters.</p>
         </div>
       ) : viewMode === 'table' ? (
 
         /* ── CATEGORIZED TABLE VIEW ──────────────────────────────────────── */
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden animate-fade-in-up">
+        <div className="bg-white rounded-xl border border-neutral-200 shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse font-sans">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                  <th className="py-4 px-4 w-10">
+                <tr className="bg-neutral-50 border-b border-neutral-200 text-[10px] font-mono font-bold text-neutral-500 uppercase tracking-widest">
+                  <th className="py-3 px-4 w-10">
                     <input
                       type="checkbox"
                       checked={selectedIds.length === sortedProspects.length}
                       onChange={(e) => setSelectedIds(e.target.checked ? sortedProspects.map(p => p.id) : [])}
-                      className="h-4 w-4 rounded border-slate-300 text-brand-teal focus:ring-brand-teal cursor-pointer"
+                      className="h-3.5 w-3.5 rounded border-neutral-300 text-black focus:ring-black cursor-pointer"
                     />
                   </th>
-                  <th className="py-4 px-4">Primary Contact & Company</th>
-                  <th className="py-4 px-4 hidden md:table-cell">Source Channel</th>
-                  <th className="py-4 px-4 hidden md:table-cell">Industry</th>
-                  <th className="py-4 px-4 hidden lg:table-cell">Date Added</th>
-                  <th className="py-4 px-4">Stage</th>
-                  <th className="py-4 px-4 text-right">Cadence Actions</th>
+                  <th className="py-3 px-4">Contact & Company</th>
+                  <th className="py-3 px-4 hidden md:table-cell">Channel</th>
+                  <th className="py-3 px-4 hidden md:table-cell">Industry</th>
+                  <th className="py-3 px-4 hidden lg:table-cell font-mono">Date</th>
+                  <th className="py-3 px-4">Stage</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-xs">
-                {sortedProspects.map((prospect, idx) => {
+              <tbody className="divide-y divide-neutral-100 text-xs font-medium">
+                {sortedProspects.map((prospect) => {
                   const contact = prospect.contacts?.[0];
                   const primaryName = contact?.full_name || prospect.company_name;
                   const companySub = contact?.full_name ? prospect.company_name : 'Company Lead';
                   const titleSub = contact?.title || '';
                   const source = getLeadSource(prospect);
-                  const style = statusColor[prospect.status as CompanyStatus] || statusColor.prospect;
-                  const gradient = avatarGradients[idx % avatarGradients.length];
-                  const addedDate = prospect.created_at ? new Date(prospect.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recently';
+                  const addedDate = prospect.created_at ? new Date(prospect.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Recent';
                   const isAddedToday = isDateMatch(prospect.created_at, 'today');
 
                   const linkedinUrl = isValidLinkedInUrl(contact?.linkedin_url) 
@@ -1091,124 +1013,121 @@ export default function ProspectsPage() {
 
                   const waPhone = contact?.whatsapp || contact?.phone || prospect?.whatsapp || prospect?.phone;
                   const waUrl = formatOmanWhatsAppUrl(waPhone);
+                  const igUrl = extractInstagramUrl(prospect);
 
                   return (
                     <tr
                       key={prospect.id}
                       onClick={() => openDrawer(prospect)}
-                      className="hover:bg-teal-50/30 transition-colors duration-150 cursor-pointer group"
+                      className="hover:bg-neutral-50/80 transition-colors duration-150 cursor-pointer group"
                     >
-                      <td className="py-4 px-4" onClick={(e) => e.stopPropagation()}>
+                      <td className="py-3.5 px-4" onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"
                           checked={selectedIds.includes(prospect.id)}
                           onChange={(e) => setSelectedIds(e.target.checked ? [...selectedIds, prospect.id] : selectedIds.filter(id => id !== prospect.id))}
-                          className="h-4 w-4 rounded border-slate-300 text-brand-teal focus:ring-brand-teal cursor-pointer"
+                          className="h-3.5 w-3.5 rounded border-neutral-300 text-black focus:ring-black cursor-pointer"
                         />
                       </td>
 
                       {/* Primary Contact Person */}
-                      <td className="py-4 px-4">
+                      <td className="py-3.5 px-4">
                         <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-xl bg-slate-100 border border-slate-200 text-slate-800 font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">
+                          <div className="h-8 w-8 rounded bg-neutral-100 border border-neutral-200 text-neutral-800 font-mono font-black text-xs flex items-center justify-center shrink-0">
                             {primaryName.charAt(0).toUpperCase()}
                           </div>
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-extrabold text-slate-900 text-sm group-hover:text-brand-teal transition-colors truncate">
+                              <span className="font-bold text-black text-xs group-hover:underline truncate">
                                 {primaryName}
                               </span>
                               {isAddedToday && (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                  ✨ Added Today
+                                <span className="text-[9px] font-mono font-black px-1.5 py-0.2 rounded bg-black text-white">
+                                  TODAY
                                 </span>
                               )}
                               {prospect.lead_type && (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                                <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-neutral-100 text-neutral-700 border border-neutral-200">
                                   {prospect.lead_type}
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-2 text-slate-500 font-medium text-xs mt-0.5 truncate">
-                              {titleSub && <span className="text-slate-700 font-semibold">{titleSub}</span>}
+                            <div className="flex items-center gap-1.5 text-neutral-500 text-[11px] mt-0.5 truncate">
+                              {titleSub && <span className="text-neutral-700">{titleSub}</span>}
                               {titleSub && <span>·</span>}
-                              <span className="font-bold text-slate-800">{companySub}</span>
+                              <span className="font-semibold text-neutral-900">{companySub}</span>
                             </div>
                           </div>
                         </div>
                       </td>
 
                       {/* Source Channel */}
-                      <td className="py-4 px-4 hidden md:table-cell">
+                      <td className="py-3.5 px-4 hidden md:table-cell font-mono">
                         {source.type === 'linkedin' ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200 shadow-xs">
-                            <LinkedInIcon size={12} />
-                            LinkedIn Lead
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-100 text-black border border-neutral-200">
+                            <LinkedInIcon size={10} />
+                            LinkedIn
                           </span>
                         ) : (
-                          <span className={cn("inline-flex items-center gap-1.5 px-2 py-1 rounded-xl text-[11px] font-bold border", source.bg)}>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-100 text-neutral-800 border border-neutral-200">
                             {source.label}
                           </span>
                         )}
                       </td>
 
                       {/* Industry */}
-                      <td className="py-4 px-4 hidden md:table-cell">
-                        <span className="font-bold text-slate-800 text-xs px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200">
-                          {prospect.industry || 'Corporate'}
+                      <td className="py-3.5 px-4 hidden md:table-cell">
+                        <span className="font-bold text-neutral-800 text-xs px-2 py-0.5 rounded bg-neutral-100 border border-neutral-200 truncate inline-block max-w-[170px]">
+                          {getCleanIndustry(prospect.industry || prospect.company_name)}
                         </span>
                       </td>
 
-                      {/* Date Added Distinction */}
-                      <td className="py-4 px-4 hidden lg:table-cell text-slate-500 font-semibold text-xs">
-                        <div className="flex items-center gap-1.5">
-                          <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                          <span className={isAddedToday ? "font-bold text-emerald-700" : ""}>{addedDate}</span>
-                        </div>
+                      {/* Date Added */}
+                      <td className="py-3.5 px-4 hidden lg:table-cell text-neutral-500 font-mono text-[11px]">
+                        <span className={isAddedToday ? "font-bold text-black" : ""}>{addedDate}</span>
                       </td>
 
                       {/* Stage */}
-                      <td className="py-4 px-4">
-                        <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border", style.bg, style.text, style.border)}>
-                          <span className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />
+                      <td className="py-3.5 px-4">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-neutral-100 text-black border border-neutral-200">
                           {COMPANY_STATUSES[prospect.status as CompanyStatus]?.label || prospect.status}
                         </span>
                       </td>
 
                       {/* Cadence Actions */}
-                      <td className="py-4 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1.5">
+                      <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => handleSendToCadence(prospect.id, primaryName)}
-                            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 text-xs font-bold h-8 rounded-xl flex items-center gap-1 shadow-xs"
+                            className="bg-neutral-100 hover:bg-black hover:text-white text-black border-neutral-200 text-xs font-mono font-bold h-7 px-2.5 rounded flex items-center gap-1 shadow-2xs"
                             title="Send directly to Daily Cadence Call Queue"
                           >
-                            <PhoneCall className="h-3.5 w-3.5" />
-                            <span className="hidden xl:inline">Cadence</span>
+                            <PhoneCall className="h-3 w-3" />
+                            <span className="hidden xl:inline">+ Cadence</span>
                           </Button>
                           {waUrl && (
-                            <a href={waUrl} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-colors" title="WhatsApp (+968 Oman format)">
+                            <a href={waUrl} target="_blank" rel="noopener noreferrer" className="p-1 rounded bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white transition-colors" title="WhatsApp (+968 Oman format)">
                               <MessageCircle className="h-3.5 w-3.5" />
                             </a>
                           )}
                           {linkedinUrl && (
-                            <a href={linkedinUrl.startsWith('http') ? linkedinUrl : `https://${linkedinUrl}`} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-colors" title="Verified LinkedIn Profile">
+                            <a href={linkedinUrl.startsWith('http') ? linkedinUrl : `https://${linkedinUrl}`} target="_blank" rel="noopener noreferrer" className="p-1 rounded bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white transition-colors" title="Verified LinkedIn Profile">
                               <LinkedInIcon size={12} />
                             </a>
                           )}
                           {prospect.website && (
-                            <a href={prospect.website.startsWith('http') ? prospect.website : `https://${prospect.website}`} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white transition-colors" title="Website">
+                            <a href={prospect.website.startsWith('http') ? prospect.website : `https://${prospect.website}`} target="_blank" rel="noopener noreferrer" className="p-1 rounded bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white transition-colors" title="Website">
                               <Globe className="h-3.5 w-3.5" />
                             </a>
                           )}
-                          {extractInstagramUrl(prospect.notes) && (
-                            <a href={extractInstagramUrl(prospect.notes)!} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg bg-pink-50 text-pink-600 hover:bg-pink-500 hover:text-white transition-colors" title="Instagram">
+                          {igUrl && (
+                            <a href={igUrl} target="_blank" rel="noopener noreferrer" className="p-1 rounded bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white transition-colors" title="Instagram">
                               <Camera className="h-3.5 w-3.5" />
                             </a>
                           )}
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-xl text-slate-400 group-hover:text-brand-teal" onClick={() => openDrawer(prospect)}>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded text-neutral-400 hover:text-black" onClick={() => openDrawer(prospect)}>
                             <ChevronRight className="h-4 w-4" />
                           </Button>
                         </div>
@@ -1223,23 +1142,22 @@ export default function ProspectsPage() {
       ) : viewMode === 'board' ? (
 
         /* ── KANBAN BOARD VIEW ───────────────────────────────────────────── */
-        <div className="flex gap-4 overflow-x-auto pb-6 scrollbar-hide animate-fade-in-up" style={{ minHeight: '650px' }}>
+        <div className="flex gap-3 overflow-x-auto pb-6 scrollbar-hide" style={{ minHeight: '650px' }}>
           {statusOrder.map((statusKey) => {
             const columnProspects = sortedProspects.filter(p => p.status === statusKey);
-            const style = statusColor[statusKey];
             const statusConfig = COMPANY_STATUSES[statusKey];
             
             return (
-              <div key={statusKey} className="flex-shrink-0 w-80 bg-slate-100/60 rounded-3xl border border-slate-200/80 flex flex-col max-h-[800px]">
-                <div className="p-4 border-b border-slate-200/80 bg-white rounded-t-3xl flex items-center justify-between sticky top-0 z-10 shadow-xs">
+              <div key={statusKey} className="flex-shrink-0 w-80 bg-neutral-100/70 rounded-xl border border-neutral-200 flex flex-col max-h-[800px]">
+                <div className="p-3.5 border-b border-neutral-200 bg-white rounded-t-xl flex items-center justify-between sticky top-0 z-10 shadow-2xs font-mono">
                   <div className="flex items-center gap-2">
-                    <div className={cn("h-2.5 w-2.5 rounded-full", style.dot)} />
-                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">{statusConfig?.label}</h3>
+                    <div className="h-2 w-2 rounded-full bg-black" />
+                    <h3 className="text-xs font-black text-black uppercase tracking-wider">{statusConfig?.label}</h3>
                   </div>
-                  <span className="bg-slate-100 text-slate-700 text-[11px] font-black px-2.5 py-0.5 rounded-full border border-slate-200">{columnProspects.length}</span>
+                  <span className="bg-neutral-100 text-black text-[10px] font-black px-2 py-0.5 rounded border border-neutral-200">{columnProspects.length}</span>
                 </div>
 
-                <div className="p-3 flex-1 overflow-y-auto space-y-3">
+                <div className="p-2.5 flex-1 overflow-y-auto space-y-2.5">
                   {columnProspects.map(prospect => {
                     const contact = prospect.contacts?.[0];
                     const primaryName = contact?.full_name || prospect.company_name;
@@ -1249,35 +1167,35 @@ export default function ProspectsPage() {
                       <div
                         key={prospect.id}
                         onClick={() => openDrawer(prospect)}
-                        className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-sm hover:shadow-md hover:border-brand-teal/40 transition-all duration-200 cursor-pointer group relative space-y-2.5"
+                        className="bg-white rounded-lg p-3 border border-neutral-200 shadow-2xs hover:border-black transition-all cursor-pointer group relative space-y-2 font-sans"
                       >
-                        <div className="flex items-center justify-between gap-1">
+                        <div className="flex items-center justify-between gap-1 font-mono">
                           {source.type === 'linkedin' ? (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-neutral-100 text-black border border-neutral-200 flex items-center gap-1">
                               <LinkedInIcon size={10} /> LinkedIn
                             </span>
                           ) : (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
-                              {prospect.industry || 'Corporate'}
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-neutral-100 text-neutral-800 border border-neutral-200">
+                              {getCleanIndustry(prospect.industry || prospect.company_name)}
                             </span>
                           )}
 
                           <div className="flex items-center gap-1">
                             {prospect.website && (
-                              <a href={prospect.website.startsWith('http') ? prospect.website : `https://${prospect.website}`} target="_blank" rel="noopener noreferrer" className="p-1 bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white rounded-lg transition-colors" title="Website" onClick={e => e.stopPropagation()}>
-                                <Globe className="h-3.5 w-3.5" />
+                              <a href={prospect.website.startsWith('http') ? prospect.website : `https://${prospect.website}`} target="_blank" rel="noopener noreferrer" className="p-1 bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white rounded transition-colors" title="Website" onClick={e => e.stopPropagation()}>
+                                <Globe className="h-3 w-3" />
                               </a>
                             )}
-                            {extractInstagramUrl(prospect.notes) && (
-                              <a href={extractInstagramUrl(prospect.notes)!} target="_blank" rel="noopener noreferrer" className="p-1 bg-pink-50 text-pink-600 hover:bg-pink-500 hover:text-white rounded-lg transition-colors" title="Instagram" onClick={e => e.stopPropagation()}>
-                                <Camera className="h-3.5 w-3.5" />
+                            {extractInstagramUrl(prospect) && (
+                              <a href={extractInstagramUrl(prospect)!} target="_blank" rel="noopener noreferrer" className="p-1 bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white rounded transition-colors" title="Instagram" onClick={e => e.stopPropagation()}>
+                                <Camera className="h-3 w-3" />
                               </a>
                             )}
                             <Button
                               size="sm"
                               variant="ghost"
                               onClick={(e) => { e.stopPropagation(); handleSendToCadence(prospect.id, primaryName); }}
-                              className="h-6 text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 rounded-lg"
+                              className="h-5 text-[9px] font-mono font-bold text-black bg-neutral-100 hover:bg-black hover:text-white px-1.5 rounded"
                             >
                               + Cadence
                             </Button>
@@ -1285,16 +1203,16 @@ export default function ProspectsPage() {
                         </div>
 
                         <div>
-                          <h4 className="text-sm font-black text-slate-900 group-hover:text-brand-teal transition-colors truncate">
+                          <h4 className="text-xs font-bold text-black group-hover:underline truncate">
                             {primaryName}
                           </h4>
-                          <p className="text-[11px] font-semibold text-slate-600 truncate mt-0.5">
+                          <p className="text-[11px] text-neutral-500 truncate mt-0.5">
                             {contact?.title ? `${contact.title} @ ` : ''}{prospect.company_name}
                           </p>
                         </div>
 
-                        <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 pt-2 border-t border-slate-100">
-                          <span>Added {prospect.created_at ? new Date(prospect.created_at).toLocaleDateString() : 'recently'}</span>
+                        <div className="flex items-center justify-between text-[9px] font-mono text-neutral-400 pt-1.5 border-t border-neutral-100">
+                          <span>Added {prospect.created_at ? new Date(prospect.created_at).toLocaleDateString() : 'recent'}</span>
                           <span>{[prospect.city, prospect.country].filter(Boolean).join(", ") || ''}</span>
                         </div>
                       </div>
@@ -1308,12 +1226,10 @@ export default function ProspectsPage() {
       ) : (
 
         /* ── GRID CARDS VIEW ─────────────────────────────────────────────── */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in-up">
-          {sortedProspects.map((prospect, idx) => {
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {sortedProspects.map((prospect) => {
             const contact = prospect.contacts?.[0];
             const primaryName = contact?.full_name || prospect.company_name;
-            const style = statusColor[prospect.status as CompanyStatus] || statusColor.prospect;
-            const gradient = avatarGradients[idx % avatarGradients.length];
             const source = getLeadSource(prospect);
             const waPhone = contact?.whatsapp || contact?.phone || prospect?.phone;
             const waUrl = formatOmanWhatsAppUrl(waPhone);
@@ -1322,75 +1238,75 @@ export default function ProspectsPage() {
               <div
                 key={prospect.id}
                 onClick={() => openDrawer(prospect)}
-                className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm hover:shadow-lg hover:border-brand-teal/40 transition-all duration-300 cursor-pointer group flex flex-col justify-between"
+                className="bg-white rounded-xl p-4 border border-neutral-200 shadow-xs hover:border-black transition-all cursor-pointer group flex flex-col justify-between font-sans"
               >
                 <div>
-                  <div className="flex items-center justify-between gap-2 mb-3">
+                  <div className="flex items-center justify-between gap-2 mb-3 font-mono">
                     {source.type === 'linkedin' ? (
-                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
-                        <LinkedInIcon size={10} /> LinkedIn Lead
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-neutral-100 text-black border border-neutral-200 flex items-center gap-1">
+                        <LinkedInIcon size={10} /> LinkedIn
                       </span>
                     ) : (
-                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-neutral-100 text-neutral-800 border border-neutral-200">
                         {source.label}
                       </span>
                     )}
 
-                    <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[10px] font-bold border", style.bg, style.text, style.border)}>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold border border-neutral-200 bg-neutral-100 text-black">
                       {COMPANY_STATUSES[prospect.status as CompanyStatus]?.label || prospect.status}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className={cn("h-12 w-12 rounded-2xl bg-gradient-to-br flex items-center justify-center text-white font-black text-lg shadow-md flex-shrink-0", gradient)}>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="h-10 w-10 rounded-lg bg-black text-white flex items-center justify-center font-mono font-black text-base flex-shrink-0">
                       {primaryName.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0">
-                      <h3 className="text-base font-black text-slate-900 group-hover:text-brand-teal transition-colors truncate">{primaryName}</h3>
-                      <p className="text-xs font-semibold text-slate-600 truncate">{contact?.title ? `${contact.title} @ ` : ''}{prospect.company_name}</p>
+                      <h3 className="text-sm font-bold text-black group-hover:underline truncate">{primaryName}</h3>
+                      <p className="text-xs text-neutral-500 truncate">{contact?.title ? `${contact.title} @ ` : ''}{prospect.company_name}</p>
                     </div>
                   </div>
 
-                  <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100 space-y-1.5 mb-4">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400 font-bold uppercase text-[10px]">Industry</span>
-                      <span className="font-bold text-slate-800">{prospect.industry || 'Corporate'}</span>
+                  <div className="bg-neutral-50 rounded-lg p-2.5 border border-neutral-200 space-y-1 mb-3 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-neutral-400 font-mono font-bold uppercase text-[9px]">Industry</span>
+                      <span className="font-semibold text-black truncate max-w-[170px]">{getCleanIndustry(prospect.industry || prospect.company_name)}</span>
                     </div>
                     {contact?.email && (
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-400 font-bold uppercase text-[10px]">Email</span>
-                        <span className="font-semibold text-brand-teal truncate max-w-[180px]">{contact.email}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-neutral-400 font-mono font-bold uppercase text-[9px]">Email</span>
+                        <span className="font-medium text-neutral-800 truncate max-w-[170px]">{contact.email}</span>
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-semibold" onClick={(e) => e.stopPropagation()}>
-                  <span>Added {prospect.created_at ? new Date(prospect.created_at).toLocaleDateString() : 'recently'}</span>
-                  <div className="flex items-center gap-1.5">
+                <div className="pt-2.5 border-t border-neutral-100 flex items-center justify-between text-xs text-neutral-500 font-mono" onClick={(e) => e.stopPropagation()}>
+                  <span className="text-[10px]">Added {prospect.created_at ? new Date(prospect.created_at).toLocaleDateString() : 'recent'}</span>
+                  <div className="flex items-center gap-1">
                     <Button
                       size="sm"
                       onClick={() => handleSendToCadence(prospect.id, primaryName)}
-                      className="bg-emerald-50 text-emerald-700 hover:bg-emerald-500 hover:text-white border border-emerald-200 text-xs font-bold h-7 rounded-lg"
+                      className="bg-neutral-100 text-black hover:bg-black hover:text-white border border-neutral-200 text-xs font-bold h-7 px-2 rounded"
                     >
                       + Cadence
                     </Button>
                     {waUrl && (
-                      <a href={waUrl} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-colors">
+                      <a href={waUrl} target="_blank" rel="noopener noreferrer" className="p-1 rounded bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white transition-colors">
                         <MessageCircle className="h-3.5 w-3.5" />
                       </a>
                     )}
                     {prospect.website && (
-                      <a href={prospect.website.startsWith('http') ? prospect.website : `https://${prospect.website}`} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white transition-colors" title="Website" onClick={e => e.stopPropagation()}>
+                      <a href={prospect.website.startsWith('http') ? prospect.website : `https://${prospect.website}`} target="_blank" rel="noopener noreferrer" className="p-1 rounded bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white transition-colors" title="Website" onClick={e => e.stopPropagation()}>
                         <Globe className="h-3.5 w-3.5" />
                       </a>
                     )}
-                    {extractInstagramUrl(prospect.notes) && (
-                      <a href={extractInstagramUrl(prospect.notes)!} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg bg-pink-50 text-pink-600 hover:bg-pink-500 hover:text-white transition-colors" title="Instagram" onClick={e => e.stopPropagation()}>
+                    {extractInstagramUrl(prospect) && (
+                      <a href={extractInstagramUrl(prospect)!} target="_blank" rel="noopener noreferrer" className="p-1 rounded bg-neutral-100 text-neutral-700 hover:bg-black hover:text-white transition-colors" title="Instagram" onClick={e => e.stopPropagation()}>
                         <Camera className="h-3.5 w-3.5" />
                       </a>
                     )}
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-xl text-slate-400 group-hover:text-brand-teal" onClick={() => openDrawer(prospect)}>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded text-neutral-400 hover:text-black" onClick={() => openDrawer(prospect)}>
                       <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>

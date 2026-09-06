@@ -92,37 +92,36 @@ export default function PipelinePage() {
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Pipeline & Deals</h1>
-          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">Track your sales opportunities and deal pipeline.</p>
+          <h1 className="text-2xl font-black text-black tracking-tight">Pipeline</h1>
+          <p className="text-neutral-500 text-xs sm:text-sm mt-0.5">Track your active deals and sales stages.</p>
         </div>
-        <Button className="bg-brand-teal hover:bg-brand-teal-dark text-white text-xs px-3 h-8 self-start sm:self-auto" onClick={() => setNewDialogOpen(true)}>+ New Opportunity</Button>
+        <Button className="bg-[#0f343c] hover:bg-[#091f24] text-white border border-[#16434d] text-xs font-mono font-bold px-3.5 h-8 rounded-lg self-start sm:self-auto shadow-xs" onClick={() => setNewDialogOpen(true)}>+ New Deal</Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card><CardContent className="p-4 text-center"><p className="text-sm text-text-muted">Total Pipeline</p><p className="text-2xl font-bold text-text-primary">{formatCurrency(totalValue)}</p></CardContent></Card>
-        <Card><CardContent className="p-4 text-center"><p className="text-sm text-text-muted">Weighted Value</p><p className="text-2xl font-bold text-brand-teal">{formatCurrency(weightedValue)}</p></CardContent></Card>
-        <Card><CardContent className="p-4 text-center"><p className="text-sm text-text-muted">Active Opportunities</p><p className="text-2xl font-bold text-text-primary">{activeOpps.length}</p></CardContent></Card>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono">
+        <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-xs text-center"><p className="text-xs text-neutral-500 font-bold uppercase">Total Pipeline</p><p className="text-2xl font-black text-black mt-1">{formatCurrency(totalValue)}</p></div>
+        <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-xs text-center"><p className="text-xs text-neutral-500 font-bold uppercase">Weighted Value</p><p className="text-2xl font-black text-black mt-1">{formatCurrency(weightedValue)}</p></div>
+        <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-xs text-center"><p className="text-xs text-neutral-500 font-bold uppercase">Active Deals</p><p className="text-2xl font-black text-black mt-1">{activeOpps.length}</p></div>
       </div>
 
       {activeOpps.length === 0 ? (
-        <Card><CardContent className="p-12 text-center">
-          <TrendingUp className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-          <p className="text-text-muted">No active opportunities. Create one to get started.</p>
-        </CardContent></Card>
+        <div className="bg-white p-12 rounded-xl border border-neutral-200 shadow-xs text-center">
+          <TrendingUp className="h-10 w-10 text-neutral-300 mx-auto mb-2" />
+          <p className="text-xs font-bold text-neutral-500">No active deals yet. Create one to get started.</p>
+        </div>
       ) : (
         <Card>
-          <CardHeader><CardTitle>Active Deals</CardTitle></CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-3 px-4 text-xs font-medium text-text-secondary uppercase">Deal</th>
-                    <th className="text-left py-3 px-4 text-xs font-medium text-text-secondary uppercase">Company</th>
-                    <th className="text-left py-3 px-4 text-xs font-medium text-text-secondary uppercase">Stage</th>
-                    <th className="text-right py-3 px-4 text-xs font-medium text-text-secondary uppercase">Value</th>
-                    <th className="text-right py-3 px-4 text-xs font-medium text-text-secondary uppercase">Probability</th>
-                    <th className="text-right py-3 px-4 text-xs font-medium text-text-secondary uppercase">Actions</th>
+                  <tr className="border-b border-border-light bg-surface-hover/50 text-left text-xs font-semibold text-text-secondary uppercase">
+                    <th className="py-3 px-4">Deal</th>
+                    <th className="py-3 px-4">Company</th>
+                    <th className="py-3 px-4">Stage</th>
+                    <th className="py-3 px-4 text-right">Value</th>
+                    <th className="py-3 px-4 text-right">Prob</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -132,7 +131,7 @@ export default function PipelinePage() {
                       <td className="py-3 px-4 text-sm text-text-secondary">
                         <button
                           onClick={() => opp.company_id && openLead(opp.company_id)}
-                          className="font-extrabold text-teal-700 hover:underline cursor-pointer text-left"
+                          className="font-extrabold text-[#0f343c] hover:underline cursor-pointer text-left"
                         >
                           {opp.companies?.company_name || "Unknown Company"} →
                         </button>

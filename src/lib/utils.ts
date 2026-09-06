@@ -123,9 +123,36 @@ export function formatPhoneNumberForDisplay(phone: string): string {
   return `+${digits}`;
 }
 
+export function formatOmanWhatsAppUrl(phone?: string, message?: string): string | null {
+  if (!phone || typeof phone !== 'string') return null;
+  const digits = formatWhatsAppNumber(phone);
+  if (!digits) return null;
+
+  const baseUrl = `https://wa.me/${digits}`;
+  if (message) {
+    return `${baseUrl}?text=${encodeURIComponent(message)}`;
+  }
+  return baseUrl;
+}
+
+export function isValidLinkedInUrl(url?: string): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim().toLowerCase();
+  if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined' || trimmed === '#' || trimmed === 'n/a') return false;
+  return trimmed.includes('linkedin.com') || (trimmed.startsWith('http') && trimmed.includes('linkedin'));
+}
+
 export interface ParsedLeadNotes {
   category?: string;
   instagram_handle?: string;
+  instagram_url?: string;
+  followers?: string;
+  business_type?: string;
+  research_signal?: string;
+  confidence?: string;
+  qualification?: string;
+  execution_note?: string;
+  contact_status?: string;
   specific_observation?: string;
   staged_sequence?: any;
   original_notes?: string;
@@ -141,7 +168,17 @@ export interface ParsedLeadNotes {
 
 export function parseLeadNotes(notes: any): ParsedLeadNotes {
   if (!notes) return {};
-  if (typeof notes === 'object') return notes;
+  if (typeof notes === 'object') {
+    if (notes.research_json && typeof notes.research_json === 'object') {
+      return {
+        ...notes.research_json,
+        ...notes,
+        staged_sequence: notes.research_json.staged_sequence || notes.staged_sequence,
+        specific_observation: notes.research_json.specific_observation || notes.specific_observation
+      };
+    }
+    return notes;
+  }
   const trimmed = String(notes).trim();
   if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
     try {
@@ -155,23 +192,33 @@ export function parseLeadNotes(notes: any): ParsedLeadNotes {
 export function getCleanObservation(leadOrNotes: any): string {
   if (!leadOrNotes) return 'No specific observation logged';
   if (typeof leadOrNotes === 'object') {
+    if (leadOrNotes.research_json?.specific_observation) {
+      return leadOrNotes.research_json.specific_observation;
+    }
+    if (leadOrNotes.research_json?.research_signal) {
+      return leadOrNotes.research_json.research_signal;
+    }
     if (leadOrNotes.specific_observation && typeof leadOrNotes.specific_observation === 'string' && !leadOrNotes.specific_observation.startsWith('{')) {
       return leadOrNotes.specific_observation;
     }
     const parsed = parseLeadNotes(leadOrNotes.notes || leadOrNotes);
     if (parsed.specific_observation && !parsed.specific_observation.startsWith('{')) return parsed.specific_observation;
+    if (parsed.research_signal) return parsed.research_signal;
     if (parsed.staged_sequence?.touch_1?.specific_observation) return parsed.staged_sequence.touch_1.specific_observation;
     if (parsed.original_notes) return parsed.original_notes;
     if (parsed.rawText && !parsed.rawText.startsWith('{')) return parsed.rawText;
     return 'Recent business growth & market positioning';
   }
   const parsed = parseLeadNotes(leadOrNotes);
-  return parsed.specific_observation || parsed.original_notes || (parsed.rawText && !parsed.rawText.startsWith('{') ? parsed.rawText : 'Recent business growth & market positioning');
+  return parsed.specific_observation || parsed.research_signal || parsed.original_notes || (parsed.rawText && !parsed.rawText.startsWith('{') ? parsed.rawText : 'Recent business growth & market positioning');
 }
 
 export function getCleanDraftMessage(leadOrNotes: any): string {
   if (!leadOrNotes) return 'Assalamu Alaikum, I came across your business today and wanted to share a quick observation.';
   if (typeof leadOrNotes === 'object') {
+    if (leadOrNotes.research_json?.staged_sequence?.touch_1?.message) {
+      return leadOrNotes.research_json.staged_sequence.touch_1.message;
+    }
     if (leadOrNotes.draft_message && typeof leadOrNotes.draft_message === 'string' && !leadOrNotes.draft_message.startsWith('{')) {
       return leadOrNotes.draft_message;
     }
@@ -187,6 +234,31 @@ export function getCleanDraftMessage(leadOrNotes: any): string {
   }
   const parsed = parseLeadNotes(leadOrNotes);
   return parsed.draft_message || parsed.staged_sequence?.touch_1?.message || (parsed.rawText && !parsed.rawText.startsWith('{') ? parsed.rawText : 'Assalamu Alaikum, I came across your business today and wanted to share a quick observation.');
+}
+
+export function getCleanIndustry(companyOrIndustry: any): string {
+  if (!companyOrIndustry) return 'General Enterprise';
+  const isObj = typeof companyOrIndustry === 'object';
+  const ind = isObj ? (companyOrIndustry.industry || companyOrIndustry.category || '') : companyOrIndustry;
+  const clean = String(ind || '').trim();
+
+  if (clean.startsWith('@') || clean.toLowerCase().includes('instagram.com/')) {
+    const name = isObj ? String(companyOrIndustry.company_name || '').toLowerCase() : '';
+    if (name.includes('boutique') || name.includes('collection') || name.includes('couture') || name.includes('dress') || name.includes('fashion') || name.includes('line') || name.includes('kaftan') || name.includes('abaya')) {
+      return 'Fashion & Apparel / Boutique';
+    }
+    return 'Retail / DTC Brand';
+  }
+
+  if (clean.toLowerCase().startsWith('hey ') || clean.toLowerCase().startsWith('hi ') || clean.toLowerCase().startsWith('assalamu')) {
+    const name = isObj ? String(companyOrIndustry.company_name || '').toLowerCase() : '';
+    if (name.includes('dermatology') || name.includes('clinic') || name.includes('spa') || name.includes('medical')) {
+      return 'Clinics & Aesthetics';
+    }
+    return 'Retail & Services';
+  }
+
+  return clean || 'General Enterprise';
 }
 
 export function getCleanDisplayNotes(notes: any): string {

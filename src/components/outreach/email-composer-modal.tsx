@@ -75,7 +75,7 @@ export function EmailComposerModal({
         <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-violet-500/20 border border-violet-400/30 flex items-center justify-center text-violet-400 font-black text-lg">
-              ✉️
+              <Mail className="h-5 w-5 text-violet-400" />
             </div>
             <div>
               <div className="flex items-center gap-2">

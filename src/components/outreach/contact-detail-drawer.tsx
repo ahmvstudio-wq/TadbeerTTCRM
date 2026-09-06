@@ -170,7 +170,7 @@ export function ContactDetailDrawer({
               onClick={() => setTemplateModalOpen(true)}
               className="bg-white hover:bg-slate-100 border border-slate-200 text-slate-800 font-bold text-[11px] h-7 px-3 rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer"
             >
-              📝 Templates
+              Templates
             </button>
           </div>
         </div>
@@ -178,7 +178,7 @@ export function ContactDetailDrawer({
         {/* ── Main Body (Standardized Layout & Sections) ───────────────── */}
         <div className="flex-1 overflow-y-auto p-5 space-y-5 text-xs">
 
-          {/* Section 1: 📍 Primary Outlets & Contact Handles */}
+          {/* Section 1: Primary Outlets & Contact Handles */}
           <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200/80 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1">
@@ -227,7 +227,7 @@ export function ContactDetailDrawer({
             </div>
           </div>
 
-          {/* Section 2: 🏢 Company Categorization */}
+          {/* Section 2: Company Categorization */}
           <div className="bg-white rounded-2xl p-4 border border-slate-200/80 space-y-3 shadow-2xs">
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1">
               <Building className="h-3.5 w-3.5 text-slate-600" /> 2. Company Details
@@ -244,7 +244,7 @@ export function ContactDetailDrawer({
             </div>
           </div>
 
-          {/* Section 3: 💬 Prospect Reply & Call Preparation Context */}
+          {/* Section 3: Prospect Reply & Call Preparation Context */}
           <div className="space-y-3">
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1">
               <FileText className="h-3.5 w-3.5 text-indigo-600" /> 3. Call Notes & Reply Intelligence
@@ -252,8 +252,8 @@ export function ContactDetailDrawer({
 
             {lead.prospect_reply && (
               <div className="bg-indigo-50/70 border border-indigo-200 rounded-xl p-3">
-                <span className="text-[9px] font-black text-indigo-700 uppercase tracking-wider block mb-0.5">💬 Prospect's Reply</span>
-                <span className="text-indigo-950 font-medium italic text-xs">"{lead.prospect_reply}"</span>
+                <span className="text-[9px] font-black text-indigo-700 uppercase tracking-wider block mb-0.5">Prospect&apos;s Reply</span>
+                <span className="text-indigo-950 font-medium italic text-xs">&ldquo;{lead.prospect_reply}&rdquo;</span>
               </div>
             )}
 
@@ -263,7 +263,7 @@ export function ContactDetailDrawer({
               if (!cleanObs || cleanObs.includes('{')) return null;
               return (
                 <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3">
-                  <span className="text-[9px] font-black text-amber-700 uppercase tracking-wider block mb-0.5">✨ Pre-Researched Observation</span>
+                  <span className="text-[9px] font-black text-amber-700 uppercase tracking-wider block mb-0.5">Pre-Researched Observation</span>
                   <span className="text-amber-950 font-bold text-xs">{cleanObs}</span>
                 </div>
               );
@@ -275,7 +275,7 @@ export function ContactDetailDrawer({
               if (!cleanMsg || cleanMsg.includes('{')) return null;
               return (
                 <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3">
-                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider block mb-0.5">📨 Staged Gate-Opener Message</span>
+                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider block mb-0.5">Staged Gate-Opener Message</span>
                   <p className="text-slate-800 font-medium text-xs italic leading-relaxed">&ldquo;{cleanMsg}&rdquo;</p>
                 </div>
               );
@@ -283,7 +283,7 @@ export function ContactDetailDrawer({
 
             {lead.call_opening_line && (
               <div className="bg-teal-50/70 border border-teal-200 rounded-xl p-3">
-                <span className="text-[9px] font-black text-teal-800 uppercase tracking-wider block mb-0.5">📞 Cold Call Script Opener</span>
+                <span className="text-[9px] font-black text-teal-800 uppercase tracking-wider block mb-0.5">Cold Call Script Opener</span>
                 <span className="text-teal-950 font-bold text-xs leading-relaxed">&ldquo;{lead.call_opening_line}&rdquo;</span>
               </div>
             )}
@@ -294,7 +294,7 @@ export function ContactDetailDrawer({
               if (!cleanNotes || cleanNotes === getCleanObservation(lead)) return null;
               return (
                 <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-0.5">📝 Logged Notes</span>
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-0.5">Logged Notes</span>
                   <span className="text-slate-800 font-medium text-xs">{cleanNotes}</span>
                 </div>
               );

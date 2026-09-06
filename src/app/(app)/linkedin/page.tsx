@@ -35,9 +35,9 @@ import {
   type LinkedInBdStage,
   type LinkedInStageInfo
 } from '@/lib/actions/linkedin'
-import { formatOmanWhatsAppUrl, isValidLinkedInUrl } from '@/app/(app)/prospects/page'
+import { formatOmanWhatsAppUrl, isValidLinkedInUrl } from '@/lib/utils'
 
-export const LINKEDIN_BD_STAGES_MAP: Record<LinkedInBdStage, LinkedInStageInfo> = {
+const LINKEDIN_BD_STAGES_MAP: Record<LinkedInBdStage, LinkedInStageInfo> = {
   stage_1_targeting: {
     stage_number: 1,
     id: 'stage_1_targeting',

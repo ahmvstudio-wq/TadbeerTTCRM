@@ -45,23 +45,23 @@ export type OutreachTemplate =
   | 'gate_opener'
 
 export const SECTOR_CONFIG: Record<SectorCategory, { label: string; emoji: string; targetPersona: string; primaryProblem: string }> = {
-  aesthetic_clinics:   { label: 'Aesthetic & Derma Clinics', emoji: '💉', targetPersona: 'Owner-Doctor (Cosmetic MD)',   primaryProblem: 'DM inquiry drop-off & no-shows' },
-  dental_clinics:      { label: 'Dental Clinics',            emoji: '🦷', targetPersona: 'Owner-Dentist',                 primaryProblem: 'Unanswered calls & Google visibility' },
-  social_commerce_dtc: { label: 'Social-Commerce & DTC',     emoji: '🛍️', targetPersona: 'Founder / Brand Owner',        primaryProblem: 'WhatsApp order chaos & manual payments' },
-  training_education:  { label: 'Training & Education',      emoji: '🎓', targetPersona: 'Institute Director / BD Head',  primaryProblem: 'Batch enrollment scramble & 1.2% levy' },
-  hospitality_fnb:     { label: 'Hospitality & Premium F&B', emoji: '🍽️', targetPersona: 'General Manager / Owner',       primaryProblem: '15-25% OTA commissions & weekday slump' },
-  general:             { label: 'General SME',               emoji: '🏢', targetPersona: 'Business Owner',               primaryProblem: 'Customer acquisition & systems' },
+  aesthetic_clinics:   { label: 'Aesthetic & Derma Clinics', emoji: '', targetPersona: 'Owner-Doctor (Cosmetic MD)',   primaryProblem: 'DM inquiry drop-off & no-shows' },
+  dental_clinics:      { label: 'Dental Clinics',            emoji: '', targetPersona: 'Owner-Dentist',                 primaryProblem: 'Unanswered calls & Google visibility' },
+  social_commerce_dtc: { label: 'Social-Commerce & DTC',     emoji: '', targetPersona: 'Founder / Brand Owner',        primaryProblem: 'WhatsApp order chaos & manual payments' },
+  training_education:  { label: 'Training & Education',      emoji: '', targetPersona: 'Institute Director / BD Head',  primaryProblem: 'Batch enrollment scramble & 1.2% levy' },
+  hospitality_fnb:     { label: 'Hospitality & Premium F&B', emoji: '', targetPersona: 'General Manager / Owner',       primaryProblem: '15-25% OTA commissions & weekday slump' },
+  general:             { label: 'General SME',               emoji: '', targetPersona: 'Business Owner',               primaryProblem: 'Customer acquisition & systems' },
 }
 
 export const CHANNEL_CONFIG: Record<OutreachChannel, { label: string; emoji: string; placeholder: string; handleLabel: string; actionLabel: string }> = {
-  instagram_dm: { label: 'Instagram DM',  emoji: '📸', placeholder: '@username',        handleLabel: 'Instagram Handle', actionLabel: 'Open IG & Copy' },
-  whatsapp:     { label: 'WhatsApp',       emoji: '💬', placeholder: '+968 …',            handleLabel: 'WhatsApp Number',  actionLabel: 'Launch WhatsApp' },
-  linkedin:     { label: 'LinkedIn',       emoji: '🔗', placeholder: 'linkedin.com/in/…', handleLabel: 'LinkedIn Profile', actionLabel: 'Open LinkedIn & Copy' },
-  cold_call:    { label: 'Cold Call',      emoji: '📞', placeholder: '+968 …',            handleLabel: 'Phone Number',     actionLabel: 'Call + Script' },
-  email:        { label: 'Email',          emoji: '✉️', placeholder: 'email@company.com', handleLabel: 'Email Address',    actionLabel: 'Open Mail & Copy' },
-  referral:     { label: 'Referral',       emoji: '🤝', placeholder: 'Referred by…',     handleLabel: 'Referred By',      actionLabel: 'Log Referral' },
-  event:        { label: 'Event / Expo',   emoji: '🎟️', placeholder: 'Event name',        handleLabel: 'Event Name',       actionLabel: 'Log Touch' },
-  walk_in:      { label: 'Walk-in',        emoji: '📍', placeholder: 'Location / branch', handleLabel: 'Location',         actionLabel: 'Log Visit' },
+  instagram_dm: { label: 'Instagram DM',  emoji: '', placeholder: '@username',        handleLabel: 'Instagram Handle', actionLabel: 'Open IG & Copy' },
+  whatsapp:     { label: 'WhatsApp',       emoji: '', placeholder: '+968 …',            handleLabel: 'WhatsApp Number',  actionLabel: 'Launch WhatsApp' },
+  linkedin:     { label: 'LinkedIn',       emoji: '', placeholder: 'linkedin.com/in/…', handleLabel: 'LinkedIn Profile', actionLabel: 'Open LinkedIn & Copy' },
+  cold_call:    { label: 'Cold Call',      emoji: '', placeholder: '+968 …',            handleLabel: 'Phone Number',     actionLabel: 'Call + Script' },
+  email:        { label: 'Email',          emoji: '', placeholder: 'email@company.com', handleLabel: 'Email Address',    actionLabel: 'Open Mail & Copy' },
+  referral:     { label: 'Referral',       emoji: '', placeholder: 'Referred by…',     handleLabel: 'Referred By',      actionLabel: 'Log Referral' },
+  event:        { label: 'Event / Expo',   emoji: '', placeholder: 'Event name',        handleLabel: 'Event Name',       actionLabel: 'Log Touch' },
+  walk_in:      { label: 'Walk-in',        emoji: '', placeholder: 'Location / branch', handleLabel: 'Location',         actionLabel: 'Log Visit' },
 }
 
 export const STAGE_CONFIG: Record<OutreachStage, { label: string; shortLabel: string; color: string; stepNumber: number; badgeColor: string; description: string }> = {

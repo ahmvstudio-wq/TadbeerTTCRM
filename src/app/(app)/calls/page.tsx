@@ -22,7 +22,7 @@ const outcomeOptions = [
   { value: "no_answer", label: "No Answer / Busy" },
   { value: "left_voicemail", label: "Left Voicemail" },
   { value: "callback_requested", label: "Callback Requested" },
-  { value: "meeting_booked", label: "Meeting Booked 🎉" },
+  { value: "meeting_booked", label: "Meeting Booked" },
 ];
 
 export default function CallsPage() {
@@ -136,22 +136,22 @@ export default function CallsPage() {
       )}
 
       {/* ── Top Header & Stats Strip ─────────────────────────────────────── */}
-      <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs space-y-3">
+      <div className="bg-white border border-neutral-200 rounded-2xl p-4 shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-              <Phone className="h-5 w-5 text-teal-600" />
-              <span>Call Queue & Outreach Workstation</span>
+            <h1 className="text-xl sm:text-2xl font-black text-black tracking-tight flex items-center gap-2">
+              <Phone className="h-5 w-5 text-black" />
+              <span>Calls</span>
             </h1>
-            <p className="text-slate-400 text-xs mt-0.5 font-medium">
-              Directly synced with Outreach Pipeline for instant calling & log tracking.
+            <p className="text-neutral-500 text-xs mt-0.5 font-medium">
+              Call queue and phone logs.
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 font-mono">
             <button
               onClick={fetchCallsData}
-              className="p-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              className="p-2 rounded-lg bg-neutral-100 text-black hover:bg-neutral-200 transition-colors text-xs font-bold flex items-center gap-1.5 cursor-pointer border border-neutral-200"
             >
               <RefreshCw className="h-3.5 w-3.5" /> Refresh
             </button>
@@ -159,48 +159,48 @@ export default function CallsPage() {
         </div>
 
         {/* Tab Selection + Metrics */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-neutral-100 text-xs font-mono">
           {/* Tabs */}
-          <div className="flex bg-slate-100 p-0.5 rounded-xl font-bold border border-slate-200/60">
+          <div className="flex bg-neutral-100 p-0.5 rounded-lg font-bold border border-neutral-200">
             <button
               onClick={() => setActiveTab("ready")}
               className={cn(
-                "px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5",
-                activeTab === "ready" ? "bg-white text-teal-800 shadow-2xs font-black" : "text-slate-500 hover:text-slate-900"
+                "px-3 py-1.5 rounded-md transition-all cursor-pointer flex items-center gap-1.5",
+                activeTab === "ready" ? "bg-black text-white shadow-xs font-black" : "text-neutral-600 hover:text-black"
               )}
             >
-              📞 Call Tonight ({readyToCallLeads.length})
+              Ready to Call ({readyToCallLeads.length})
             </button>
             <button
               onClick={() => setActiveTab("all_calls")}
               className={cn(
-                "px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5",
-                activeTab === "all_calls" ? "bg-white text-slate-900 shadow-2xs font-black" : "text-slate-500 hover:text-slate-900"
+                "px-3 py-1.5 rounded-md transition-all cursor-pointer flex items-center gap-1.5",
+                activeTab === "all_calls" ? "bg-black text-white shadow-xs font-black" : "text-neutral-600 hover:text-black"
               )}
             >
-              📋 All Cold Calls ({callQueueLeads.length})
+              All Calls ({callQueueLeads.length})
             </button>
             <button
               onClick={() => setActiveTab("completed")}
               className={cn(
-                "px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5",
-                activeTab === "completed" ? "bg-white text-violet-800 shadow-2xs font-black" : "text-slate-500 hover:text-slate-900"
+                "px-3 py-1.5 rounded-md transition-all cursor-pointer flex items-center gap-1.5",
+                activeTab === "completed" ? "bg-black text-white shadow-xs font-black" : "text-neutral-600 hover:text-black"
               )}
             >
-              ✅ Called & Booked ({completedCallsLeads.length})
+              Completed ({completedCallsLeads.length})
             </button>
           </div>
 
           {/* Instant Search Bar */}
-          <div className="relative w-full sm:max-w-xs">
+          <div className="relative w-full sm:max-w-xs font-sans">
             <Input
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="🔍 Filter prospect name, phone..."
-              className="h-8 text-xs bg-slate-50 border-slate-200 rounded-xl pr-8"
+              placeholder="Search calls..."
+              className="h-8 text-xs bg-neutral-50 border-neutral-200 rounded-lg pr-8 font-medium"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery("")} className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600">
+              <button onClick={() => setSearchQuery("")} className="absolute right-2.5 top-2 text-neutral-400 hover:text-neutral-600">
                 <X className="h-3.5 w-3.5" />
               </button>
             )}
@@ -210,14 +210,14 @@ export default function CallsPage() {
 
       {/* ── Call List Table ─────────────────────────────────────────────── */}
       {loading ? (
-        <div className="flex items-center justify-center py-24 bg-white rounded-2xl border border-slate-200">
-          <Loader2 className="h-6 w-6 animate-spin text-teal-600" />
+        <div className="flex items-center justify-center py-24 bg-white rounded-2xl border border-neutral-200">
+          <Loader2 className="h-6 w-6 animate-spin text-black" />
         </div>
       ) : displayedLeads.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-12 text-center text-slate-400">
-          <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto mb-2" />
-          <p className="text-sm font-bold text-slate-700">No calls queued in this view</p>
-          <p className="text-xs text-slate-400 mt-1">Mark leads "Ready for Call" in Outreach to automatically add them here!</p>
+        <div className="bg-white rounded-2xl border border-neutral-200 p-12 text-center text-neutral-400 font-sans">
+          <CheckCircle2 className="h-10 w-10 text-neutral-300 mx-auto mb-2" />
+          <p className="text-sm font-bold text-black">No calls in this view</p>
+          <p className="text-xs text-neutral-500 mt-1">Leads marked ready to call will appear here.</p>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden font-sans">

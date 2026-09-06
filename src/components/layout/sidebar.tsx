@@ -16,13 +16,14 @@ import {
   Globe2,
   Bot,
   Sparkles,
+  ChevronRight
 } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "AI Employee", href: "/ai-employee", icon: Bot, isAi: true },
   { name: "Prospects", href: "/prospects", icon: Users },
   { name: "Daily Cadence", href: "/daily-cadence", icon: Zap },
+  { name: "AI Assistant", href: "/ai-employee", icon: Bot, isAi: true },
   { name: "LinkedIn", href: "/linkedin", icon: Globe2 },
   { name: "Calls", href: "/calls", icon: Phone },
   { name: "Follow-ups", href: "/follow-ups", icon: Clock },
@@ -34,50 +35,54 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden lg:flex lg:w-64 lg:flex-col bg-brand-teal text-white">
-      <div className="flex h-16 items-center gap-3 px-6 border-b border-white/10">
-        <div className="h-9 w-9 rounded-lg bg-brand-gold flex items-center justify-center">
-          <Building2 className="h-5 w-5 text-brand-teal-dark" />
+    <aside className="hidden lg:flex lg:w-64 lg:flex-col bg-neutral-950 text-white border-r border-neutral-800">
+      {/* Brand Top Bar */}
+      <div className="flex h-16 items-center gap-3 px-6 border-b border-neutral-800/80">
+        <div className="h-8 w-8 rounded-lg bg-[#0f343c] border border-[#16434d] text-white flex items-center justify-center font-black shadow-xs">
+          <Building2 className="h-4 w-4 text-white" />
         </div>
         <div>
-          <h1 className="text-lg font-bold tracking-tight">Tadbeer</h1>
-          <p className="text-xs text-white/60 -mt-0.5">CRM Operating System</p>
+          <h1 className="text-sm font-black tracking-tight text-white uppercase">Tadbeer CRM</h1>
+          <p className="text-[10px] text-neutral-400 font-bold -mt-0.5">Sales CRM</p>
         </div>
       </div>
+
+      {/* Navigation Links */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         {navigation.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+          const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
           return (
             <Link
               key={item.name}
               href={item.href}
               className={cn(
-                "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                "flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all",
                 isActive
-                  ? "bg-white/15 text-white"
-                  : "text-white/70 hover:bg-white/10 hover:text-white",
-                item.isAi && !isActive && "bg-indigo-600/20 text-indigo-100 hover:bg-indigo-600/30"
+                  ? "bg-[#0f343c] text-white shadow-xs font-black border border-[#16434d]"
+                  : "text-neutral-400 hover:bg-neutral-900 hover:text-white"
               )}
             >
-              <div className="flex items-center gap-3">
-                <item.icon className={cn("h-5 w-5", isActive ? "text-brand-gold" : item.isAi ? "text-indigo-300" : "text-white/50")} />
+              <div className="flex items-center gap-2.5">
+                <item.icon className={cn("h-4 w-4", isActive ? "text-white" : "text-neutral-400")} />
                 <span>{item.name}</span>
               </div>
-              {item.isAi && (
-                <span className="flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-slate-900 shadow-2xs">
-                  <Sparkles className="w-2.5 h-2.5 mr-0.5" /> AI
+              {item.isAi && !isActive && (
+                <span className="flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-[#0f343c] text-white border border-[#16434d]">
+                  AI
                 </span>
               )}
             </Link>
           );
         })}
       </nav>
-      <div className="border-t border-white/10 p-3 space-y-1">
+
+      {/* Footer Settings */}
+      <div className="border-t border-neutral-800/80 p-3 space-y-1">
         <Link
           href="/settings"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/70 hover:bg-white/10 hover:text-white"
+          className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-neutral-400 hover:bg-neutral-900 hover:text-white transition-all"
         >
-          <Settings className="h-5 w-5 text-white/50" />
+          <Settings className="h-4 w-4 text-neutral-400" />
           Settings
         </Link>
       </div>
@@ -92,38 +97,39 @@ export function MobileSidebar({ open, onClose }: { open: boolean; onClose: () =>
 
   return (
     <div className="fixed inset-0 z-50 lg:hidden">
-      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="fixed inset-y-0 left-0 w-64 bg-brand-teal text-white">
-        <div className="flex h-16 items-center gap-3 px-6 border-b border-white/10">
-          <div className="h-9 w-9 rounded-lg bg-brand-gold flex items-center justify-center">
-            <Building2 className="h-5 w-5 text-brand-teal-dark" />
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" onClick={onClose} />
+      <div className="fixed inset-y-0 left-0 w-64 bg-neutral-950 text-white border-r border-neutral-800">
+        <div className="flex h-16 items-center gap-3 px-6 border-b border-neutral-800/80">
+          <div className="h-8 w-8 rounded-lg bg-[#0f343c] border border-[#16434d] text-white flex items-center justify-center font-black">
+            <Building2 className="h-4 w-4 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-bold tracking-tight">Tadbeer</h1>
-            <p className="text-xs text-white/60 -mt-0.5">CRM Operating System</p>
+            <h1 className="text-sm font-black tracking-tight text-white uppercase">Tadbeer CRM</h1>
+            <p className="text-[10px] text-neutral-400 font-bold -mt-0.5">Sales CRM</p>
           </div>
         </div>
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        <nav className="px-3 py-4 space-y-1">
           {navigation.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+            const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
             return (
               <Link
                 key={item.name}
                 href={item.href}
                 onClick={onClose}
                 className={cn(
-                  "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                  isActive ? "bg-white/15 text-white" : "text-white/70 hover:bg-white/10 hover:text-white",
-                  item.isAi && !isActive && "bg-indigo-600/20 text-indigo-100"
+                  "flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all",
+                  isActive
+                    ? "bg-[#0f343c] text-white font-black border border-[#16434d]"
+                    : "text-neutral-400 hover:bg-neutral-900 hover:text-white"
                 )}
               >
-                <div className="flex items-center gap-3">
-                  <item.icon className={cn("h-5 w-5", isActive ? "text-brand-gold" : item.isAi ? "text-indigo-300" : "text-white/50")} />
+                <div className="flex items-center gap-2.5">
+                  <item.icon className={cn("h-4 w-4", isActive ? "text-white" : "text-neutral-400")} />
                   <span>{item.name}</span>
                 </div>
-                {item.isAi && (
-                  <span className="flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-slate-900">
-                    <Sparkles className="w-2.5 h-2.5 mr-0.5" /> AI
+                {item.isAi && !isActive && (
+                  <span className="flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-[#0f343c] text-white border border-[#16434d]">
+                    AI
                   </span>
                 )}
               </Link>

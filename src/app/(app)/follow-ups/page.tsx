@@ -233,31 +233,31 @@ export default function FollowUpsPage() {
       )}
 
       {/* ── Top Header & Tab Controls ─────────────────────────────────────── */}
-      <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs space-y-3">
+      <div className="bg-white border border-neutral-200 rounded-2xl p-4 shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-              <Clock className="h-5 w-5 text-amber-600" />
-              <span>Outreach Follow-ups Workstation</span>
+            <h1 className="text-xl sm:text-2xl font-black text-black tracking-tight flex items-center gap-2">
+              <Clock className="h-5 w-5 text-black" />
+              <span>Follow-ups</span>
             </h1>
-            <p className="text-slate-400 text-xs mt-0.5 font-medium">
-              Tracks 2–3+ day overdue contacts, prospect replies & scheduled follow-ups across all channels.
+            <p className="text-neutral-500 text-xs mt-0.5 font-medium">
+              Track pending replies and scheduled follow-ups.
             </p>
           </div>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="flex items-center gap-2 self-start sm:self-auto font-mono">
             <Button
               onClick={handleExportCSV}
               disabled={displayedLeads.length === 0}
-              className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs px-3.5 rounded-xl shadow-2xs flex items-center gap-1.5 cursor-pointer transition-all disabled:opacity-50"
+              className="h-9 bg-black hover:bg-neutral-800 text-white font-bold text-xs px-3.5 rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer transition-all disabled:opacity-50"
             >
               <Download className="h-4 w-4" />
-              Export {selectedChannelLabel ? `${selectedChannelLabel} ` : ""}CSV ({displayedLeads.length})
+              Export CSV ({displayedLeads.length})
             </Button>
 
             <button
               onClick={fetchFollowupsData}
-              className="p-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              className="p-2 rounded-lg bg-neutral-100 text-black hover:bg-neutral-200 transition-colors text-xs font-bold flex items-center gap-1.5 cursor-pointer border border-neutral-200"
             >
               <RefreshCw className="h-3.5 w-3.5" /> Refresh
             </button>
@@ -265,35 +265,35 @@ export default function FollowUpsPage() {
         </div>
 
         {/* Tabs & Search */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-neutral-100 text-xs font-mono">
           {/* Status Tabs */}
-          <div className="flex bg-slate-100 p-0.5 rounded-xl font-bold border border-slate-200/60 flex-wrap">
+          <div className="flex bg-neutral-100 p-0.5 rounded-lg font-bold border border-neutral-200 flex-wrap">
             <button
               onClick={() => setActiveTab("overdue")}
               className={cn(
-                "px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5",
-                activeTab === "overdue" ? "bg-white text-amber-800 shadow-2xs font-black" : "text-slate-500 hover:text-slate-900"
+                "px-3 py-1.5 rounded-md transition-all cursor-pointer flex items-center gap-1.5",
+                activeTab === "overdue" ? "bg-black text-white shadow-xs font-black" : "text-neutral-600 hover:text-black"
               )}
             >
-              ⏰ Due / Overdue (2–3+ Days) ({overdueFollowups.length})
+              Overdue ({overdueFollowups.length})
             </button>
             <button
               onClick={() => setActiveTab("replies")}
               className={cn(
-                "px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5",
-                activeTab === "replies" ? "bg-white text-indigo-800 shadow-2xs font-black" : "text-slate-500 hover:text-slate-900"
+                "px-3 py-1.5 rounded-md transition-all cursor-pointer flex items-center gap-1.5",
+                activeTab === "replies" ? "bg-black text-white shadow-xs font-black" : "text-neutral-600 hover:text-black"
               )}
             >
-              📬 Replies Received ({repliesFollowups.length})
+              Replies ({repliesFollowups.length})
             </button>
             <button
               onClick={() => setActiveTab("all")}
               className={cn(
-                "px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5",
-                activeTab === "all" ? "bg-white text-slate-900 shadow-2xs font-black" : "text-slate-500 hover:text-slate-900"
+                "px-3 py-1.5 rounded-md transition-all cursor-pointer flex items-center gap-1.5",
+                activeTab === "all" ? "bg-black text-white shadow-xs font-black" : "text-neutral-600 hover:text-black"
               )}
             >
-              📆 All Pending ({allOutreachFollowups.length})
+              All ({allOutreachFollowups.length})
             </button>
           </div>
 

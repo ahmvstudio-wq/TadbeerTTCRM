@@ -18,16 +18,18 @@ import {
   Trash2,
   ExternalLink,
   ShieldAlert,
-  Loader2
+  Loader2,
+  MapPin
 } from "lucide-react";
 import { Company, Contact, Activity, FollowUp, Meeting, OutreachPreparation } from "@/lib/types/database";
 import { getCompany, updateCompany, updateCompanyStatus, assignCompanyLead, upsertCompanyContact } from "@/lib/actions/companies";
-import { ContactChannelsGrid } from "./contact-channels-grid";
+import { ContactChannelsGrid, extractInstagramUrl } from "./contact-channels-grid";
 import { ActivityTimeline } from "./activity-timeline";
 import { LeadResearchCard } from "./lead-research-card";
 import { LeadScriptsTemplates } from "./lead-scripts-templates";
 import { LeadTasksManager } from "./lead-tasks-manager";
 import { LeadAICopilot } from "./lead-ai-copilot";
+import { getCleanIndustry } from "@/lib/utils";
 
 export const UNIFIED_STATUSES = [
   { id: "prospect", label: "Prospect", color: "bg-slate-100 text-slate-800 border-slate-300" },
@@ -191,46 +193,73 @@ export function UnifiedLeadWorkspace({
     fetchLeadData();
   };
 
+  const rJson: any = (company as any).research_json || {};
+  const igUrl = extractInstagramUrl(company);
+  const igHandle = rJson.instagram_handle || (igUrl ? '@' + igUrl.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/\/$/, '') : null);
+  const displayIndustry = getCleanIndustry(company);
+  const businessType = rJson.business_type || (company.industry && !company.industry.startsWith('@') && company.industry !== displayIndustry ? company.industry : null);
+  const followers = rJson.followers;
+
   return (
-    <div className="bg-slate-50 rounded-2xl border border-slate-200 shadow-xl overflow-hidden font-sans flex flex-col max-w-6xl w-full mx-auto my-2">
+    <div className="bg-white rounded-xl border border-neutral-200 shadow-xl overflow-hidden font-sans flex flex-col max-w-6xl w-full mx-auto my-2">
       {/* ── 1. Unified Lead Workspace Header ───────────────────────────── */}
-      <div className="bg-slate-900 text-white p-5 space-y-3 border-b border-slate-800">
+      <div className="bg-[#091f24] text-white p-5 space-y-3 border-b border-[#16434d]">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3.5 min-w-0">
-            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white font-black flex items-center justify-center text-xl shadow-lg shrink-0">
+            <div className="h-11 w-11 rounded-lg bg-[#0f343c] border border-[#16434d] text-white font-mono font-black flex items-center justify-center text-lg shrink-0 shadow-xs">
               {company.company_name.charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-black text-white truncate">
+              <div className="flex items-center gap-2 flex-wrap font-mono">
+                <h1 className="text-base sm:text-lg font-black text-white tracking-tight truncate font-sans">
                   {company.company_name}
                 </h1>
-                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/30">
-                  {company.industry || "General Lead"}
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-[#163f47] text-white border border-[#296875]">
+                  {displayIndustry}
                 </span>
+                {businessType && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#163f47] text-white border border-[#296875]">
+                    {businessType}
+                  </span>
+                )}
+                {followers && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#163f47] text-white border border-[#296875]">
+                    {followers}
+                  </span>
+                )}
+                {igHandle && (
+                  <a
+                    href={igUrl || `https://instagram.com/${igHandle.replace(/^@/, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#163f47] text-white border border-[#296875] hover:bg-[#1f5560] transition flex items-center gap-1"
+                  >
+                    {igHandle} <ExternalLink className="h-2.5 w-2.5" />
+                  </a>
+                )}
               </div>
-              <p className="text-xs text-slate-300 font-medium truncate mt-0.5 flex items-center gap-2">
-                <span>📍 {company.city || "Location n/a"}{company.country ? `, ${company.country}` : ""}</span>
+              <p className="text-xs text-neutral-300 font-medium truncate mt-1 flex items-center gap-2 font-sans">
+                <span className="flex items-center gap-1"><MapPin className="h-3 w-3 text-neutral-400" /> {company.city || "Location n/a"}{company.country ? `, ${company.country}` : ""}</span>
                 <span>•</span>
-                <span>👤 {primaryContact ? `${primaryContact.full_name} (${primaryContact.title || "Contact"})` : "No primary contact"}</span>
+                <span className="flex items-center gap-1"><User className="h-3 w-3 text-neutral-400" /> {primaryContact ? `${primaryContact.full_name} (${primaryContact.title || "Contact"})` : "No primary contact"}</span>
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
             {/* Team Ownership Dropdown */}
-            <div className="flex items-center gap-1.5 bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs">
-              <User className="h-3.5 w-3.5 text-teal-400" />
-              <span className="text-slate-400 font-bold text-[11px]">Owner:</span>
+            <div className="flex items-center gap-1.5 bg-[#0f343c] border border-[#16434d] rounded-lg px-2.5 py-1 text-xs font-mono">
+              <User className="h-3 w-3 text-neutral-300" />
+              <span className="text-neutral-300 font-bold text-[10px]">OWNER:</span>
               <select
                 value={assignedRep || ""}
                 onChange={(e) => handleAssign(e.target.value || null)}
-                className="bg-transparent text-white font-extrabold cursor-pointer focus:outline-none text-xs"
+                className="bg-transparent text-white font-black cursor-pointer focus:outline-none text-xs"
               >
-                <option value="" className="bg-slate-900 text-slate-300">Unassigned (Available)</option>
+                <option value="" className="bg-[#091f24] text-neutral-300">Unassigned (Available)</option>
                 {TEAM_MEMBERS.map(m => (
-                  <option key={m.id} value={m.id} className="bg-slate-900 text-white">
-                    Assigned to {m.name}
+                  <option key={m.id} value={m.id} className="bg-[#091f24] text-white">
+                    {m.name}
                   </option>
                 ))}
               </select>
@@ -239,9 +268,9 @@ export function UnifiedLeadWorkspace({
             {onClose && (
               <button
                 onClick={onClose}
-                className="h-9 w-9 rounded-xl bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                className="h-8 w-8 rounded-lg bg-[#0f343c] text-neutral-300 hover:text-white border border-[#16434d] flex items-center justify-center transition-colors cursor-pointer"
               >
-                <X className="h-4 w-4" />
+                <X className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
@@ -249,41 +278,41 @@ export function UnifiedLeadWorkspace({
 
         {/* Duplicate Work Warning Banner */}
         {isAssignedToOther && (
-          <div className="p-2.5 bg-amber-500/15 border border-amber-500/30 rounded-xl flex items-center gap-2 text-xs text-amber-200">
-            <ShieldAlert className="h-4 w-4 text-amber-400 shrink-0" />
+          <div className="p-2.5 bg-[#0f343c] border border-[#16434d] rounded-lg flex items-center gap-2 text-xs text-white">
+            <ShieldAlert className="h-4 w-4 text-white shrink-0" />
             <span>
-              <strong>Warning:</strong> This lead is currently assigned to <strong>{assignedRep}</strong>. Communicate with them before taking action to avoid duplicate outreach.
+              <strong>Notice:</strong> This lead is currently assigned to <strong>{assignedRep}</strong>. Communicate before taking action to avoid duplicate touches.
             </span>
           </div>
         )}
 
         {/* Unified Status Ribbon */}
-        <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 gap-2 flex-wrap text-xs">
+        <div className="flex items-center justify-between pt-2 border-t border-[#16434d] gap-2 flex-wrap text-xs font-mono">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Unified Status:</span>
+            <span className="text-[10px] font-black text-neutral-300 uppercase tracking-wider">STAGE:</span>
             <select
               value={company.status}
               onChange={(e) => handleStatusChange(e.target.value)}
-              className="bg-slate-800 text-teal-300 border border-slate-700 rounded-xl px-3 py-1 font-extrabold cursor-pointer focus:ring-2 focus:ring-teal-500 shadow-2xs"
+              className="bg-[#0f343c] text-white border border-[#16434d] rounded-lg px-2.5 py-0.5 font-bold cursor-pointer focus:outline-none"
             >
               {UNIFIED_STATUSES.map(s => (
-                <option key={s.id} value={s.id} className="bg-slate-900 text-white">
+                <option key={s.id} value={s.id} className="bg-[#091f24] text-white">
                   {s.label}
                 </option>
               ))}
             </select>
           </div>
 
-          <div className="flex items-center gap-2 text-[11px] text-slate-400">
-            <span>Last Updated: {new Date(company.updated_at).toLocaleDateString()}</span>
+          <div className="flex items-center gap-2 text-[10px] text-neutral-300">
+            <span>UPDATED: {new Date(company.updated_at).toLocaleDateString()}</span>
             <span>•</span>
-            <span>Total Activities: {activities.length}</span>
+            <span>TOUCHES: {activities.length}</span>
           </div>
         </div>
       </div>
 
       {/* ── 2. Contact Channels Grid Bar ───────────────────────────────── */}
-      <div className="p-4 bg-slate-100 border-b border-slate-200">
+      <div className="p-3.5 bg-neutral-50 border-b border-neutral-200">
         <ContactChannelsGrid
           company={company}
           primaryContact={primaryContact}
@@ -293,14 +322,14 @@ export function UnifiedLeadWorkspace({
       </div>
 
       {/* ── 3. Workspace Navigation Tabs ────────────────────────────────── */}
-      <div className="bg-white border-b border-slate-200 px-5 flex items-center gap-2 overflow-x-auto">
+      <div className="bg-white border-b border-neutral-200 px-4 flex items-center gap-1 overflow-x-auto font-mono">
         {[
-          { id: "overview", label: "Overview & Info", icon: Building },
-          { id: "research", label: "Research & Angles", icon: Sparkles },
+          { id: "overview", label: "Overview", icon: Building },
+          { id: "research", label: "Research", icon: Sparkles },
           { id: "history", label: `History (${activities.length})`, icon: Clock },
-          { id: "scripts", label: "Scripts & Templates", icon: FileText },
-          { id: "tasks", label: `Tasks & Meetings (${followUps.length + meetings.length})`, icon: Calendar },
-          { id: "ai", label: "AI Copilot", icon: Bot }
+          { id: "scripts", label: "Scripts", icon: FileText },
+          { id: "tasks", label: `Tasks (${followUps.length + meetings.length})`, icon: Calendar },
+          { id: "ai", label: "AI Assistant", icon: Bot }
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -308,13 +337,13 @@ export function UnifiedLeadWorkspace({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`py-3 px-3.5 text-xs font-black flex items-center gap-1.5 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+              className={`py-2.5 px-3 text-xs font-bold flex items-center gap-1.5 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
                 isActive
-                  ? "border-slate-900 text-slate-900 bg-slate-50/80"
-                  : "border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                  ? "border-black text-black bg-neutral-100 font-black"
+                  : "border-transparent text-neutral-500 hover:text-black hover:bg-neutral-50"
               }`}
             >
-              <Icon className={`h-4 w-4 ${isActive ? "text-teal-600" : "text-slate-400"}`} />
+              <Icon className={`h-3.5 w-3.5 ${isActive ? "text-black" : "text-neutral-400"}`} />
               {tab.label}
             </button>
           );
@@ -322,32 +351,32 @@ export function UnifiedLeadWorkspace({
       </div>
 
       {/* ── 4. Main Body Content Area ───────────────────────────────────── */}
-      <div className="p-5 overflow-y-auto max-h-[600px] space-y-4">
+      <div className="p-4 overflow-y-auto max-h-[600px] space-y-4">
         {activeTab === "overview" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-              <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                Company & Contact Information
+          <div className="space-y-4 font-sans">
+            <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
+              <h3 className="text-xs font-mono font-black text-black uppercase tracking-wider">
+                Company & Contact
               </h3>
               {!editingOverview ? (
                 <button
                   onClick={() => setEditingOverview(true)}
-                  className="px-3 py-1 bg-slate-900 text-white font-extrabold text-xs rounded-xl shadow-2xs flex items-center gap-1 cursor-pointer"
+                  className="px-2.5 py-1 bg-black text-white font-mono font-bold text-xs rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer"
                 >
-                  <Pencil className="h-3 w-3 text-teal-400" /> Edit Details
+                  <Pencil className="h-3 w-3 text-white" /> Edit Details
                 </button>
               ) : (
-                <div className="flex gap-2">
+                <div className="flex gap-1.5 font-mono">
                   <button
                     onClick={() => setEditingOverview(false)}
-                    className="px-3 py-1 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
+                    className="px-2.5 py-1 bg-neutral-100 text-neutral-700 font-bold text-xs rounded-lg cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleSaveOverview}
                     disabled={saving}
-                    className="px-3 py-1 bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs rounded-xl shadow-2xs flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1 bg-black text-white font-bold text-xs rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer"
                   >
                     {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
                     Save Changes
@@ -357,105 +386,105 @@ export function UnifiedLeadWorkspace({
             </div>
 
             {editingOverview ? (
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 space-y-4 text-xs">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Company Fields</span>
+              <div className="bg-white p-4 rounded-xl border border-neutral-200 space-y-4 text-xs">
+                <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-wider block">Company Fields</span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Company Name</label>
-                    <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-2 rounded-lg" />
+                    <label className="text-[10px] font-bold text-neutral-500 block mb-0.5">Company Name</label>
+                    <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="w-full bg-neutral-50 border border-neutral-200 p-2 rounded-lg" />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Industry</label>
-                    <input type="text" value={industry} onChange={e => setIndustry(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-2 rounded-lg" />
+                    <label className="text-[10px] font-bold text-neutral-500 block mb-0.5">Industry</label>
+                    <input type="text" value={industry} onChange={e => setIndustry(e.target.value)} className="w-full bg-neutral-50 border border-neutral-200 p-2 rounded-lg" />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Website</label>
-                    <input type="text" value={website} onChange={e => setWebsite(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-2 rounded-lg" />
+                    <label className="text-[10px] font-bold text-neutral-500 block mb-0.5">Website</label>
+                    <input type="text" value={website} onChange={e => setWebsite(e.target.value)} className="w-full bg-neutral-50 border border-neutral-200 p-2 rounded-lg" />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Company Phone</label>
-                    <input type="text" value={phone} onChange={e => setPhone(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-2 rounded-lg" />
+                    <label className="text-[10px] font-bold text-neutral-500 block mb-0.5">Phone</label>
+                    <input type="text" value={phone} onChange={e => setPhone(e.target.value)} className="w-full bg-neutral-50 border border-neutral-200 p-2 rounded-lg" />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Company Email</label>
-                    <input type="text" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-2 rounded-lg" />
+                    <label className="text-[10px] font-bold text-neutral-500 block mb-0.5">Email</label>
+                    <input type="text" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-neutral-50 border border-neutral-200 p-2 rounded-lg" />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-0.5">City / Country</label>
+                    <label className="text-[10px] font-bold text-neutral-500 block mb-0.5">City / Country</label>
                     <div className="flex gap-1">
-                      <input type="text" value={city} placeholder="City" onChange={e => setCity(e.target.value)} className="w-1/2 bg-slate-50 border border-slate-200 p-2 rounded-lg" />
-                      <input type="text" value={country} placeholder="Country" onChange={e => setCountry(e.target.value)} className="w-1/2 bg-slate-50 border border-slate-200 p-2 rounded-lg" />
+                      <input type="text" value={city} placeholder="City" onChange={e => setCity(e.target.value)} className="w-1/2 bg-neutral-50 border border-neutral-200 p-2 rounded-lg" />
+                      <input type="text" value={country} placeholder="Country" onChange={e => setCountry(e.target.value)} className="w-1/2 bg-neutral-50 border border-neutral-200 p-2 rounded-lg" />
                     </div>
                   </div>
                 </div>
 
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block pt-2 border-t border-slate-100">Primary Contact Fields</span>
+                <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-wider block pt-2 border-t border-neutral-100">Primary Contact Fields</span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Contact Full Name</label>
-                    <input type="text" value={contactName} onChange={e => setContactName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-2 rounded-lg" />
+                    <label className="text-[10px] font-bold text-neutral-500 block mb-0.5">Contact Full Name</label>
+                    <input type="text" value={contactName} onChange={e => setContactName(e.target.value)} className="w-full bg-neutral-50 border border-neutral-200 p-2 rounded-lg" />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Title / Role</label>
-                    <input type="text" value={contactTitle} onChange={e => setContactTitle(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-2 rounded-lg" />
+                    <label className="text-[10px] font-bold text-neutral-500 block mb-0.5">Title / Role</label>
+                    <input type="text" value={contactTitle} onChange={e => setContactTitle(e.target.value)} className="w-full bg-neutral-50 border border-neutral-200 p-2 rounded-lg" />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-0.5">WhatsApp Number</label>
-                    <input type="text" value={contactWhatsapp} onChange={e => setContactWhatsapp(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-2 rounded-lg" />
+                    <label className="text-[10px] font-bold text-neutral-500 block mb-0.5">WhatsApp Number</label>
+                    <input type="text" value={contactWhatsapp} onChange={e => setContactWhatsapp(e.target.value)} className="w-full bg-neutral-50 border border-neutral-200 p-2 rounded-lg" />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-0.5">LinkedIn URL</label>
-                    <input type="text" value={contactLinkedin} onChange={e => setContactLinkedin(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-2 rounded-lg" />
+                    <label className="text-[10px] font-bold text-neutral-500 block mb-0.5">LinkedIn URL</label>
+                    <input type="text" value={contactLinkedin} onChange={e => setContactLinkedin(e.target.value)} className="w-full bg-neutral-50 border border-neutral-200 p-2 rounded-lg" />
                   </div>
                 </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                <div className="bg-white p-4 rounded-2xl border border-slate-200 space-y-3">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Company Card</span>
+                <div className="bg-white p-4 rounded-xl border border-neutral-200 space-y-3">
+                  <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-wider block">Company Info</span>
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase block">Name</span>
-                      <span className="font-extrabold text-slate-900 truncate block">{company.company_name}</span>
+                    <div className="bg-neutral-50 p-2.5 rounded-lg border border-neutral-200/80">
+                      <span className="text-[9px] font-bold text-neutral-400 uppercase block">Name</span>
+                      <span className="font-bold text-black truncate block">{company.company_name}</span>
                     </div>
-                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase block">Industry</span>
-                      <span className="font-extrabold text-slate-800 truncate block">{company.industry || "n/a"}</span>
+                    <div className="bg-neutral-50 p-2.5 rounded-lg border border-neutral-200/80">
+                      <span className="text-[9px] font-bold text-neutral-400 uppercase block">Industry</span>
+                      <span className="font-bold text-black truncate block">{displayIndustry}</span>
                     </div>
-                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase block">Location</span>
-                      <span className="font-semibold text-slate-800 truncate block">{company.city || ""}{company.country ? `, ${company.country}` : "n/a"}</span>
+                    <div className="bg-neutral-50 p-2.5 rounded-lg border border-neutral-200/80">
+                      <span className="text-[9px] font-bold text-neutral-400 uppercase block">Location</span>
+                      <span className="font-bold text-black truncate block">{company.city || "n/a"}{company.country ? `, ${company.country}` : ""}</span>
                     </div>
-                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase block">Website</span>
-                      <span className="font-semibold text-slate-800 truncate block">{company.website || "n/a"}</span>
+                    <div className="bg-neutral-50 p-2.5 rounded-lg border border-neutral-200/80">
+                      <span className="text-[9px] font-bold text-neutral-400 uppercase block">Website</span>
+                      <span className="font-bold text-black truncate block">{company.website || "n/a"}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-white p-4 rounded-2xl border border-slate-200 space-y-3">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Primary Contact Person</span>
+                <div className="bg-white p-4 rounded-xl border border-neutral-200 space-y-3">
+                  <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-wider block">Primary Contact</span>
                   {primaryContact ? (
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase block">Contact Name</span>
-                        <span className="font-extrabold text-slate-900 truncate block">{primaryContact.full_name}</span>
+                      <div className="bg-neutral-50 p-2.5 rounded-lg border border-neutral-200/80">
+                        <span className="text-[9px] font-bold text-neutral-400 uppercase block">Name</span>
+                        <span className="font-bold text-black truncate block">{primaryContact.full_name || "n/a"}</span>
                       </div>
-                      <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase block">Role / Title</span>
-                        <span className="font-extrabold text-slate-800 truncate block">{primaryContact.title || "Decision Maker"}</span>
+                      <div className="bg-neutral-50 p-2.5 rounded-lg border border-neutral-200/80">
+                        <span className="text-[9px] font-bold text-neutral-400 uppercase block">Title</span>
+                        <span className="font-bold text-black truncate block">{primaryContact.title || "Decision Maker"}</span>
                       </div>
-                      <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase block">WhatsApp</span>
-                        <span className="font-semibold text-slate-800 truncate block">{primaryContact.whatsapp || "n/a"}</span>
+                      <div className="bg-neutral-50 p-2.5 rounded-lg border border-neutral-200/80">
+                        <span className="text-[9px] font-bold text-neutral-400 uppercase block">WhatsApp</span>
+                        <span className="font-bold text-black truncate block font-mono">{primaryContact.whatsapp || "n/a"}</span>
                       </div>
-                      <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase block">LinkedIn</span>
-                        <span className="font-semibold text-slate-800 truncate block">{primaryContact.linkedin_url || "n/a"}</span>
+                      <div className="bg-neutral-50 p-2.5 rounded-lg border border-neutral-200/80">
+                        <span className="text-[9px] font-bold text-neutral-400 uppercase block">Email</span>
+                        <span className="font-bold text-black truncate block">{primaryContact.email || "n/a"}</span>
                       </div>
                     </div>
                   ) : (
-                    <p className="text-slate-400 italic py-4 text-center">No primary contact recorded. Click edit to add contact details.</p>
+                    <p className="text-xs text-neutral-400 italic py-4">No primary contact recorded. Click edit to add.</p>
                   )}
                 </div>
               </div>

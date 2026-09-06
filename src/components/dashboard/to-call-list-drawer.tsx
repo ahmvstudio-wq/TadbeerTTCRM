@@ -133,7 +133,7 @@ export function ToCallListDrawer({
 
           {allCompleted && (
             <div className="bg-teal-50 border border-teal-200 rounded-xl p-2.5 flex items-center justify-between text-xs text-teal-900 font-bold">
-              <span>🎉 Excellent! All 20 daily call leads reached out.</span>
+              <span className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-teal-600" /> Excellent! All 20 daily call leads reached out.</span>
               <Button
                 onClick={handleLoadMore}
                 disabled={loadingMore}
@@ -210,8 +210,8 @@ export function ToCallListDrawer({
                       <span className="text-slate-600 font-bold">{lead.industry || "Enterprise"}</span>
                     </div>
 
-                    <p className="text-xs font-mono font-bold text-teal-700">
-                      📞 {phoneNum ? formatPhoneNumberForDisplay(phoneNum) : "No phone listed"}
+                    <p className="text-xs font-mono font-bold text-teal-700 flex items-center gap-1">
+                      <Phone className="h-3 w-3 text-teal-600 inline" /> {phoneNum ? formatPhoneNumberForDisplay(phoneNum) : "No phone listed"}
                     </p>
                   </div>
 
