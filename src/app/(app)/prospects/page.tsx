@@ -565,15 +565,15 @@ export default function ProspectsPage() {
       <ToastContainer />
 
       {/* ── BDM Command Header ────────────────────────────────────────────── */}
-      <div className="rounded-xl bg-white text-black p-5 border border-neutral-200 shadow-xs space-y-4 font-sans">
+      <div className="rounded-2xl bg-white/80 backdrop-blur-xl text-[#0c0d0f] p-5 sm:p-6 border border-black/[0.06] shadow-glass space-y-4 font-sans">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-[#0f343c] border border-[#16434d] text-white mb-1">
-              <Zap className="h-3 w-3 text-white" />
+            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-medium uppercase tracking-wider bg-black/[0.04] border border-black/[0.06] text-black mb-1.5">
+              <Zap className="h-3 w-3 text-black" />
               <span>LEADS DIRECTORY</span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-black">Prospects & Leads</h1>
-            <p className="text-neutral-500 text-xs mt-0.5 max-w-2xl font-medium">
+            <h1 className="text-xl sm:text-2xl font-light tracking-tight text-black font-display">Prospects & Leads</h1>
+            <p className="text-[#6b7280] text-xs mt-0.5 max-w-2xl font-light font-body">
               View, search, and reach out to all your leads.
             </p>
           </div>
@@ -976,12 +976,12 @@ export default function ProspectsPage() {
       ) : viewMode === 'table' ? (
 
         /* ── CATEGORIZED TABLE VIEW ──────────────────────────────────────── */
-        <div className="bg-white rounded-xl border border-neutral-200 shadow-xs overflow-hidden">
+        <div className="bg-white/85 backdrop-blur-xl rounded-2xl border border-black/[0.06] shadow-glass overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse font-sans">
               <thead>
-                <tr className="bg-neutral-50 border-b border-neutral-200 text-[10px] font-mono font-bold text-neutral-500 uppercase tracking-widest">
-                  <th className="py-3 px-4 w-10">
+                <tr className="bg-[#f5f5f7]/80 border-b border-black/[0.05] text-[10px] font-mono font-medium text-[#6b7280] uppercase tracking-wider">
+                  <th className="py-3.5 px-4 w-10">
                     <input
                       type="checkbox"
                       checked={selectedIds.length === sortedProspects.length}
@@ -989,10 +989,10 @@ export default function ProspectsPage() {
                       className="h-3.5 w-3.5 rounded border-neutral-300 text-black focus:ring-black cursor-pointer"
                     />
                   </th>
-                  <th className="py-3 px-4">Contact & Company</th>
-                  <th className="py-3 px-4 hidden md:table-cell">Channel</th>
-                  <th className="py-3 px-4 hidden md:table-cell">Industry</th>
-                  <th className="py-3 px-4 hidden lg:table-cell font-mono">Date</th>
+                  <th className="py-3.5 px-4">Contact & Company</th>
+                  <th className="py-3.5 px-4 hidden md:table-cell">Channel</th>
+                  <th className="py-3.5 px-4 hidden md:table-cell">Industry</th>
+                  <th className="py-3.5 px-4 hidden lg:table-cell font-mono">Date</th>
                   <th className="py-3 px-4">Stage</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>

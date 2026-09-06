@@ -44,64 +44,68 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 px-4 font-sans relative overflow-hidden">
-      {/* Background glow effects */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen flex items-center justify-center bg-[#fbfbfd] px-4 font-sans relative overflow-hidden text-[#0c0d0f]">
+      {/* Ambient Studio Lighting Canvas */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
+        <div className="absolute -top-[15%] -left-[10%] w-[600px] h-[600px] rounded-full bg-gradient-to-br from-indigo-200/25 via-purple-100/15 to-transparent blur-[140px] animate-pulse-soft" />
+        <div className="absolute top-[20%] -right-[10%] w-[550px] h-[550px] rounded-full bg-gradient-to-bl from-teal-200/20 via-emerald-100/15 to-transparent blur-[140px]" />
+        <div className="absolute -bottom-[15%] left-[20%] w-[650px] h-[500px] rounded-full bg-gradient-to-tr from-amber-100/15 via-rose-50/10 to-transparent blur-[150px]" />
+        <div className="absolute inset-0 bg-topo-pattern opacity-[0.035]" />
+      </div>
 
       <div className="w-full max-w-md animate-fade-in-up relative z-10 space-y-6">
         <div className="flex flex-col items-center justify-center text-center space-y-3">
-          <div className="p-3 rounded-2xl bg-slate-800/80 border border-slate-700 shadow-xl">
-            <Image src="/logo/tadbeer-logo.png" alt="Tadbeer" width={160} height={160} className="object-contain h-14 w-auto brightness-200" priority />
+          <div className="p-3 rounded-2xl bg-white/90 border border-black/[0.06] shadow-sm">
+            <Image src="/logo/tadbeer-logo.png" alt="Tadbeer" width={160} height={160} className="object-contain h-12 w-auto" priority />
           </div>
           <div>
-            <h1 className="text-xl font-black text-white tracking-tight flex items-center justify-center gap-2">
-              <Lock className="h-4 w-4 text-teal-400" /> Administrative Access Required
+            <h1 className="text-xl font-light text-black tracking-tight flex items-center justify-center gap-2 font-display">
+              <Lock className="h-4 w-4 text-black" /> Administrative Access
             </h1>
-            <p className="text-xs text-slate-400 font-medium mt-1">
+            <p className="text-xs text-[#6b7280] font-light font-body mt-1">
               Protected CRM Workspace • Authorized Personnel Only
             </p>
           </div>
         </div>
 
-        <Card className="bg-slate-800/90 border-slate-700/80 text-white shadow-2xl backdrop-blur-md rounded-3xl">
-          <CardContent className="p-6">
-            <form onSubmit={handleLogin} className="space-y-4">
+        <Card className="bg-white/85 border-black/[0.06] text-[#0c0d0f] shadow-2xl backdrop-blur-2xl rounded-3xl">
+          <CardContent className="p-7">
+            <form onSubmit={handleLogin} className="space-y-4 font-body">
               {error && (
-                <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-red-500/10 text-red-300 text-xs border border-red-500/20 animate-slide-in-down font-medium">
-                  <AlertTriangle className="h-4 w-4 shrink-0 text-red-400 mt-0.5" />
+                <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-red-50 text-red-700 text-xs border border-red-200 animate-slide-in-down font-normal">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
                   <span>{error}</span>
                 </div>
               )}
 
               <div className="space-y-1">
-                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Email</label>
+                <label className="text-[11px] font-medium text-[#6b7280] uppercase tracking-wider block">Email</label>
                 <Input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Enter your email"
                   required
-                  className="bg-slate-900/90 border-slate-700 text-white text-xs h-10 rounded-xl focus:border-teal-500 focus:ring-teal-500"
+                  className="bg-[#f5f5f7]/80 hover:bg-[#ebebee] focus:bg-white border-black/[0.06] text-[#0c0d0f] text-xs h-10 rounded-xl focus:border-black/[0.2] transition-all"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Password</label>
+                <label className="text-[11px] font-medium text-[#6b7280] uppercase tracking-wider block">Password</label>
                 <Input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
                   required
-                  className="bg-slate-900/90 border-slate-700 text-white text-xs h-10 rounded-xl focus:border-teal-500 focus:ring-teal-500"
+                  className="bg-[#f5f5f7]/80 hover:bg-[#ebebee] focus:bg-white border-black/[0.06] text-[#0c0d0f] text-xs h-10 rounded-xl focus:border-black/[0.2] transition-all"
                 />
               </div>
 
               <div className="pt-2">
                 <Button
                   type="submit"
-                  className="w-full h-10 bg-slate-900 hover:bg-black text-white font-extrabold text-xs rounded-xl shadow-lg border border-slate-700 transition-all cursor-pointer"
+                  className="w-full h-10 bg-black hover:bg-neutral-800 text-white font-normal text-xs rounded-xl shadow-md transition-all cursor-pointer active:scale-98"
                   disabled={loading}
                 >
                   {loading ? (

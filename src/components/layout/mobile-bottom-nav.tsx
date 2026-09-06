@@ -54,7 +54,7 @@ export function MobileBottomNav() {
   return (
     <>
       {/* Fixed Native Bottom App Bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg border-t border-border/80 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] px-2 py-1.5 flex items-center justify-around">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-2xl border-t border-black/[0.06] shadow-[0_-4px_24px_rgba(0,0,0,0.04)] px-2 py-1.5 flex items-center justify-around font-body">
         {mainNav.map((item) => {
           const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href))
           return (
@@ -64,12 +64,17 @@ export function MobileBottomNav() {
               className={cn(
                 "flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all min-w-[64px] active:scale-95",
                 isActive
-                  ? "text-brand-teal font-bold bg-brand-teal-light/70"
-                  : "text-text-secondary hover:text-text-primary"
+                  ? "text-black font-normal"
+                  : "text-[#8a8d95] hover:text-black"
               )}
             >
-              <item.icon className={cn("h-5 w-5 mb-0.5 transition-transform", isActive && "scale-110")} />
-              <span className="text-[10px] tracking-tight">{item.name}</span>
+              <div className={cn(
+                "p-1 rounded-lg transition-colors",
+                isActive && "bg-black text-white shadow-2xs"
+              )}>
+                <item.icon className="h-4 w-4" />
+              </div>
+              <span className="text-[10px] tracking-tight mt-0.5">{item.name}</span>
             </Link>
           )
         })}
@@ -78,34 +83,39 @@ export function MobileBottomNav() {
         <button
           onClick={() => setDrawerOpen(true)}
           className={cn(
-            "flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all min-w-[64px] active:scale-95",
-            drawerOpen ? "text-brand-teal font-bold bg-brand-teal-light/70" : "text-text-secondary"
+            "flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all min-w-[64px] active:scale-95 cursor-pointer",
+            drawerOpen ? "text-black font-normal" : "text-[#8a8d95] hover:text-black"
           )}
         >
-          <Menu className="h-5 w-5 mb-0.5" />
-          <span className="text-[10px] tracking-tight">More</span>
+          <div className={cn(
+            "p-1 rounded-lg transition-colors",
+            drawerOpen && "bg-black text-white shadow-2xs"
+          )}>
+            <Menu className="h-4 w-4" />
+          </div>
+          <span className="text-[10px] tracking-tight mt-0.5">More</span>
         </button>
       </div>
 
       {/* Mobile Slide-Over Drawer */}
       {drawerOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end bg-black/50 backdrop-blur-sm animate-fade-in">
+        <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end bg-black/40 backdrop-blur-sm animate-fade-in font-body">
           <div
             className="fixed inset-0"
             onClick={() => setDrawerOpen(false)}
           />
           
-          <div className="relative bg-white rounded-t-3xl border-t border-border p-5 shadow-2xl max-h-[85vh] overflow-y-auto animate-slide-in-down">
-            <div className="flex items-center justify-between pb-4 border-b border-border/60">
+          <div className="relative bg-white/95 backdrop-blur-2xl rounded-t-3xl border-t border-black/[0.08] p-5 shadow-2xl max-h-[85vh] overflow-y-auto animate-slide-in-down">
+            <div className="flex items-center justify-between pb-4 border-b border-black/[0.04]">
               <div className="flex items-center gap-2">
-                <div className="h-2 w-10 rounded-full bg-border/80 mx-auto absolute left-1/2 -translate-x-1/2 top-2.5" />
-                <span className="text-base font-bold text-text-primary pt-2">Menu & Navigation</span>
+                <div className="h-1.5 w-10 rounded-full bg-black/10 mx-auto absolute left-1/2 -translate-x-1/2 top-2.5" />
+                <span className="text-sm font-light text-black pt-2 font-display">Menu & Navigation</span>
               </div>
               <button
                 onClick={() => setDrawerOpen(false)}
-                className="p-1.5 rounded-full bg-cream hover:bg-cream-dark text-text-secondary transition-colors mt-2"
+                className="p-1.5 rounded-full bg-neutral-100 hover:bg-neutral-200 text-[#6b7280] transition-colors mt-2 cursor-pointer"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
 
@@ -118,30 +128,30 @@ export function MobileBottomNav() {
                     href={item.href}
                     onClick={() => setDrawerOpen(false)}
                     className={cn(
-                      "flex items-center justify-between p-3.5 rounded-xl transition-all text-sm font-medium",
+                      "flex items-center justify-between p-3 rounded-xl transition-all text-xs font-light",
                       isActive
-                        ? "bg-brand-teal text-white font-bold"
-                        : "text-text-primary hover:bg-slate-50 border border-transparent hover:border-border/50"
+                        ? "bg-black text-white font-normal shadow-xs"
+                        : "text-[#0c0d0f] hover:bg-black/[0.03] border border-transparent"
                     )}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={cn("p-2 rounded-lg", isActive ? "bg-white/20" : "bg-cream text-brand-teal")}>
+                      <div className={cn("p-1.5 rounded-lg", isActive ? "bg-white/20 text-white" : "bg-black/[0.04] text-black")}>
                         <item.icon className="h-4 w-4" />
                       </div>
                       <span>{item.name}</span>
                     </div>
-                    <ChevronRight className="h-4 w-4 opacity-50" />
+                    <ChevronRight className="h-3.5 w-3.5 opacity-40" />
                   </Link>
                 )
               })}
             </div>
 
-            <div className="pt-3 border-t border-border/60">
+            <div className="pt-3 border-t border-black/[0.04]">
               <button
                 onClick={handleLogout}
-                className="w-full flex items-center justify-center gap-2 p-3.5 rounded-xl text-red-600 bg-red-50 hover:bg-red-100 font-semibold text-sm transition-colors active:scale-98"
+                className="w-full flex items-center justify-center gap-2 p-3 rounded-xl text-red-600 bg-red-50 hover:bg-red-100 font-normal text-xs transition-colors active:scale-98 cursor-pointer"
               >
-                <LogOut className="h-4 w-4" />
+                <LogOut className="h-3.5 w-3.5" />
                 Sign Out
               </button>
             </div>

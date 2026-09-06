@@ -297,30 +297,30 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
   }, [companies, totalProspects, callReadyLeads, meetingsBooked]);
 
   return (
-    <div className="min-h-screen bg-white p-3 sm:p-6 lg:p-8 space-y-5 font-sans max-w-7xl mx-auto">
+    <div className="min-h-screen bg-transparent p-3 sm:p-6 lg:p-8 space-y-5 font-sans max-w-7xl mx-auto">
       
       {/* ── TOP OF DASHBOARD: Dedicated Lean White/Black Outreach Workstation ── */}
-      <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-neutral-200 shadow-xs space-y-6 font-sans">
+      <div className="bg-white/80 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-black/[0.06] shadow-glass space-y-6 font-sans">
         
         {/* Section 1: Today's Calls */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-neutral-100">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-black/[0.04]">
           <div className="flex items-start sm:items-center gap-3.5">
-            <div className="h-11 w-11 rounded-xl bg-[#0f343c] border border-[#16434d] text-white flex items-center justify-center shrink-0 shadow-xs">
+            <div className="h-11 w-11 rounded-2xl bg-[#0f343c] border border-[#16434d] text-white flex items-center justify-center shrink-0 shadow-sm">
               <Phone className="h-5 w-5 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base sm:text-lg font-black text-neutral-900 tracking-tight">
+                <h2 className="text-base sm:text-lg font-light text-neutral-900 tracking-tight font-display">
                   Today&apos;s Calls
                 </h2>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-[#0f343c]/10 text-[#0f343c] border border-[#0f343c]/20">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-medium uppercase tracking-wider bg-[#0f343c]/10 text-[#0f343c] border border-[#0f343c]/20">
                   20 Calls
                 </span>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-[#0f343c] text-white border border-[#16434d]">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-medium uppercase tracking-wider bg-[#0f343c] text-white border border-[#16434d]">
                   Ready
                 </span>
               </div>
-              <p className="text-xs text-neutral-500 mt-1 font-medium">
+              <p className="text-xs text-[#6b7280] mt-1 font-light font-body">
                 Call uncontacted leads with ready scripts and 1-click dialing.
               </p>
             </div>
@@ -375,9 +375,9 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
             
             {/* Channel 1: Instagram */}
-            <div className="p-4 rounded-2xl bg-neutral-50/60 hover:bg-white border border-neutral-200 hover:border-[#0f343c] transition-all duration-150 flex flex-col justify-between space-y-3.5 group shadow-2xs">
+            <div className="p-4 rounded-2xl bg-white/60 hover:bg-white border border-black/[0.05] hover:border-black/[0.15] hover:shadow-glass transition-all duration-150 flex flex-col justify-between space-y-3.5 group shadow-2xs">
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-white border border-neutral-200 text-[#0f343c] flex items-center justify-center shrink-0 shadow-2xs group-hover:border-[#0f343c] transition-colors">
+                <div className="h-9 w-9 rounded-xl bg-[#f5f5f7] border border-black/[0.04] text-black flex items-center justify-center shrink-0 shadow-2xs group-hover:bg-black group-hover:text-white transition-colors">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
                     <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
                     <circle cx="12" cy="12" r="3.5"/>
@@ -385,14 +385,14 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
                   </svg>
                 </div>
                 <div>
-                  <h4 className="text-xs font-black text-neutral-900">Instagram</h4>
-                  <p className="text-[11px] text-neutral-400 font-medium">Target: 25 / day</p>
+                  <h4 className="text-xs font-normal text-neutral-900 font-display">Instagram</h4>
+                  <p className="text-[11px] text-[#8a8d95] font-light font-body">Target: 25 / day</p>
                 </div>
               </div>
               <Button
                 onClick={() => handleLaunchChannelPowerHour('instagram_dm')}
                 disabled={loadingChannel === 'instagram_dm'}
-                className="w-full bg-white hover:bg-[#0f343c] text-neutral-900 hover:text-white border border-neutral-200 hover:border-[#0f343c] font-bold text-xs py-2 rounded-xl transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs font-mono"
+                className="w-full bg-black hover:bg-neutral-800 text-white font-normal text-xs py-2 rounded-xl transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs font-body"
               >
                 {loadingChannel === 'instagram_dm' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
                 Start 25 Batch
@@ -400,20 +400,20 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
             </div>
 
             {/* Channel 2: WhatsApp */}
-            <div className="p-4 rounded-2xl bg-neutral-50/60 hover:bg-white border border-neutral-200 hover:border-[#0f343c] transition-all duration-150 flex flex-col justify-between space-y-3.5 group shadow-2xs">
+            <div className="p-4 rounded-2xl bg-white/60 hover:bg-white border border-black/[0.05] hover:border-black/[0.15] hover:shadow-glass transition-all duration-150 flex flex-col justify-between space-y-3.5 group shadow-2xs">
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-white border border-neutral-200 text-[#0f343c] flex items-center justify-center shrink-0 shadow-2xs group-hover:border-[#0f343c] transition-colors">
-                  <MessageCircle className="h-4 w-4 text-[#0f343c]" />
+                <div className="h-9 w-9 rounded-xl bg-[#f5f5f7] border border-black/[0.04] text-black flex items-center justify-center shrink-0 shadow-2xs group-hover:bg-black group-hover:text-white transition-colors">
+                  <MessageCircle className="h-4 w-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-black text-neutral-900">WhatsApp</h4>
-                  <p className="text-[11px] text-neutral-400 font-medium">Target: 25 / day</p>
+                  <h4 className="text-xs font-normal text-neutral-900 font-display">WhatsApp</h4>
+                  <p className="text-[11px] text-[#8a8d95] font-light font-body">Target: 25 / day</p>
                 </div>
               </div>
               <Button
                 onClick={() => handleLaunchChannelPowerHour('whatsapp')}
                 disabled={loadingChannel === 'whatsapp'}
-                className="w-full bg-white hover:bg-[#0f343c] text-neutral-900 hover:text-white border border-neutral-200 hover:border-[#0f343c] font-bold text-xs py-2 rounded-xl transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs font-mono"
+                className="w-full bg-black hover:bg-neutral-800 text-white font-normal text-xs py-2 rounded-xl transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs font-body"
               >
                 {loadingChannel === 'whatsapp' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
                 Start 25 Batch
@@ -421,22 +421,22 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
             </div>
 
             {/* Channel 3: LinkedIn */}
-            <div className="p-4 rounded-2xl bg-neutral-50/60 hover:bg-white border border-neutral-200 hover:border-[#0f343c] transition-all duration-150 flex flex-col justify-between space-y-3.5 group shadow-2xs">
+            <div className="p-4 rounded-2xl bg-white/60 hover:bg-white border border-black/[0.05] hover:border-black/[0.15] hover:shadow-glass transition-all duration-150 flex flex-col justify-between space-y-3.5 group shadow-2xs">
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-white border border-neutral-200 text-[#0f343c] flex items-center justify-center shrink-0 shadow-2xs group-hover:border-[#0f343c] transition-colors">
+                <div className="h-9 w-9 rounded-xl bg-[#f5f5f7] border border-black/[0.04] text-black flex items-center justify-center shrink-0 shadow-2xs group-hover:bg-black group-hover:text-white transition-colors">
                   <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
                     <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
                   </svg>
                 </div>
                 <div>
-                  <h4 className="text-xs font-black text-neutral-900">LinkedIn</h4>
-                  <p className="text-[11px] text-neutral-400 font-medium">Target: 25 / day</p>
+                  <h4 className="text-xs font-normal text-neutral-900 font-display">LinkedIn</h4>
+                  <p className="text-[11px] text-[#8a8d95] font-light font-body">Target: 25 / day</p>
                 </div>
               </div>
               <Button
                 onClick={() => handleLaunchChannelPowerHour('linkedin')}
                 disabled={loadingChannel === 'linkedin'}
-                className="w-full bg-white hover:bg-[#0f343c] text-neutral-900 hover:text-white border border-neutral-200 hover:border-[#0f343c] font-bold text-xs py-2 rounded-xl transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs font-mono"
+                className="w-full bg-black hover:bg-neutral-800 text-white font-normal text-xs py-2 rounded-xl transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs font-body"
               >
                 {loadingChannel === 'linkedin' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
                 Start 25 Batch
@@ -444,20 +444,20 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
             </div>
 
             {/* Channel 4: Email */}
-            <div className="p-4 rounded-2xl bg-neutral-50/60 hover:bg-white border border-neutral-200 hover:border-[#0f343c] transition-all duration-150 flex flex-col justify-between space-y-3.5 group shadow-2xs">
+            <div className="p-4 rounded-2xl bg-white/60 hover:bg-white border border-black/[0.05] hover:border-black/[0.15] hover:shadow-glass transition-all duration-150 flex flex-col justify-between space-y-3.5 group shadow-2xs">
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-white border border-neutral-200 text-[#0f343c] flex items-center justify-center shrink-0 shadow-2xs group-hover:border-[#0f343c] transition-colors">
-                  <Mail className="h-4 w-4 text-[#0f343c]" />
+                <div className="h-9 w-9 rounded-xl bg-[#f5f5f7] border border-black/[0.04] text-black flex items-center justify-center shrink-0 shadow-2xs group-hover:bg-black group-hover:text-white transition-colors">
+                  <Mail className="h-4 w-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-black text-neutral-900">Email</h4>
-                  <p className="text-[11px] text-neutral-400 font-medium">Target: 25 / day</p>
+                  <h4 className="text-xs font-normal text-neutral-900 font-display">Email</h4>
+                  <p className="text-[11px] text-[#8a8d95] font-light font-body">Target: 25 / day</p>
                 </div>
               </div>
               <Button
                 onClick={() => handleLaunchChannelPowerHour('email')}
                 disabled={loadingChannel === 'email'}
-                className="w-full bg-white hover:bg-[#0f343c] text-neutral-900 hover:text-white border border-neutral-200 hover:border-[#0f343c] font-bold text-xs py-2 rounded-xl transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs font-mono"
+                className="w-full bg-black hover:bg-neutral-800 text-white font-normal text-xs py-2 rounded-xl transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs font-body"
               >
                 {loadingChannel === 'email' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
                 Start 25 Batch
@@ -473,72 +473,72 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 font-mono">
         
         {/* KPI 1: Total Prospects */}
-        <div className="bg-white rounded-xl p-4 sm:p-5 border border-neutral-200 shadow-xs flex flex-col justify-between space-y-2">
+        <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-4 sm:p-5 border border-black/[0.06] shadow-glass hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] transition-all flex flex-col justify-between space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5 truncate">
-              <Users className="h-3.5 w-3.5 text-[#0f343c] shrink-0" /> Total Leads
+            <span className="text-[10px] font-normal uppercase tracking-wider text-[#6b7280] flex items-center gap-1.5 truncate font-body">
+              <Users className="h-3.5 w-3.5 text-black shrink-0" /> Total Leads
             </span>
-            <span className="text-[9px] text-[#0f343c] font-bold bg-[#0f343c]/10 px-2 py-0.5 rounded border border-[#0f343c]/20">LIVE</span>
+            <span className="text-[9px] text-black font-medium bg-black/[0.04] px-2 py-0.5 rounded border border-black/[0.06]">LIVE</span>
           </div>
           <div className="my-1 flex items-baseline justify-between">
-            <h3 className="text-3xl font-black text-black tracking-tight">{totalProspects}</h3>
+            <h3 className="text-3xl font-light text-black tracking-tight font-display">{totalProspects}</h3>
           </div>
-          <div className="pt-2 border-t border-neutral-100 flex items-center justify-between text-[10px] text-neutral-500 font-bold font-sans">
+          <div className="pt-2 border-t border-black/[0.04] flex items-center justify-between text-[10px] text-[#8a8d95] font-light font-body">
             <span>In Database</span>
             <span className="text-black font-mono">All records</span>
           </div>
         </div>
 
         {/* KPI 2: Active Pipeline */}
-        <div className="bg-white rounded-xl p-4 sm:p-5 border border-neutral-200 shadow-xs flex flex-col justify-between space-y-2">
+        <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-4 sm:p-5 border border-black/[0.06] shadow-glass hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] transition-all flex flex-col justify-between space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5 truncate">
-              <Send className="h-3.5 w-3.5 text-[#0f343c] shrink-0" /> In Outreach
+            <span className="text-[10px] font-normal uppercase tracking-wider text-[#6b7280] flex items-center gap-1.5 truncate font-body">
+              <Send className="h-3.5 w-3.5 text-black shrink-0" /> In Outreach
             </span>
-            <span className="text-[9px] text-white font-bold bg-[#0f343c] border border-[#16434d] px-2 py-0.5 rounded">ACTIVE</span>
+            <span className="text-[9px] text-white font-medium bg-black px-2 py-0.5 rounded">ACTIVE</span>
           </div>
           <div className="my-1 flex items-baseline justify-between">
-            <h3 className="text-3xl font-black text-black tracking-tight">{activePipeline}</h3>
+            <h3 className="text-3xl font-light text-black tracking-tight font-display">{activePipeline}</h3>
           </div>
-          <div className="pt-2 border-t border-neutral-100 flex items-center justify-between text-[10px] text-neutral-500 font-bold font-sans">
+          <div className="pt-2 border-t border-black/[0.04] flex items-center justify-between text-[10px] text-[#8a8d95] font-light font-body">
             <span>Active</span>
-            <span className="text-[#0f343c] font-mono">{activePipeline} in progress</span>
+            <span className="text-black font-mono">{activePipeline} in progress</span>
           </div>
         </div>
 
         {/* KPI 3: Meetings Booked */}
-        <div className="bg-white rounded-xl p-4 sm:p-5 border border-neutral-200 shadow-xs flex flex-col justify-between space-y-2">
+        <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-4 sm:p-5 border border-black/[0.06] shadow-glass hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] transition-all flex flex-col justify-between space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1.5 truncate">
-              <Calendar className="h-3.5 w-3.5 text-[#0f343c] shrink-0" /> Meetings
+            <span className="text-[10px] font-normal uppercase tracking-wider text-[#6b7280] flex items-center gap-1.5 truncate font-body">
+              <Calendar className="h-3.5 w-3.5 text-black shrink-0" /> Meetings
             </span>
-            <span className="text-[9px] text-[#0f343c] font-bold bg-[#0f343c]/10 border border-[#0f343c]/20 px-2 py-0.5 rounded">BOOKED</span>
+            <span className="text-[9px] text-emerald-700 font-medium bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">BOOKED</span>
           </div>
           <div className="my-1 flex items-baseline justify-between">
-            <h3 className="text-3xl font-black text-black tracking-tight">{meetingsBooked}</h3>
+            <h3 className="text-3xl font-light text-black tracking-tight font-display">{meetingsBooked}</h3>
           </div>
-          <div className="pt-2 border-t border-neutral-100 flex items-center justify-between text-[10px] text-neutral-500 font-bold font-sans">
+          <div className="pt-2 border-t border-black/[0.04] flex items-center justify-between text-[10px] text-[#8a8d95] font-light font-body">
             <span>Confirmed</span>
-            <span className="text-[#0f343c] font-mono">Booked meetings</span>
+            <span className="text-black font-mono">Booked meetings</span>
           </div>
         </div>
 
-        {/* KPI 4: Estimated Pipeline Value (Dark Teal) */}
-        <div className="bg-[#091f24] rounded-xl p-4 sm:p-5 border border-[#16434d] text-white shadow-sm flex flex-col justify-between space-y-2">
+        {/* KPI 4: Estimated Pipeline Value */}
+        <div className="bg-[#0c0d0f] rounded-2xl p-4 sm:p-5 border border-black/40 text-white shadow-glass flex flex-col justify-between space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-300 flex items-center gap-1.5 truncate">
-              <DollarSign className="h-3.5 w-3.5 text-[#2d7a88] shrink-0" /> Pipeline Value
+            <span className="text-[10px] font-normal uppercase tracking-wider text-neutral-300 flex items-center gap-1.5 truncate font-body">
+              <DollarSign className="h-3.5 w-3.5 text-neutral-400 shrink-0" /> Pipeline Value
             </span>
-            <span className="text-[9px] text-white font-bold bg-[#16434d] border border-[#235863] px-2 py-0.5 rounded">{conversionRate}% Conv</span>
+            <span className="text-[9px] text-white font-medium bg-white/15 border border-white/20 px-2 py-0.5 rounded font-mono">{conversionRate}% Conv</span>
           </div>
           <div className="my-1 flex items-baseline justify-between">
-            <h3 className="text-3xl font-black text-white tracking-tight">
+            <h3 className="text-3xl font-light text-white tracking-tight font-display">
               {pipelineValue > 0 ? `OMR ${(pipelineValue / 1000).toFixed(1)}k` : "OMR 0"}
             </h3>
           </div>
-          <div className="pt-2 border-t border-[#16434d] flex items-center justify-between text-[10px] text-neutral-400 font-bold font-sans">
+          <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[10px] text-neutral-400 font-light font-body">
             <span>Estimated Value</span>
-            <span className="text-neutral-200 font-mono font-bold">Active pipeline</span>
+            <span className="text-neutral-200 font-mono font-medium">Active pipeline</span>
           </div>
         </div>
 
@@ -548,15 +548,15 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
         
         {/* Graph 1: Stage Progression Funnel Visualization */}
-        <div className="bg-white rounded-xl p-5 border border-neutral-200 shadow-xs space-y-4">
+        <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-5 sm:p-6 border border-black/[0.06] shadow-glass space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-xs font-black text-black uppercase tracking-wider flex items-center gap-2">
-                <BarChart3 className="h-3.5 w-3.5 text-[#0f343c]" /> Pipeline Stages
+              <h3 className="text-xs font-normal text-black uppercase tracking-wider flex items-center gap-2 font-display">
+                <BarChart3 className="h-3.5 w-3.5 text-black" /> Pipeline Stages
               </h3>
-              <p className="text-xs text-neutral-500 font-medium mt-0.5">Leads moving through stages</p>
+              <p className="text-xs text-[#6b7280] font-light font-body mt-0.5">Leads moving through stages</p>
             </div>
-            <span className="text-xs font-mono font-bold text-[#0f343c] bg-[#0f343c]/10 border border-[#0f343c]/20 px-2.5 py-1 rounded">
+            <span className="text-xs font-mono font-medium text-black bg-black/[0.04] border border-black/[0.06] px-2.5 py-1 rounded">
               {conversionRate}% CONV
             </span>
           </div>
@@ -566,11 +566,11 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
               const barColor = idx === 0 ? "bg-[#091f24]" : idx === 1 ? "bg-[#0f343c]" : idx === 2 ? "bg-[#16434d]" : "bg-[#1b505b]";
               return (
                 <div key={idx} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs font-bold">
+                  <div className="flex items-center justify-between text-xs font-light font-body">
                     <span className="text-neutral-800">{stage.label}</span>
-                    <span className="font-mono font-black text-black">{stage.count} <span className="text-[10px] text-neutral-400 font-normal">({stage.pct}%)</span></span>
+                    <span className="font-mono font-normal text-black">{stage.count} <span className="text-[10px] text-[#9ca3af]">({stage.pct}%)</span></span>
                   </div>
-                  <div className="h-2 w-full bg-neutral-100 rounded-full overflow-hidden p-0.5 border border-neutral-200">
+                  <div className="h-2 w-full bg-neutral-100/80 rounded-full overflow-hidden p-0.5 border border-black/[0.04]">
                     <div
                       className={cn("h-full rounded-full transition-all duration-700", barColor)}
                       style={{ width: `${Math.max(4, stage.pct)}%` }}
@@ -583,21 +583,21 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
         </div>
 
         {/* Graph 2: Lead Acquisition Channel Share Distribution */}
-        <div className="bg-white rounded-xl p-5 border border-neutral-200 shadow-xs space-y-4 flex flex-col justify-between">
+        <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-5 sm:p-6 border border-black/[0.06] shadow-glass space-y-4 flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-xs font-black text-black uppercase tracking-wider flex items-center gap-2">
-                <PieChart className="h-3.5 w-3.5 text-[#0f343c]" /> Leads by Channel
+              <h3 className="text-xs font-normal text-black uppercase tracking-wider flex items-center gap-2 font-display">
+                <PieChart className="h-3.5 w-3.5 text-black" /> Leads by Channel
               </h3>
-              <p className="text-xs text-neutral-500 font-medium mt-0.5">Where your leads are reached</p>
+              <p className="text-xs text-[#6b7280] font-light font-body mt-0.5">Where your leads are reached</p>
             </div>
-            <span className="text-xs font-mono font-bold text-neutral-700 bg-neutral-100 px-2.5 py-1 rounded border border-neutral-200">
+            <span className="text-xs font-mono font-medium text-neutral-700 bg-black/[0.03] px-2.5 py-1 rounded border border-black/[0.06]">
               {channelBreakdown.total} TOTAL
             </span>
           </div>
 
           <div className="space-y-3">
-            <div className="h-3 w-full bg-neutral-100 rounded-full overflow-hidden flex border border-neutral-200 gap-0.5">
+            <div className="h-2.5 w-full bg-neutral-100 rounded-full overflow-hidden flex border border-black/[0.04] gap-0.5">
               <div className="bg-[#091f24] h-full transition-all duration-700" style={{ width: `${channelBreakdown.linkedin.pct}%` }} title={`LinkedIn: ${channelBreakdown.linkedin.pct}%`} />
               <div className="bg-[#0f343c] h-full transition-all duration-700" style={{ width: `${channelBreakdown.whatsapp.pct}%` }} title={`WhatsApp: ${channelBreakdown.whatsapp.pct}%`} />
               <div className="bg-[#16434d] h-full transition-all duration-700" style={{ width: `${channelBreakdown.instagram.pct}%` }} title={`Instagram: ${channelBreakdown.instagram.pct}%`} />
@@ -648,30 +648,30 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Left Column: Activity Timeline Graph */}
-        <div className="lg:col-span-8 bg-white rounded-xl p-5 border border-neutral-200 shadow-xs flex flex-col justify-between space-y-5">
+        <div className="lg:col-span-8 bg-white/80 backdrop-blur-xl rounded-2xl p-5 sm:p-6 border border-black/[0.06] shadow-glass flex flex-col justify-between space-y-5">
           
           {/* Header */}
-          <div className="flex items-start justify-between flex-wrap gap-4 border-b border-neutral-100 pb-4">
+          <div className="flex items-start justify-between flex-wrap gap-4 border-b border-black/[0.04] pb-4">
             <div>
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-black bg-neutral-100 text-black border border-neutral-200 uppercase tracking-wider flex items-center gap-1">
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-black/[0.04] text-black border border-black/[0.06] uppercase tracking-wider flex items-center gap-1">
                   <TrendingUp className="h-3 w-3 text-black" /> ACTIVITY
                 </span>
-                <span className="text-xs font-mono font-bold text-neutral-400">DAILY ACTIVITY</span>
+                <span className="text-xs font-mono font-light text-[#8a8d95]">DAILY ACTIVITY</span>
               </div>
-              <h2 className="text-2xl font-black text-black font-mono tracking-tight mt-1">
-                {totalProspects} <span className="text-xs font-bold text-neutral-500 font-sans">Total Leads</span>
+              <h2 className="text-2xl font-light text-black font-display tracking-tight mt-1">
+                {totalProspects} <span className="text-xs font-light text-[#6b7280] font-body">Total Leads</span>
               </h2>
             </div>
 
             {/* Toggle + Legend */}
             <div className="flex flex-col items-end gap-2">
-              <div className="bg-neutral-100 p-0.5 rounded-lg flex items-center gap-1 border border-neutral-200 text-xs font-bold">
+              <div className="bg-[#f5f5f7] p-0.5 rounded-xl flex items-center gap-1 border border-black/[0.04] text-xs font-body">
                 <button
                   onClick={() => setChartView("monthly")}
                   className={cn(
-                    "px-3 py-1 rounded transition-all cursor-pointer",
-                    chartView === "monthly" ? "bg-black text-white shadow-xs font-black" : "text-neutral-500 hover:text-black"
+                    "px-3 py-1 rounded-lg transition-all cursor-pointer font-light text-xs",
+                    chartView === "monthly" ? "bg-white text-black shadow-xs font-normal" : "text-[#6b7280] hover:text-black"
                   )}
                 >
                   Weekly
@@ -679,19 +679,19 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
                 <button
                   onClick={() => setChartView("yearly")}
                   className={cn(
-                    "px-3 py-1 rounded transition-all cursor-pointer",
-                    chartView === "yearly" ? "bg-black text-white shadow-xs font-black" : "text-neutral-500 hover:text-black"
+                    "px-3 py-1 rounded-lg transition-all cursor-pointer font-light text-xs",
+                    chartView === "yearly" ? "bg-white text-black shadow-xs font-normal" : "text-[#6b7280] hover:text-black"
                   )}
                 >
                   Monthly
                 </button>
               </div>
-              <div className="flex items-center gap-3 text-[10px] font-mono font-bold text-neutral-500 flex-wrap">
+              <div className="flex items-center gap-3 text-[10px] font-mono font-light text-[#8a8d95] flex-wrap">
                 <span className="flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full bg-black" /> Leads
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-neutral-500" /> Touches
+                  <span className="h-2 w-2 rounded-full bg-[#9ca3af]" /> Touches
                 </span>
               </div>
             </div>
@@ -703,9 +703,9 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
               
               {/* Horizontal Grid lines */}
               <div className="absolute inset-0 flex flex-col justify-between pointer-events-none text-[9px] font-mono text-neutral-300 font-bold">
-                <div className="border-b border-dashed border-neutral-100 pb-1">HIGH</div>
-                <div className="border-b border-dashed border-neutral-100 pb-1">MED</div>
-                <div className="border-b border-dashed border-neutral-100 pb-1">BASE</div>
+                <div className="border-b border-dashed border-black/[0.04] pb-1">HIGH</div>
+                <div className="border-b border-dashed border-black/[0.04] pb-1">MED</div>
+                <div className="border-b border-dashed border-black/[0.04] pb-1">BASE</div>
                 <div>0</div>
               </div>
 
@@ -714,7 +714,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
                   
                   {/* Active Month Floating Tooltip */}
                   {b.count > 0 && (
-                    <div className="absolute -top-9 bg-black text-white font-mono font-black text-[9px] px-2 py-0.5 rounded shadow-lg flex flex-col items-center z-20">
+                    <div className="absolute -top-9 bg-black text-white font-mono font-medium text-[9px] px-2 py-0.5 rounded shadow-lg flex flex-col items-center z-20">
                       <span>{b.count} leads</span>
                     </div>
                   )}
@@ -729,7 +729,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
                       )}
                     />
                   </div>
-                  <span className={cn("text-[10px] font-mono font-bold mt-2", b.count > 0 ? "text-black font-black" : "text-neutral-400")}>
+                  <span className={cn("text-[10px] font-mono mt-2", b.count > 0 ? "text-black font-medium" : "text-[#9ca3af]")}>
                     {b.month}
                   </span>
                 </div>
@@ -741,11 +741,11 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
         </div>
 
         {/* Right Column: Speedometer Overview */}
-        <div className="lg:col-span-4 bg-white rounded-xl p-5 border border-neutral-200 shadow-xs flex flex-col justify-between">
+        <div className="lg:col-span-4 bg-white/80 backdrop-blur-xl rounded-2xl p-5 sm:p-6 border border-black/[0.06] shadow-glass flex flex-col justify-between">
           
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-black text-black uppercase tracking-wider">Conversion Rate</h3>
-            <span className="text-[9px] font-mono font-black px-2 py-0.5 bg-neutral-100 rounded text-neutral-700">ACTIVE</span>
+            <h3 className="text-xs font-normal text-black uppercase tracking-wider font-display">Conversion Rate</h3>
+            <span className="text-[9px] font-mono font-medium px-2 py-0.5 bg-black/[0.04] rounded text-neutral-700 border border-black/[0.06]">ACTIVE</span>
           </div>
 
           {/* Speedometer Gauge Graphic */}
@@ -754,17 +754,17 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
           </div>
 
           {/* Bottom Metrics with Progress Bar */}
-          <div className="space-y-2.5 pt-3 border-t border-neutral-100">
+          <div className="space-y-2.5 pt-3 border-t border-black/[0.04]">
             <div className="flex items-center justify-between text-xs font-mono">
               <div>
-                <p className="text-[10px] font-bold text-neutral-400 uppercase">Meetings</p>
-                <p className="text-sm font-black text-black mt-0.5">{meetingsBooked} Booked</p>
+                <p className="text-[10px] text-[#8a8d95] uppercase">Meetings</p>
+                <p className="text-sm font-medium text-black mt-0.5">{meetingsBooked} Booked</p>
               </div>
               <div className="text-right">
-                <p className="text-[10px] font-bold text-neutral-400 uppercase">Total: <span className="text-black font-black">{totalProspects}</span></p>
+                <p className="text-[10px] text-[#8a8d95] uppercase">Total: <span className="text-black font-medium">{totalProspects}</span></p>
               </div>
             </div>
-            <div className="h-2 w-full bg-neutral-100 rounded-full overflow-hidden p-0.5 border border-neutral-200">
+            <div className="h-1.5 w-full bg-neutral-100 rounded-full overflow-hidden p-0.5 border border-black/[0.04]">
               <div
                 style={{ width: `${Math.min(100, Math.max(0, conversionRate))}%` }}
                 className="h-full bg-black rounded-full transition-all duration-500"
@@ -777,67 +777,67 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
       </div>
 
       {/* ── Bottom Section: Workspaces Hub ───────────────── */}
-      <div className="bg-white rounded-xl p-5 border border-neutral-200 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-100 pb-3">
+      <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-5 sm:p-6 border border-black/[0.06] shadow-glass space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-black/[0.04] pb-3">
           <div>
-            <h2 className="text-xs font-black text-black uppercase tracking-wider flex items-center gap-2">
+            <h2 className="text-xs font-normal text-black uppercase tracking-wider flex items-center gap-2 font-display">
               <Compass className="h-3.5 w-3.5 text-black" />
               <span>Workspaces</span>
             </h2>
-            <p className="text-xs text-neutral-500 font-medium mt-0.5">
+            <p className="text-xs text-[#6b7280] font-light font-body mt-0.5">
               Jump to any section in the CRM.
             </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 font-body">
           <Link href="/prospects">
-            <div className="p-4 rounded-lg bg-neutral-50 border border-neutral-200 hover:border-black hover:bg-white transition-all cursor-pointer group">
+            <div className="p-4 rounded-xl bg-white/60 hover:bg-white border border-black/[0.05] hover:border-black/[0.15] hover:shadow-glass transition-all cursor-pointer group">
               <div className="flex items-center justify-between">
-                <div className="h-8 w-8 rounded bg-black text-white flex items-center justify-center font-bold">
+                <div className="h-8 w-8 rounded-xl bg-black text-white flex items-center justify-center font-normal">
                   <Users className="h-4 w-4 text-white" />
                 </div>
-                <ArrowRight className="h-3.5 w-3.5 text-neutral-400 group-hover:text-black group-hover:translate-x-0.5 transition-all" />
+                <ArrowRight className="h-3.5 w-3.5 text-[#9ca3af] group-hover:text-black group-hover:translate-x-0.5 transition-all" />
               </div>
-              <h3 className="text-xs font-black text-black mt-3 uppercase tracking-wider">Prospects</h3>
-              <p className="text-[11px] text-neutral-500 mt-0.5">All {totalProspects} lead records.</p>
+              <h3 className="text-xs font-normal text-black mt-3 uppercase tracking-wider font-display">Prospects</h3>
+              <p className="text-[11px] text-[#8a8d95] font-light mt-0.5">All {totalProspects} lead records.</p>
             </div>
           </Link>
 
-          <div onClick={() => setIsToCallDrawerOpen(true)} className="p-4 rounded-lg bg-neutral-50 border border-neutral-200 hover:border-black hover:bg-white transition-all cursor-pointer group">
+          <div onClick={() => setIsToCallDrawerOpen(true)} className="p-4 rounded-xl bg-white/60 hover:bg-white border border-black/[0.05] hover:border-black/[0.15] hover:shadow-glass transition-all cursor-pointer group">
             <div className="flex items-center justify-between">
-              <div className="h-8 w-8 rounded bg-black text-white flex items-center justify-center font-bold">
+              <div className="h-8 w-8 rounded-xl bg-black text-white flex items-center justify-center font-normal">
                 <Phone className="h-4 w-4 text-white" />
               </div>
-              <span className="text-[9px] font-mono font-black bg-neutral-200 text-black px-1.5 py-0.5 rounded">20 QUEUE</span>
+              <span className="text-[9px] font-mono font-medium bg-black/[0.04] text-black px-1.5 py-0.5 rounded border border-black/[0.06]">20 QUEUE</span>
             </div>
-            <h3 className="text-xs font-black text-black mt-3 uppercase tracking-wider">Calls</h3>
-            <p className="text-[11px] text-neutral-500 mt-0.5">{callReadyLeads.length} leads in call queue.</p>
+            <h3 className="text-xs font-normal text-black mt-3 uppercase tracking-wider font-display">Calls</h3>
+            <p className="text-[11px] text-[#8a8d95] font-light mt-0.5">{callReadyLeads.length} leads in call queue.</p>
           </div>
 
           <Link href="/follow-ups">
-            <div className="p-4 rounded-lg bg-neutral-50 border border-neutral-200 hover:border-black hover:bg-white transition-all cursor-pointer group">
+            <div className="p-4 rounded-xl bg-white/60 hover:bg-white border border-black/[0.05] hover:border-black/[0.15] hover:shadow-glass transition-all cursor-pointer group">
               <div className="flex items-center justify-between">
-                <div className="h-8 w-8 rounded bg-black text-white flex items-center justify-center font-bold">
+                <div className="h-8 w-8 rounded-xl bg-black text-white flex items-center justify-center font-normal">
                   <Clock className="h-4 w-4 text-white" />
                 </div>
-                <ArrowRight className="h-3.5 w-3.5 text-neutral-400 group-hover:text-black group-hover:translate-x-0.5 transition-all" />
+                <ArrowRight className="h-3.5 w-3.5 text-[#9ca3af] group-hover:text-black group-hover:translate-x-0.5 transition-all" />
               </div>
-              <h3 className="text-xs font-black text-black mt-3 uppercase tracking-wider">Follow-ups</h3>
-              <p className="text-[11px] text-neutral-500 mt-0.5">{outreachFollowupsRemaining.length} awaiting reply.</p>
+              <h3 className="text-xs font-normal text-black mt-3 uppercase tracking-wider font-display">Follow-ups</h3>
+              <p className="text-[11px] text-[#8a8d95] font-light mt-0.5">{outreachFollowupsRemaining.length} awaiting reply.</p>
             </div>
           </Link>
 
           <Link href="/pipeline">
-            <div className="p-4 rounded-lg bg-neutral-50 border border-neutral-200 hover:border-black hover:bg-white transition-all cursor-pointer group">
+            <div className="p-4 rounded-xl bg-white/60 hover:bg-white border border-black/[0.05] hover:border-black/[0.15] hover:shadow-glass transition-all cursor-pointer group">
               <div className="flex items-center justify-between">
-                <div className="h-8 w-8 rounded bg-black text-white flex items-center justify-center font-bold">
+                <div className="h-8 w-8 rounded-xl bg-black text-white flex items-center justify-center font-normal">
                   <Layers className="h-4 w-4 text-white" />
                 </div>
-                <ArrowRight className="h-3.5 w-3.5 text-neutral-400 group-hover:text-black group-hover:translate-x-0.5 transition-all" />
+                <ArrowRight className="h-3.5 w-3.5 text-[#9ca3af] group-hover:text-black group-hover:translate-x-0.5 transition-all" />
               </div>
-              <h3 className="text-xs font-black text-black mt-3 uppercase tracking-wider">Pipeline</h3>
-              <p className="text-[11px] text-neutral-500 mt-0.5">Deals and stages.</p>
+              <h3 className="text-xs font-normal text-black mt-3 uppercase tracking-wider font-display">Pipeline</h3>
+              <p className="text-[11px] text-[#8a8d95] font-light mt-0.5">Deals and stages.</p>
             </div>
           </Link>
         </div>
