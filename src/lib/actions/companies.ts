@@ -135,12 +135,12 @@ export async function getCompany(id: string) {
 
 export async function createCompany(data: {
   company_name: string; industry?: string; website?: string; phone?: string; email?: string; country?: string; city?: string; notes?: string; employee_count?: number;
-  instagram_url?: string; research_notes?: string; lead_source?: string;
+  instagram_url?: string; research_notes?: string; lead_source?: string; lead_type?: string;
   firstContact?: { full_name: string; email?: string; phone?: string; title?: string; whatsapp?: string; linkedin_url?: string; instagram_url?: string; }
 }) {
   try {
     await requireAuth()
-    const { firstContact, instagram_url, research_notes, lead_source, ...companyData } = data
+    const { firstContact, instagram_url, research_notes, lead_source, lead_type, ...companyData } = data
 
     let enrichedNotes = companyData.notes || ''
     if (instagram_url) enrichedNotes += `\nInstagram: ${instagram_url}`
@@ -150,6 +150,8 @@ export async function createCompany(data: {
       .from('companies')
       .insert({
         ...companyData,
+        lead_source: lead_source || 'Direct CRM',
+        lead_type: lead_type || 'Cold',
         notes: enrichedNotes || undefined,
         status: 'prospect',
         created_at: new Date().toISOString(),

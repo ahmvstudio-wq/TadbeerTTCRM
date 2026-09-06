@@ -36,16 +36,23 @@ export default function NewProspectPage() {
   const [form, setForm] = useState({
     companyName: "",
     contactName: "",
+    contactTitle: "Managing Director / Owner",
     phone: "",
+    whatsapp: "",
+    email: "",
     industry: "",
     website: "",
     linkedin: "",
     instagram: "",
     employeeCount: "",
+    city: "Muscat",
+    country: "Oman",
+    leadType: "Warm",
+    leadSource: "Direct CRM",
     researchNotes: "",
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
@@ -66,21 +73,24 @@ export default function NewProspectPage() {
     try {
       const result = await createCompany({
         company_name: form.companyName.trim(),
-        industry: form.industry.trim() || "General",
+        industry: form.industry.trim() || "General Business",
         website: form.website.trim() || undefined,
         phone: form.phone.trim(),
+        email: form.email.trim() || undefined,
         instagram_url: form.instagram.trim() || undefined,
         research_notes: form.researchNotes.trim() || undefined,
-        lead_source: mode === "full" ? "new_lead" : "quick_add",
+        lead_source: form.leadSource || (mode === "full" ? "New Lead" : "Direct CRM"),
+        lead_type: form.leadType || "Warm",
         employee_count: form.employeeCount ? parseInt(form.employeeCount) : undefined,
-        city: "Muscat",
-        country: "Oman",
+        city: form.city.trim() || "Muscat",
+        country: form.country.trim() || "Oman",
         firstContact: {
           full_name: form.contactName.trim(),
           phone: form.phone.trim(),
-          whatsapp: form.phone.trim(),
+          whatsapp: form.whatsapp.trim() || form.phone.trim(),
+          email: form.email.trim() || undefined,
           linkedin_url: form.linkedin.trim() || undefined,
-          title: "Decision Maker",
+          title: form.contactTitle.trim() || "Decision Maker",
         },
       });
 

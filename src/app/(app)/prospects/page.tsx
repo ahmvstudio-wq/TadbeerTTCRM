@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { CsvImport } from "@/components/ui/csv-import";
 import { Pagination } from "@/components/ui/pagination";
 import { ToastContainer, addToast } from "@/components/ui/toast";
+import { AddProspectModal } from "@/components/prospects/add-prospect-modal";
 import { COMPANY_STATUSES, type CompanyStatus } from "@/lib/constants";
 import { getCompanies, updateCompanyStatus, updateCompanyLeadType, addCompanyActivity, triggerDraftGeneration, triggerBatchDraftGeneration } from "@/lib/actions/companies";
 import { addToCallQueue, addBatchToCallQueue } from "@/lib/actions/calls";
@@ -105,6 +106,7 @@ export default function ProspectsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [csvOpen, setCsvOpen] = useState(false);
+  const [addModalOpen, setAddModalOpen] = useState(false);
   const { openLead } = useUnifiedLead();
 
   // AI Outreach Draft State
@@ -602,6 +604,14 @@ export default function ProspectsPage() {
 
           {/* Quick Header Actions */}
           <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              size="sm"
+              onClick={() => setAddModalOpen(true)}
+              className="bg-emerald-700 hover:bg-emerald-800 text-white border border-emerald-800 text-xs font-mono font-bold h-8 rounded-lg px-3 transition-all cursor-pointer shadow-xs flex items-center gap-1.5"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add Prospect
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -1478,6 +1488,16 @@ export default function ProspectsPage() {
 
       {/* CSV Import Modal */}
       <CsvImport open={csvOpen} onClose={() => setCsvOpen(false)} onImport={handleImport} fields={csvFields} title="Import Prospects from CSV" />
+
+      {/* Manual Add Prospect Modal */}
+      <AddProspectModal
+        open={addModalOpen}
+        onClose={() => setAddModalOpen(false)}
+        onSuccess={(newCo) => {
+          addToast("success", `Prospect "${newCo?.company_name || 'Lead'}" created successfully!`);
+          fetchProspects(search, statusFilter);
+        }}
+      />
     </div>
   );
 }
