@@ -497,10 +497,14 @@ function ProspectCard({
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '2px' }}>
               <span style={{ fontWeight: 900, fontSize: '16px', color: '#0F172A' }}>{profile.name}</span>
               <TierBadge tier={profile.tier} />
-              {validLinkedin && (
-                <a href={profile.profile_url.startsWith('http') ? profile.profile_url : `https://${profile.profile_url}`} target="_blank" rel="noopener noreferrer" style={{ color: '#0A66C2' }} title="Verified LinkedIn Profile">
+              {validLinkedin ? (
+                <a href={profile.profile_url.startsWith('http') ? profile.profile_url : `https://${profile.profile_url}`} target="_blank" rel="noopener noreferrer" style={{ color: '#0A66C2', display: 'inline-flex', alignItems: 'center' }} title="Open Verified LinkedIn Profile">
                   <LinkedInIcon size={16} />
                 </a>
+              ) : (
+                <span style={{ fontSize: '10px', color: '#64748B', background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '1px 6px', borderRadius: '6px', fontWeight: 600 }}>
+                  No Profile Link
+                </span>
               )}
             </div>
 

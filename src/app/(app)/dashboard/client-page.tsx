@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn, formatWhatsAppNumber, formatPhoneNumberForDisplay } from "@/lib/utils";
+import { cn, formatWhatsAppNumber, formatPhoneNumberForDisplay, isValidLinkedInUrl } from "@/lib/utils";
 import { getDashboardStats, getRecentActivity } from "@/lib/actions/dashboard";
 import { getCompanies } from "@/lib/actions/companies";
 import { getCallQueue } from "@/lib/actions/calls";
@@ -214,16 +214,16 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
     }
   };
 
-  // Real CRM Data Metrics Only (No hardcoded fallback numbers)
-  const totalProspects = companies.length;
-  const activePipeline = companies.filter(c => c.status !== 'won' && c.status !== 'lost').length;
+  const totalProspects = initialData.stats?.total_companies ?? companies.length;
+  const inOutreachCount = initialData.stats?.in_outreach ?? companies.filter(c => c.status === 'contacted' || c.status === 'in_call_queue' || c.status === 'meeting_booked' || c.pipeline_stage === 'Contacted' || c.pipeline_stage === 'Replied').length;
+  const activePipeline = inOutreachCount;
   
   const pipelineValue = useMemo(() => {
     return opportunitiesList.reduce((acc, o) => acc + (o.estimated_value || 0), 0);
   }, [opportunitiesList]);
 
-  const meetingsBooked = meetingsList.length;
-  const conversionRate = totalProspects > 0 ? Math.round((meetingsBooked / totalProspects) * 1000) / 10 : 0;
+  const meetingsBooked = initialData.stats?.upcoming_meetings ?? meetingsList.length;
+  const conversionRate = initialData.stats?.conversion_rate ?? (totalProspects > 0 ? Math.round((meetingsBooked / totalProspects) * 1000) / 10 : 0);
 
   // Real Monthly Lead Activity (Calculated directly from companies database)
   const monthlyBars = useMemo(() => {
@@ -257,34 +257,46 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
 
   const [activeWorkstationTab, setActiveWorkstationTab] = useState<"calls" | "followups" | "outreach_remaining">("calls");
 
-  // Real Channel Distribution Data
+  // Real Channel Distribution Data (Strict Database Saved Truth)
   const channelBreakdown = useMemo(() => {
-    let li = linkedinProspects.length;
+    if (initialData.stats?.channel_breakdown && companies.length === initialData.stats.total_companies) {
+      return initialData.stats.channel_breakdown;
+    }
+    let li = 0;
     let ig = 0;
     let wa = 0;
     let direct = 0;
 
     companies.forEach(c => {
-      if (c.linkedin_url || c.source === 'linkedin') li++;
-      else if (c.whatsapp || c.source === 'whatsapp') wa++;
-      else if (c.source === 'instagram' || c.source === 'ig_dm') ig++;
-      else direct++;
+      const src = (c.lead_source || '').toLowerCase();
+      if (src.includes('whatsapp')) {
+        wa++;
+      } else if (src.includes('instagram')) {
+        ig++;
+      } else if (src.includes('linkedin')) {
+        li++;
+      } else {
+        direct++;
+      }
     });
 
-    const total = Math.max(1, li + ig + wa + direct);
+    const total = Math.max(1, companies.length);
     return {
       linkedin: { count: li, pct: Math.round((li / total) * 100) },
       whatsapp: { count: wa, pct: Math.round((wa / total) * 100) },
       instagram: { count: ig, pct: Math.round((ig / total) * 100) },
       direct: { count: direct, pct: Math.round((direct / total) * 100) },
-      total
+      total: companies.length
     };
-  }, [companies, linkedinProspects]);
+  }, [companies, initialData.stats]);
 
-  // Real Pipeline Stage Funnel Breakdown
+  // Real Pipeline Stage Funnel Breakdown (Strict Database Saved Truth)
   const stageFunnel = useMemo(() => {
+    if (initialData.stats?.stage_funnel && companies.length === initialData.stats.total_companies) {
+      return initialData.stats.stage_funnel;
+    }
     const total = Math.max(1, totalProspects);
-    const contacted = companies.filter(c => c.status === "contacted" || c.status === "ready_for_call" || c.status === "meeting_booked").length;
+    const contacted = companies.filter(c => c.status === "contacted" || c.pipeline_stage === "Contacted" || c.pipeline_stage === "Replied").length;
     const ready = callReadyLeads.length;
     const booked = meetingsBooked;
 
@@ -294,7 +306,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
       { label: "3. Call Ready", count: ready, pct: Math.round((ready / total) * 100), color: "bg-[#174E59]", textColor: "text-[#174E59]" },
       { label: "4. Meetings Booked", count: booked, pct: Math.round((booked / total) * 100), color: "bg-[#257584]", textColor: "text-[#257584]" },
     ];
-  }, [companies, totalProspects, callReadyLeads, meetingsBooked]);
+  }, [companies, totalProspects, callReadyLeads, meetingsBooked, initialData.stats]);
 
   return (
     <div className="min-h-screen bg-transparent p-3 sm:p-6 lg:p-8 space-y-5 font-sans max-w-7xl mx-auto">
@@ -562,7 +574,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
           </div>
 
           <div className="space-y-3 pt-1">
-            {stageFunnel.map((stage, idx) => {
+            {stageFunnel.map((stage: any, idx: number) => {
               const barColor = idx === 0 ? "bg-[#091f24]" : idx === 1 ? "bg-[#0f343c]" : idx === 2 ? "bg-[#16434d]" : "bg-[#1b505b]";
               return (
                 <div key={idx} className="space-y-1.5">

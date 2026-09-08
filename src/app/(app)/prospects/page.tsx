@@ -359,6 +359,12 @@ export default function ProspectsPage() {
     if (isPushedFromLinkedIn || hasValidLinkedinUrl) {
       return { type: 'linkedin', label: 'LinkedIn Lead', bg: 'bg-blue-50 text-blue-700 border-blue-200' };
     }
+
+    const isWhatsAppSource = prospect.lead_source?.toLowerCase().includes("whatsapp");
+    if (isWhatsAppSource) {
+      return { type: 'whatsapp', label: 'WhatsApp Campaign', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold' };
+    }
+
     if (prospect.notes?.toLowerCase().includes('csv import')) {
       return { type: 'csv', label: 'CSV Import', bg: 'bg-teal-50 text-teal-700 border-teal-200' };
     }
@@ -382,8 +388,8 @@ export default function ProspectsPage() {
     };
 
     prospects.forEach(p => {
-      const hasWa = hasValidWhatsApp(p);
-      const hasIg = Boolean(extractInstagramUrl(p));
+      const hasWa = hasValidWhatsApp(p) || p.lead_source?.toLowerCase().includes('whatsapp');
+      const hasIg = Boolean(extractInstagramUrl(p)) || p.lead_source?.toLowerCase().includes('instagram');
       const hasLi = isValidLinkedInUrl(p.contacts?.[0]?.linkedin_url) || isValidLinkedInUrl(p.linkedin_url) || getLeadSource(p).type === 'linkedin';
       const hasPh = hasValidPhone(p);
       const hasEm = hasValidEmail(p);

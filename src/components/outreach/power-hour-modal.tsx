@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { cn, formatWhatsAppNumber, formatPhoneNumberForDisplay, getCleanDraftMessage, getCleanObservation, openEmailComposer, type EmailClientType } from "@/lib/utils";
+import { cn, formatWhatsAppNumber, formatPhoneNumberForDisplay, getCleanDraftMessage, getCleanObservation, openEmailComposer, isValidLinkedInUrl, type EmailClientType } from "@/lib/utils";
 import {
   CHANNEL_CONFIG, SECTOR_CONFIG,
   type OutreachLead, type OutreachChannel, type SectorCategory
@@ -82,20 +82,20 @@ export function PowerHourModal({
   const cleanIg = rawIg ? String(rawIg).replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^\/+/, '').replace(/\/+$/, '').replace(/^@+/, '').trim() : '';
   const igUrl = cleanIg ? `https://www.instagram.com/${cleanIg}/` : null;
 
-  // 3. LinkedIn URL Extraction
+  // 3. LinkedIn URL Extraction (Strictly Validated)
   let rawLi = currentLead?.linkedin_url;
-  if (!rawLi && currentLead?.notes) {
+  if (!isValidLinkedInUrl(rawLi) && currentLead?.notes) {
     try {
       const p = JSON.parse(currentLead.notes);
-      if (p.linkedin_url) rawLi = p.linkedin_url;
+      if (isValidLinkedInUrl(p.linkedin_url)) rawLi = p.linkedin_url;
     } catch {}
     const match = currentLead.notes.match(/["']?linkedin_url["']?\s*:\s*["']([^"']+)["']/i) || currentLead.notes.match(/LinkedIn:\s*([^\s,]+)/i);
-    if (match?.[1]) rawLi = match[1];
+    if (match?.[1] && isValidLinkedInUrl(match[1])) rawLi = match[1];
   }
-  if (!rawLi && currentLead?.handle && currentLead.handle.includes('linkedin.com')) {
+  if (!isValidLinkedInUrl(rawLi) && currentLead?.handle && isValidLinkedInUrl(currentLead.handle)) {
     rawLi = currentLead.handle;
   }
-  const cleanLi = rawLi ? (rawLi.startsWith('http') ? rawLi.trim() : `https://${rawLi.replace(/^\/+/, '').trim()}`) : null;
+  const cleanLi = isValidLinkedInUrl(rawLi) ? (rawLi!.startsWith('http') ? rawLi!.trim() : `https://${rawLi!.replace(/^\/+/, '').trim()}`) : null;
 
   // 4. Email Extraction
   let rawEmail = currentLead?.email;
@@ -107,14 +107,14 @@ export function PowerHourModal({
     const match = currentLead.notes.match(/["']?email["']?\s*:\s*["']([^"']+)["']/i) || currentLead.notes.match(/Email:\s*([^\s,]+)/i);
     if (match?.[1]) rawEmail = match[1];
   }
-  const email = rawEmail || null;
+  const email = rawEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(rawEmail).trim()) ? String(rawEmail).trim() : null;
 
   // Display handle
   const displayHandle = channel === 'instagram_dm'
     ? (cleanIg ? `@${cleanIg}` : currentLead.handle || 'No handle')
     : (channel === 'whatsapp' || channel === 'cold_call'
       ? (phone ? formatPhoneNumberForDisplay(phone) : currentLead.handle || 'No phone')
-      : (channel === 'linkedin' ? (cleanLi || 'No LinkedIn') : (email || currentLead.handle || 'No contact')));
+      : (channel === 'linkedin' ? (cleanLi || 'No LinkedIn profile') : (email || currentLead.handle || 'No contact')));
 
   const handleCopyMessage = () => {
     navigator.clipboard.writeText(openerMessage);
@@ -148,8 +148,12 @@ export function PowerHourModal({
       window.open(waUrl, '_blank');
     } else if (channel === 'instagram_dm' && igUrl) {
       window.open(igUrl, '_blank');
-    } else if (channel === 'linkedin' && cleanLi) {
-      window.open(cleanLi, '_blank');
+    } else if (channel === 'linkedin') {
+      if (cleanLi) {
+        window.open(cleanLi, '_blank');
+      } else {
+        alert("This prospect does not have a verified LinkedIn profile URL.");
+      }
     } else if (channel === 'cold_call' && phone) {
       window.location.href = `tel:${phone}`;
     } else if (channel === 'email' && email) {

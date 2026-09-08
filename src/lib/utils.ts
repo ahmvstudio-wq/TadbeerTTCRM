@@ -135,11 +135,18 @@ export function formatOmanWhatsAppUrl(phone?: string, message?: string): string 
   return baseUrl;
 }
 
-export function isValidLinkedInUrl(url?: string): boolean {
+export function isValidLinkedInUrl(url?: string | null): boolean {
   if (!url || typeof url !== 'string') return false;
   const trimmed = url.trim().toLowerCase();
-  if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined' || trimmed === '#' || trimmed === 'n/a') return false;
-  return trimmed.includes('linkedin.com') || (trimmed.startsWith('http') && trimmed.includes('linkedin'));
+  if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined' || trimmed === '#' || trimmed === 'n/a' || trimmed === 'not available') return false;
+  if (trimmed.length < 22 || trimmed.includes(' ')) return false;
+  if (!trimmed.includes('linkedin.com/')) return false;
+  return (
+    (trimmed.includes('linkedin.com/in/') || trimmed.includes('linkedin.com/company/') || trimmed.includes('linkedin.com/school/')) &&
+    !trimmed.endsWith('linkedin.com/in/') &&
+    !trimmed.endsWith('linkedin.com/company/') &&
+    !trimmed.endsWith('linkedin.com/school/')
+  );
 }
 
 export interface ParsedLeadNotes {

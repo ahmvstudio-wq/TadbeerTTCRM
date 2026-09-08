@@ -3,6 +3,7 @@
 import { generateOutreachMessage } from '@/lib/ai/outreach-generator'
 import { requireAuth } from '@/lib/auth-guard'
 import { getSupabaseAdminClient } from '@/lib/supabase/config'
+import { isValidLinkedInUrl } from '@/lib/utils'
 
 const supabase = getSupabaseAdminClient()
 
@@ -134,7 +135,7 @@ export async function getCompany(id: string) {
 }
 
 export async function createCompany(data: {
-  company_name: string; industry?: string; website?: string; phone?: string; email?: string; country?: string; city?: string; notes?: string; employee_count?: number;
+  company_name: string; industry?: string; website?: string; linkedin_url?: string; phone?: string; email?: string; country?: string; city?: string; notes?: string; employee_count?: number;
   instagram_url?: string; research_notes?: string; lead_source?: string; lead_type?: string;
   firstContact?: { full_name: string; email?: string; phone?: string; title?: string; whatsapp?: string; linkedin_url?: string; instagram_url?: string; }
 }) {
@@ -146,14 +147,18 @@ export async function createCompany(data: {
     if (instagram_url) enrichedNotes += `\nInstagram: ${instagram_url}`
     if (research_notes) enrichedNotes += `\n\nResearch Notes:\n${research_notes}`
 
+    const cleanCompanyLi = isValidLinkedInUrl(companyData.linkedin_url) ? companyData.linkedin_url!.trim() : null
     const { data: company, error: companyError } = await supabase
       .from('companies')
       .insert({
         ...companyData,
+        linkedin_url: cleanCompanyLi,
         lead_source: lead_source || 'Direct CRM',
         lead_type: lead_type || 'Cold',
         notes: enrichedNotes || undefined,
         status: 'prospect',
+        pipeline_stage: 'New',
+        lead_status: 'New',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -163,6 +168,7 @@ export async function createCompany(data: {
     if (companyError || !company) return { data: null, error: companyError?.message || 'Failed to create company' }
 
     if (firstContact && firstContact.full_name) {
+      const cleanContactLi = isValidLinkedInUrl(firstContact.linkedin_url) ? firstContact.linkedin_url!.trim() : null
       const { error: contactError } = await supabase.from('contacts').insert({
         company_id: company.id,
         full_name: firstContact.full_name,
@@ -170,7 +176,7 @@ export async function createCompany(data: {
         phone: firstContact.phone || null,
         title: firstContact.title || null,
         whatsapp: firstContact.whatsapp || firstContact.phone || null,
-        linkedin_url: firstContact.linkedin_url || null,
+        linkedin_url: cleanContactLi,
         is_primary: true,
         created_at: new Date().toISOString()
       })
@@ -316,10 +322,14 @@ export async function assignCompanyLead(id: string, assigned_to: string | null) 
 export async function upsertCompanyContact(companyId: string, contactData: { id?: string; full_name: string; title?: string; email?: string; phone?: string; whatsapp?: string; linkedin_url?: string; is_primary?: boolean }) {
   try {
     await requireAuth()
+    const sanitizedContact = {
+      ...contactData,
+      linkedin_url: isValidLinkedInUrl(contactData.linkedin_url) ? contactData.linkedin_url!.trim() : null
+    }
     if (contactData.id) {
       const { data, error } = await supabase
         .from('contacts')
-        .update({ ...contactData })
+        .update({ ...sanitizedContact })
         .eq('id', contactData.id)
         .select()
         .single()
@@ -331,7 +341,7 @@ export async function upsertCompanyContact(companyId: string, contactData: { id?
         .from('contacts')
         .insert({
           company_id: companyId,
-          ...contactData,
+          ...sanitizedContact,
           is_primary: contactData.is_primary ?? true,
           created_at: new Date().toISOString()
         })

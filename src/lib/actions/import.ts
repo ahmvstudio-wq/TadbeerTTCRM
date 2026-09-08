@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { generateForNewProspects, normalizeCategory, buildDeterministicSequence } from '@/lib/ai/outreach-generator'
 import { requireAuth } from '@/lib/auth-guard'
 import { type OutreachChannel, type SectorCategory } from '@/lib/types/outreach'
+import { isValidLinkedInUrl } from '@/lib/utils'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -97,11 +98,26 @@ export async function bulkImportCompanies(
         const contactPerson = row.person_name || row.contact_name || row.full_name || row.contact || row.person || row.doctor_name || row.founder || ''
 
         // Pre-build sequence based on user-chosen channel or auto-detection
-        let prefChannel: OutreachChannel = 'whatsapp'
+        const rawLiInRow = row.linkedin_url || row.linkedin || row.contact_linkedin || row.person_linkedin
+        const hasValidLiInRow = isValidLinkedInUrl(rawLiInRow)
+        const rawPhoneInRow = row.whatsapp || row.phone || row.contact_phone || row.person_phone
+        const hasValidPhoneInRow = Boolean(rawPhoneInRow && String(rawPhoneInRow).replace(/\D/g, '').length >= 7)
+        const rawEmailInRow = row.email || row.contact_email || row.person_email
+        const hasValidEmailInRow = Boolean(rawEmailInRow && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(rawEmailInRow).trim()))
+
+        let prefChannel: OutreachChannel = 'cold_call'
         if (targetChannel && targetChannel !== 'all') {
           prefChannel = targetChannel
+        } else if (cleanIg) {
+          prefChannel = 'instagram_dm'
+        } else if (hasValidPhoneInRow) {
+          prefChannel = 'whatsapp'
+        } else if (hasValidLiInRow) {
+          prefChannel = 'linkedin'
+        } else if (hasValidEmailInRow) {
+          prefChannel = 'email'
         } else {
-          prefChannel = cleanIg ? 'instagram_dm' : (row.whatsapp || row.phone ? 'whatsapp' : 'cold_call')
+          prefChannel = 'cold_call'
         }
 
         const preStagedSeq = buildDeterministicSequence(
@@ -144,10 +160,19 @@ export async function bulkImportCompanies(
 
         const initialStatus = row.stage || row.status || 'prospect'
 
+        let mappedLeadSource = 'Direct CRM';
+        if (prefChannel === 'whatsapp') mappedLeadSource = 'WhatsApp';
+        else if (prefChannel === 'instagram_dm') mappedLeadSource = 'Instagram';
+        else if (prefChannel === 'linkedin') mappedLeadSource = 'LinkedIn';
+
         const companyObj: Record<string, any> = {
           company_name: companyName.trim(),
           industry: normalizedSector || row.industry || 'general',
           status: normalizeCompanyStatus(row.status || row.stage),
+          pipeline_stage: 'New',
+          lead_status: 'New',
+          lead_source: mappedLeadSource,
+          research_json: { target_channel: prefChannel },
           notes: JSON.stringify({
             category: normalizedSector,
             instagram_handle: cleanIg,
@@ -169,7 +194,10 @@ export async function bulkImportCompanies(
         if (row.employee_count || row.employees) {
           companyObj.employee_count = parseInt(row.employee_count || row.employees) || null
         }
-        if (row.linkedin_url || row.linkedin) companyObj.linkedin_url = row.linkedin_url || row.linkedin
+        const rawCompanyLi = row.linkedin_url || row.linkedin
+        if (isValidLinkedInUrl(rawCompanyLi)) {
+          companyObj.linkedin_url = String(rawCompanyLi).trim()
+        }
 
         companiesToInsert.push(companyObj)
 
@@ -178,7 +206,8 @@ export async function bulkImportCompanies(
         const contactEmail = row.contact_email || row.person_email || row.email
         const contactPhone = row.contact_phone || row.person_phone || row.phone
         const whatsapp = row.whatsapp || row.whatsapp_number || row.wa_number || row.phone
-        const contactLinkedin = row.contact_linkedin || row.person_linkedin || row.linkedin
+        const rawContactLi = row.contact_linkedin || row.person_linkedin || (!companyObj.linkedin_url ? row.linkedin : null)
+        const contactLinkedin = isValidLinkedInUrl(rawContactLi) ? String(rawContactLi).trim() : null
 
         contactInfoMap.push({
           personName: contactPerson,

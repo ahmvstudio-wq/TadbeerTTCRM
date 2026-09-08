@@ -17,6 +17,7 @@ import {
   STATUS_CONFIG,
   TEMPLATE_LABELS
 } from "../types/outreach"
+import { isValidLinkedInUrl } from '@/lib/utils'
 
 function getValidActivityType(channel: string): string {
   if (channel === 'email') return 'email_sent';
@@ -315,15 +316,59 @@ export async function getAllLeadsForPipeline(
         else if (co.notes && (co.notes.startsWith('{') || co.notes.startsWith('['))) rJson = JSON.parse(co.notes)
       } catch {}
 
-      const rawIg = rJson.instagram_handle || (co.notes && co.notes.match(/["']?instagram_handle["']?\s*:\s*["'](@?[^"']+)["']/i)?.[1]) || (co.notes && co.notes.match(/Instagram:\s*(@?[^\s,]+)/i)?.[1]) || null
+      const rawIg = rJson.instagram_handle || rJson.instagram || rJson.ig_handle || (co.notes && co.notes.match(/["']?instagram_handle["']?\s*:\s*["'](@?[^"']+)["']/i)?.[1]) || (co.notes && co.notes.match(/Instagram:\s*(@?[^\s,]+)/i)?.[1]) || (co.lead_source === 'instagram' ? `@${co.company_name.toLowerCase().replace(/[^a-z0-9._]/g, '')}` : null)
       const cleanIg = rawIg ? (rawIg.startsWith('@') ? rawIg : `@${rawIg.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^\/+/, '').replace(/\/+$/, '')}`) : null
-      const igHandle = cleanIg
-      const phone = co.phone || contact.phone || contact.whatsapp || null
-      const channel: OutreachChannel = igHandle ? 'instagram_dm' : (phone ? 'whatsapp' : 'cold_call')
+      const igHandle = cleanIg && !cleanIg.includes(' ') && cleanIg.length >= 2 ? cleanIg : null
+      const rawPhone = co.phone || contact.phone || contact.whatsapp || null
+      const phoneDigits = rawPhone ? String(rawPhone).replace(/\D/g, '') : ''
+      const hasPhone = phoneDigits.length >= 7
+      const phone = hasPhone ? rawPhone : null
+
+      const liUrl = (isValidLinkedInUrl(co.linkedin_url) ? co.linkedin_url : null) || (isValidLinkedInUrl(contact.linkedin_url) ? contact.linkedin_url : null)
+      const validEmail = co.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(co.email).trim())
+        ? co.email
+        : (contact.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(contact.email).trim()) ? contact.email : null)
+
+      let channel: OutreachChannel = 'cold_call'
+      const coSrc = (co.lead_source || '').toLowerCase()
+      if (coSrc.includes('instagram') || rJson.target_channel === 'instagram_dm') {
+        channel = 'instagram_dm'
+      } else if (coSrc.includes('linkedin') || rJson.target_channel === 'linkedin') {
+        channel = 'linkedin'
+      } else if (coSrc.includes('whatsapp') || rJson.target_channel === 'whatsapp') {
+        channel = 'whatsapp'
+      } else if (rJson.target_channel && ['whatsapp', 'instagram_dm', 'linkedin', 'email', 'cold_call'].includes(rJson.target_channel)) {
+        channel = rJson.target_channel
+      } else if (igHandle) {
+        channel = 'instagram_dm'
+      } else if (hasPhone) {
+        channel = 'whatsapp'
+      } else if (liUrl) {
+        channel = 'linkedin'
+      } else if (validEmail) {
+        channel = 'email'
+      } else {
+        channel = 'cold_call'
+      }
+
+      let handle = co.company_name
+      if (channel === 'instagram_dm' && igHandle) handle = igHandle
+      else if ((channel === 'whatsapp' || channel === 'cold_call') && phone) handle = phone
+      else if (channel === 'linkedin' && liUrl) handle = liUrl
+      else if (channel === 'email' && validEmail) handle = validEmail
+
       const specificObs = rJson.specific_observation || rJson.staged_sequence?.touch_1?.specific_observation || co.draft_angle_reasoning || (co.notes && !co.notes.startsWith('{') ? co.notes : '') || 'Recent business growth & market positioning'
 
       const stagedSeq = rJson.staged_sequence || undefined
       const openerMessage = co.draft_message || stagedSeq?.touch_1?.message || 'Warm inquiry regarding operations'
+
+      const derivedStatus: OutreachStatus = co.status === 'opportunity' 
+        ? 'meeting_booked' 
+        : (co.status === 'lead' || co.pipeline_stage === 'Replied'
+          ? 'warm_up' 
+          : (co.status === 'contacted' || co.pipeline_stage === 'Contacted'
+            ? 'gate_opener_sent' 
+            : 'gate_opener_staged'))
 
       leadMap.set(co.id, {
         id: `staged-${co.id}`,
@@ -335,13 +380,13 @@ export async function getAllLeadsForPipeline(
         sector: (co.category || 'general') as any,
         phone,
         instagram_handle: igHandle,
-        linkedin_url: co.linkedin_url || contact.linkedin_url || null,
-        email: co.email || contact.email || null,
+        linkedin_url: liUrl,
+        email: validEmail,
         channel,
-        handle: igHandle || phone || co.company_name,
+        handle,
         template_used: 'gate_opener',
-        status: co.status === 'opportunity' ? 'meeting_booked' : (co.status === 'lead' ? 'warm_up' : 'gate_opener_staged'),
-        stage: co.status === 'opportunity' ? 'meeting_booked' : (co.status === 'lead' ? 'warm_up' : 'gate_opener_staged'),
+        status: derivedStatus,
+        stage: derivedStatus,
         touch_count: 0,
         specific_observation: specificObs,
         prospect_reply: '',
@@ -531,16 +576,20 @@ export async function getChannelDailyBatch(
 
       if (channel === 'instagram_dm') {
         const rawIg = rJson.instagram_handle || (c.notes && c.notes.match(/["']?instagram_handle["']?\s*:\s*["'](@?[^"']+)["']/i)?.[1]) || (c.notes && c.notes.match(/Instagram:\s*(@?[^\s,]+)/i)?.[1])
-        return Boolean(rawIg && rawIg !== 'null' && String(rawIg).trim().length > 1)
+        const clean = rawIg ? String(rawIg).replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^@+/, '').replace(/\/+$/, '').trim() : ''
+        return Boolean(clean && clean.length >= 2 && !clean.includes(' '))
       }
       if (channel === 'whatsapp' || channel === 'cold_call') {
-        return Boolean(c.phone || c.contacts?.[0]?.phone || c.contacts?.[0]?.whatsapp)
+        const ph = c.phone || c.contacts?.[0]?.phone || c.contacts?.[0]?.whatsapp
+        return Boolean(ph && String(ph).replace(/\D/g, '').length >= 7)
       }
       if (channel === 'linkedin') {
-        return Boolean(c.linkedin_url || c.contacts?.[0]?.linkedin_url)
+        const li = (isValidLinkedInUrl(c.linkedin_url) ? c.linkedin_url : null) || c.contacts?.find((cnt: any) => isValidLinkedInUrl(cnt.linkedin_url))?.linkedin_url
+        return Boolean(li)
       }
       if (channel === 'email') {
-        return Boolean(c.email || c.contacts?.[0]?.email)
+        const em = c.email || c.contacts?.[0]?.email
+        return Boolean(em && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(em).trim()))
       }
       return true
     })
@@ -555,8 +604,22 @@ export async function getChannelDailyBatch(
 
       const rawIg = rJson.instagram_handle || (c.notes && c.notes.match(/["']?instagram_handle["']?\s*:\s*["'](@?[^"']+)["']/i)?.[1]) || (c.notes && c.notes.match(/Instagram:\s*(@?[^\s,]+)/i)?.[1]) || null
       const cleanIg = rawIg ? (rawIg.startsWith('@') ? rawIg : `@${rawIg.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^\/+/, '').replace(/\/+$/, '')}`) : null
-      const ig = cleanIg
-      const handle = channel === 'instagram_dm' ? (ig || c.company_name) : (c.phone || contact.phone || c.email || c.company_name)
+      const ig = cleanIg && !cleanIg.includes(' ') && cleanIg.length >= 2 ? cleanIg : null
+
+      const cleanLi = (isValidLinkedInUrl(c.linkedin_url) ? c.linkedin_url : null) || c.contacts?.find((cnt: any) => isValidLinkedInUrl(cnt.linkedin_url))?.linkedin_url || null
+      const validPhone = (c.phone || contact.phone || contact.whatsapp) && String(c.phone || contact.phone || contact.whatsapp).replace(/\D/g, '').length >= 7
+        ? (c.phone || contact.phone || contact.whatsapp)
+        : null
+      const validEmail = (c.email || contact.email) && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(c.email || contact.email).trim())
+        ? (c.email || contact.email)
+        : null
+
+      let handle = c.company_name
+      if (channel === 'instagram_dm') handle = ig || c.company_name
+      else if (channel === 'linkedin') handle = cleanLi || c.company_name
+      else if (channel === 'whatsapp' || channel === 'cold_call') handle = validPhone || c.company_name
+      else if (channel === 'email') handle = validEmail || c.company_name
+
       const stagedSeq = rJson.staged_sequence || undefined
 
       return {
@@ -567,10 +630,10 @@ export async function getChannelDailyBatch(
         contact_title: contact.title || 'Decision Maker',
         industry: c.industry || c.category || 'General',
         sector: c.category || 'general',
-        phone: c.phone || contact.phone || null,
+        phone: validPhone,
         instagram_handle: ig,
-        linkedin_url: c.linkedin_url || contact.linkedin_url || null,
-        email: c.email || contact.email || null,
+        linkedin_url: cleanLi,
+        email: validEmail,
         channel,
         handle,
         template_used: 'gate_opener',
