@@ -34,16 +34,6 @@ export interface LinkedInStageInfo {
   crm_status_text: string;
 }
 
-export interface LinkedInStageInfo {
-  stage_number: number;
-  id: LinkedInBdStage;
-  name: string;
-  short_label: string;
-  description: string;
-  recommended_action: string;
-  crm_status_text: string;
-}
-
 
 export interface TimelineActivity {
   id: string
@@ -547,27 +537,21 @@ let inMemoryDailyLogs: LinkedInDailyLog[] = [DEFAULT_23_JULY_DAILY_LOG];
 // ── Fetch all LinkedIn prospects ─────────────────────────────────────────────
 export async function getLinkedInProspects(): Promise<{ data: LinkedInProspect[] | null; error: string | null }> {
   try {
-    // 1.5s race timeout to prevent Supabase network hanging
-    const fetchPromise = (async () => {
-      await syncCRMContactsToLinkedIn().catch(() => {});
-      const { data, error } = await supabase
-        .from('linkedin_prospects')
-        .select('*')
-        .order('created_at', { ascending: false });
-      return { data, error };
-    })();
+    const { data, error } = await supabase
+      .from('linkedin_prospects')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-    const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) =>
-      setTimeout(() => resolve({ data: null, error: { message: 'Timeout' } }), 1200)
-    );
-
-    const result = await Promise.race([fetchPromise, timeoutPromise]);
-
-    if (result.error || !result.data || result.data.length === 0) {
-      return { data: inMemoryProspects, error: null };
+    if (error) {
+      console.error('Supabase linkedin_prospects error:', error.message);
+      return { data: inMemoryProspects, error: error.message };
     }
 
-    const formatted: LinkedInProspect[] = result.data.map(p => ({
+    if (!data || data.length === 0) {
+      return { data: [], error: null };
+    }
+
+    const formatted: LinkedInProspect[] = data.map(p => ({
       ...p,
       activities: Array.isArray(p.activities) ? p.activities : (typeof p.activities === 'string' ? JSON.parse(p.activities) : []),
       location: p.location || '',
@@ -578,7 +562,8 @@ export async function getLinkedInProspects(): Promise<{ data: LinkedInProspect[]
     inMemoryProspects = formatted;
     return { data: formatted, error: null };
   } catch (err: unknown) {
-    return { data: inMemoryProspects, error: null };
+    console.error('getLinkedInProspects catch error:', err);
+    return { data: inMemoryProspects, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
