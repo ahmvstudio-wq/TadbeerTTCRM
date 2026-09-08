@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -23,7 +23,8 @@ import {
   ArrowRight,
   MessageSquare,
   Mail,
-  ExternalLink
+  ExternalLink,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,6 +78,7 @@ export default function DailyCadencePage() {
   const [channelFilter, setChannelFilter] = useState<OutreachChannel | "all">("all");
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [cadenceSearch, setCadenceSearch] = useState("");
 
   // Sync date with URL search params on mount
   useEffect(() => {
@@ -164,6 +166,18 @@ export default function DailyCadencePage() {
   const replied = leads.filter(l => ['reply_received', 'replied_interested', 'replied_objection', 'warm_up', 'opening_identified'].includes(l.status)).length;
   const ready = leads.filter(l => ['ready_for_call', 'coffee_invited'].includes(l.status)).length;
   const booked = leads.filter(l => l.status === "meeting_booked").length;
+
+  const displayedLeads = useMemo(() => {
+    if (!cadenceSearch.trim()) return leads;
+    const q = cadenceSearch.toLowerCase().trim();
+    return leads.filter(l => 
+      l.company_name.toLowerCase().includes(q) ||
+      (l.contact_name || "").toLowerCase().includes(q) ||
+      (l.handle || "").toLowerCase().includes(q) ||
+      (l.notes || "").toLowerCase().includes(q) ||
+      (l.linkedin_url || "").toLowerCase().includes(q)
+    );
+  }, [leads, cadenceSearch]);
 
   return (
     <div className="space-y-6 page-enter pb-24 max-w-[1850px] w-full mx-auto font-sans">
@@ -385,6 +399,23 @@ export default function DailyCadencePage() {
               </div>
             </div>
 
+            {/* Instant Search Bar for Selected Date */}
+            {leads.length > 0 && (
+              <div className="relative">
+                <Input
+                  value={cadenceSearch}
+                  onChange={e => setCadenceSearch(e.target.value)}
+                  placeholder="🔍 Search today's queue (name, company, @handle, notes)..."
+                  className="h-9 text-xs bg-white border-neutral-200 rounded-xl pr-8 focus:bg-white transition-colors"
+                />
+                {cadenceSearch && (
+                  <button onClick={() => setCadenceSearch("")} className="absolute right-2.5 top-2.5 text-neutral-400 hover:text-neutral-600 cursor-pointer">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Cards List */}
             {loading ? (
               <div className="flex items-center justify-center py-20 bg-white rounded-2xl border border-neutral-200">
@@ -396,9 +427,16 @@ export default function DailyCadencePage() {
                 <p className="text-xs font-bold text-neutral-700">No messages logged on this date</p>
                 <p className="text-[11px] text-neutral-400 mt-0.5">Select another day on the calendar.</p>
               </div>
+            ) : displayedLeads.length === 0 ? (
+              <div className="bg-white border border-dashed border-neutral-300 rounded-2xl p-10 text-center">
+                <p className="text-xs font-bold text-neutral-700">No leads matching "{cadenceSearch}"</p>
+                <button onClick={() => setCadenceSearch("")} className="text-xs text-teal-600 font-bold mt-1 cursor-pointer hover:underline">
+                  Clear search
+                </button>
+              </div>
             ) : (
               <div className="space-y-3">
-                {leads.map(lead => (
+                {displayedLeads.map(lead => (
                   <CalendarLeadCard
                     key={lead.id}
                     lead={lead}

@@ -161,27 +161,41 @@ export default function OutreachPipelinePage() {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       const matchesName = l.company_name.toLowerCase().includes(q);
+      const matchesContact = (l.contact_name || "").toLowerCase().includes(q);
       const matchesHandle = (l.handle || "").toLowerCase().includes(q);
       const matchesPhone = (l.phone || "").toLowerCase().includes(q);
       const matchesIndustry = (l.industry || "").toLowerCase().includes(q);
       const matchesNotes = (l.notes || "").toLowerCase().includes(q);
-      if (!matchesName && !matchesHandle && !matchesPhone && !matchesIndustry && !matchesNotes) return false;
+      const matchesLi = (l.linkedin_url || "").toLowerCase().includes(q);
+      if (!matchesName && !matchesContact && !matchesHandle && !matchesPhone && !matchesIndustry && !matchesNotes && !matchesLi) return false;
     }
     return true;
   });
+
+  // Priority sort: Contacted / In Outreach leads first so active relationships appear on Page 1
+  const sortedFilteredLeads = useMemo(() => {
+    return [...filteredLeads].sort((a, b) => {
+      const aTouched = a.status !== "gate_opener_staged" ? 1 : 0;
+      const bTouched = b.status !== "gate_opener_staged" ? 1 : 0;
+      if (aTouched !== bTouched) return bTouched - aTouched;
+      const aTime = a.sent_at ? new Date(a.sent_at).getTime() : 0;
+      const bTime = b.sent_at ? new Date(b.sent_at).getTime() : 0;
+      return bTime - aTime;
+    });
+  }, [filteredLeads]);
 
   // Reset pagination on filter changes
   useEffect(() => {
     setCurrentPage(1);
   }, [dateFilter, channelFilter, sectorFilter, stageFilter, searchQuery]);
 
-  const totalItems = filteredLeads.length;
+  const totalItems = sortedFilteredLeads.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const paginatedLeads = useMemo(() => {
-    if (pageSize >= 999999) return filteredLeads;
+    if (pageSize >= 999999) return sortedFilteredLeads;
     const start = (currentPage - 1) * pageSize;
-    return filteredLeads.slice(start, start + pageSize);
-  }, [filteredLeads, currentPage, pageSize]);
+    return sortedFilteredLeads.slice(start, start + pageSize);
+  }, [sortedFilteredLeads, currentPage, pageSize]);
 
   const handleDropToColumn = async (leadId: string, targetCol: "call_tonight" | "reply_received" | "pipeline" | "done") => {
     let targetStatus: OutreachStatus = "sent";
