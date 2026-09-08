@@ -1092,7 +1092,20 @@ export async function getComprehensiveOutreachMetrics(days: number = 30): Promis
       }
       industryStats[cleanIndustry].sent++;
 
-      const isReply = Boolean(prospectReply || ['reply_received', 'replied_interested', 'replied_objection', 'interested', 'meeting_booked'].includes(status));
+      const isBot = Boolean(
+        payload.is_bot ||
+        (prospectReply && (
+          prospectReply.toLowerCase().includes('automated') ||
+          prospectReply.toLowerCase().includes('play-n-learn.net') ||
+          prospectReply.toLowerCase().includes('business response / greeting')
+        )) ||
+        (payload.notes && (
+          payload.notes.toLowerCase().includes('automated bot') ||
+          payload.notes.toLowerCase().includes('excluded from human replies')
+        ))
+      );
+
+      const isReply = !isBot && Boolean(prospectReply || ['reply_received', 'replied_interested', 'replied_objection', 'interested', 'meeting_booked'].includes(status));
       const isPositive = ['replied_interested', 'interested', 'meeting_booked'].includes(status) || (prospectReply && (prospectReply.toLowerCase().includes('yes') || prospectReply.toLowerCase().includes('interested') || prospectReply.toLowerCase().includes('share') || prospectReply.toLowerCase().includes('call')));
       const isObjection = ['replied_objection', 'objection'].includes(status);
 

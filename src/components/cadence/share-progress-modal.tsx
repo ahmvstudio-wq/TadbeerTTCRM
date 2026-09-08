@@ -12,6 +12,28 @@ interface ShareProgressModalProps {
   onClose: () => void;
 }
 
+// Helper to accurately identify genuine human replies (filtering out automated bot auto-replies)
+export function isHumanReply(l: OutreachLead): boolean {
+  const combinedNotes = `${l.prospect_reply || ""} ${l.notes || ""}`.toLowerCase();
+  if (
+    combinedNotes.includes("automated") ||
+    combinedNotes.includes("bot auto-reply") ||
+    combinedNotes.includes("bot message") ||
+    combinedNotes.includes("auto-responder") ||
+    combinedNotes.includes("auto-reply") ||
+    combinedNotes.includes("business response / greeting") ||
+    combinedNotes.includes("play-n-learn.net")
+  ) {
+    return false;
+  }
+
+  return (
+    ["reply_received", "replied_interested", "replied_objection", "warm_up", "opening_identified"].includes(l.status) ||
+    ["reply_received", "replied_interested", "replied_objection", "warm_up", "opening_identified"].includes(l.stage as any) ||
+    Boolean(l.prospect_reply && l.prospect_reply.trim().length > 0)
+  );
+}
+
 export function ShareProgressModal({
   date,
   leads,
@@ -40,10 +62,8 @@ export function ShareProgressModal({
 
   // Calculate stats
   const total = leads.length;
-  const replied = leads.filter(l =>
-    ["reply_received", "replied_interested", "replied_objection"].includes(l.status)
-  ).length;
-  const ready = leads.filter(l => l.status === "ready_for_call").length;
+  const replied = leads.filter(isHumanReply).length;
+  const ready = leads.filter(l => ["ready_for_call", "coffee_invited"].includes(l.status)).length;
   const booked = leads.filter(l => l.status === "meeting_booked").length;
   const replyRate = total > 0 ? Math.round((replied / total) * 100) : 0;
 
@@ -293,44 +313,59 @@ export function ShareProgressModal({
       ctx.font = "500 14px Inter, sans-serif";
       ctx.fillText("No outreach log entries recorded for this date.", startX + 24, leadStartY + 30);
     } else {
-      // Display top 3 leads with details
-      const displayLeads = leads.slice(0, 3);
+      // Prioritize genuine human replies first, then recent outreach entries
+      const displayLeads = [...leads].sort((a, b) => {
+        const aReply = isHumanReply(a) ? 1 : 0;
+        const bReply = isHumanReply(b) ? 1 : 0;
+        if (bReply !== aReply) return bReply - aReply;
+        return (b.updated_at || b.sent_at || "").localeCompare(a.updated_at || a.sent_at || "");
+      }).slice(0, 3);
+
       displayLeads.forEach((lead, idx) => {
         const ly = leadStartY + idx * 38;
+        const isReply = isHumanReply(lead);
 
         // Channel Circle
-        ctx.fillStyle = isLight ? "#f1f5f9" : "#1e293b";
+        ctx.fillStyle = isLight ? (isReply ? "#ecfdf5" : "#f1f5f9") : (isReply ? "rgba(16, 185, 129, 0.2)" : "#1e293b");
         ctx.beginPath();
         ctx.arc(startX + 34, ly + 8, 11, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = isLight ? "#0284c7" : "#38bdf8";
+        ctx.fillStyle = isReply ? (isLight ? "#059669" : "#34d399") : (isLight ? "#0284c7" : "#38bdf8");
         ctx.font = "900 10px Inter, sans-serif";
         ctx.fillText(lead.channel.charAt(0).toUpperCase(), startX + 30, ly + 12);
 
-        // Lead Company Name
+        // Lead Company / Contact Name
+        const nameText = lead.contact_name && lead.contact_name !== "Decision Maker" && lead.contact_name !== "Owner/Manager" && !lead.company_name.includes(lead.contact_name)
+          ? `${lead.company_name} (${lead.contact_name})`
+          : lead.company_name;
+
         ctx.fillStyle = isLight ? "#0f172a" : "#ffffff";
-        ctx.font = "800 14px Inter, sans-serif";
-        ctx.fillText(lead.company_name, startX + 54, ly + 12);
+        ctx.font = isReply ? "900 13px Inter, sans-serif" : "800 13px Inter, sans-serif";
+        ctx.fillText(nameText.slice(0, 32), startX + 54, ly + 12);
 
         // Status Badge text
         const statusCfg = STATUS_CONFIG[lead.status] || STATUS_CONFIG.sent;
-        ctx.fillStyle = isLight ? "#f1f5f9" : "rgba(255, 255, 255, 0.1)";
+        ctx.fillStyle = isReply ? (isLight ? "#ecfdf5" : "rgba(16, 185, 129, 0.2)") : (isLight ? "#f1f5f9" : "rgba(255, 255, 255, 0.1)");
         ctx.beginPath();
-        ctx.roundRect(startX + 300, ly - 3, 130, 22, 11);
+        ctx.roundRect(startX + 300, ly - 3, 135, 22, 11);
         ctx.fill();
-        ctx.fillStyle = isLight ? "#475569" : "#cbd5e1";
-        ctx.font = "700 11px Inter, sans-serif";
-        ctx.fillText(statusCfg.label, startX + 312, ly + 12);
+        ctx.strokeStyle = isReply ? (isLight ? "#a7f3d0" : "rgba(16, 185, 129, 0.4)") : "transparent";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.fillStyle = isReply ? (isLight ? "#047857" : "#6ee7b7") : (isLight ? "#475569" : "#cbd5e1");
+        ctx.font = "800 11px Inter, sans-serif";
+        ctx.fillText(isReply ? "Warm-Up (Replied)" : statusCfg.label, startX + 312, ly + 12);
 
         // Note or prospect reply preview
         const snippet = lead.prospect_reply
-          ? `💬 Reply: "${lead.prospect_reply.slice(0, 55)}${lead.prospect_reply.length > 55 ? "..." : ""}"`
+          ? `💬 Prospect Reply: "${lead.prospect_reply.slice(0, 50)}${lead.prospect_reply.length > 50 ? "..." : ""}"`
           : lead.notes
-          ? `📝 ${lead.notes.slice(0, 60)}${lead.notes.length > 60 ? "..." : ""}`
+          ? `📝 ${lead.notes.slice(0, 55)}${lead.notes.length > 55 ? "..." : ""}`
           : `Handle: ${lead.handle || "N/A"} · Industry: ${lead.industry || "General"}`;
 
-        ctx.fillStyle = lead.prospect_reply ? (isLight ? "#047857" : "#a7f3d0") : (isLight ? "#64748b" : "#94a3b8");
-        ctx.font = "500 12px Inter, sans-serif";
+        ctx.fillStyle = isReply ? (isLight ? "#047857" : "#a7f3d0") : (isLight ? "#64748b" : "#94a3b8");
+        ctx.font = isReply ? "700 12px Inter, sans-serif" : "500 12px Inter, sans-serif";
         ctx.fillText(snippet, startX + 450, ly + 12);
       });
 

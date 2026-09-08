@@ -46,7 +46,7 @@ import {
 } from "@/lib/types/outreach";
 import { ColdCallScriptModal } from "@/components/outreach/cold-call-script-modal";
 import { DMEmailTemplateModal } from "@/components/outreach/dm-email-template-modal";
-import { ShareProgressModal } from "@/components/cadence/share-progress-modal";
+import { ShareProgressModal, isHumanReply } from "@/components/cadence/share-progress-modal";
 import { OutreachAnalyticsDashboard } from "@/components/cadence/outreach-analytics-dashboard";
 import { useUnifiedLead } from "@/context/unified-lead-context";
 
@@ -163,20 +163,28 @@ export default function DailyCadencePage() {
   ];
 
   const total = leads.length;
-  const replied = leads.filter(l => ['reply_received', 'replied_interested', 'replied_objection', 'warm_up', 'opening_identified'].includes(l.status)).length;
+  const replied = leads.filter(isHumanReply).length;
   const ready = leads.filter(l => ['ready_for_call', 'coffee_invited'].includes(l.status)).length;
   const booked = leads.filter(l => l.status === "meeting_booked").length;
 
   const displayedLeads = useMemo(() => {
-    if (!cadenceSearch.trim()) return leads;
-    const q = cadenceSearch.toLowerCase().trim();
-    return leads.filter(l => 
-      l.company_name.toLowerCase().includes(q) ||
-      (l.contact_name || "").toLowerCase().includes(q) ||
-      (l.handle || "").toLowerCase().includes(q) ||
-      (l.notes || "").toLowerCase().includes(q) ||
-      (l.linkedin_url || "").toLowerCase().includes(q)
-    );
+    let list = leads;
+    if (cadenceSearch.trim()) {
+      const q = cadenceSearch.toLowerCase().trim();
+      list = list.filter(l => 
+        l.company_name.toLowerCase().includes(q) ||
+        (l.contact_name || "").toLowerCase().includes(q) ||
+        (l.handle || "").toLowerCase().includes(q) ||
+        (l.notes || "").toLowerCase().includes(q) ||
+        (l.linkedin_url || "").toLowerCase().includes(q)
+      );
+    }
+    return [...list].sort((a, b) => {
+      const aReply = isHumanReply(a) ? 1 : 0;
+      const bReply = isHumanReply(b) ? 1 : 0;
+      if (bReply !== aReply) return bReply - aReply;
+      return (b.updated_at || b.sent_at || "").localeCompare(a.updated_at || a.sent_at || "");
+    });
   }, [leads, cadenceSearch]);
 
   return (
