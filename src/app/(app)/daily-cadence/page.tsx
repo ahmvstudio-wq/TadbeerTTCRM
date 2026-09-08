@@ -21,12 +21,14 @@ import {
   BarChart3,
   Layers,
   ArrowRight,
-  MessageSquare
+  MessageSquare,
+  Mail,
+  ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
+import { cn, formatWhatsAppNumber, isValidLinkedInUrl } from "@/lib/utils";
 import {
   getAllLeadsForPipeline,
   updateOutreachStatus,
@@ -42,6 +44,7 @@ import {
   type OutreachLead
 } from "@/lib/types/outreach";
 import { ColdCallScriptModal } from "@/components/outreach/cold-call-script-modal";
+import { DMEmailTemplateModal } from "@/components/outreach/dm-email-template-modal";
 import { ShareProgressModal } from "@/components/cadence/share-progress-modal";
 import { OutreachAnalyticsDashboard } from "@/components/cadence/outreach-analytics-dashboard";
 import { useUnifiedLead } from "@/context/unified-lead-context";
@@ -51,12 +54,19 @@ const CHANNELS: OutreachChannel[] = [
 ];
 
 const STATUSES: OutreachStatus[] = [
-  "sent", "no_reply", "reply_received", "replied_interested", "replied_objection", "ready_for_call", "called", "meeting_booked"
+  "gate_opener_sent", "warm_up", "opening_identified", "ready_for_call", "called", "meeting_booked", "no_reply"
 ];
+
+function normalizeStatus(s: string): string {
+  if (s === "sent") return "gate_opener_sent";
+  if (s === "reply_received") return "warm_up";
+  if (s === "replied_interested" || s === "replied_objection") return "opening_identified";
+  return s;
+}
 
 export default function DailyCadencePage() {
   const today = new Date();
-  const [activeTab, setActiveTab] = useState<"analytics" | "calendar">("analytics");
+  const [activeTab, setActiveTab] = useState<"analytics" | "calendar">("calendar");
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(today.getMonth() + 1); // 1-indexed
   const [selectedDate, setSelectedDate] = useState(() => today.toISOString().split("T")[0]);
@@ -151,8 +161,8 @@ export default function DailyCadencePage() {
   ];
 
   const total = leads.length;
-  const replied = leads.filter(l => l.status === "reply_received" || l.status === "replied_interested" || l.status === "replied_objection").length;
-  const ready = leads.filter(l => l.status === "ready_for_call").length;
+  const replied = leads.filter(l => ['reply_received', 'replied_interested', 'replied_objection', 'warm_up', 'opening_identified'].includes(l.status)).length;
+  const ready = leads.filter(l => ['ready_for_call', 'coffee_invited'].includes(l.status)).length;
   const booked = leads.filter(l => l.status === "meeting_booked").length;
 
   return (
@@ -419,6 +429,7 @@ export default function DailyCadencePage() {
 }
 
 // ─── Minimal Monochrome Calendar Lead Card ──────────────────────────────────
+// ─── Minimal Monochrome Calendar Lead Card ──────────────────────────────────
 function CalendarLeadCard({
   lead,
   expanded,
@@ -434,6 +445,7 @@ function CalendarLeadCard({
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [scriptModalOpen, setScriptModalOpen] = useState(false);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
 
   const [companyName, setCompanyName] = useState(lead.company_name);
   const [handle, setHandle] = useState(lead.handle || "");
@@ -503,6 +515,21 @@ function CalendarLeadCard({
   const statusConfig = STATUS_CONFIG[status] || STATUS_CONFIG.sent;
   const hasContext = Boolean(notes || reply || pain || opening);
 
+  // Contact channels detection
+  const phone = lead.phone || (lead.channel === "cold_call" || lead.channel === "whatsapp" ? (lead.handle && /^[\d\+\-\s\(\)]+$/.test(lead.handle) ? lead.handle : null) : null);
+  const waDigits = phone ? formatWhatsAppNumber(phone) : "";
+  const waUrl = waDigits ? `https://wa.me/${waDigits}${notes ? `?text=${encodeURIComponent(notes)}` : ''}` : null;
+
+  const rawIg = lead.instagram_handle || (lead.channel === "instagram_dm" ? lead.handle : (handle && handle.startsWith("@") ? handle : null));
+  const cleanIg = rawIg ? rawIg.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^\/+/, '').replace(/\/+$/, '').replace(/^@+/, '') : null;
+  const igUrl = cleanIg ? `https://www.instagram.com/${cleanIg}/` : null;
+
+  const rawLi = lead.linkedin_url || (lead.channel === "linkedin" ? (isValidLinkedInUrl(lead.handle) ? lead.handle : null) : (isValidLinkedInUrl(handle) ? handle : null));
+  const liUrl = rawLi || null;
+
+  const rawEmail = lead.email || (handle && handle.includes('@') && !handle.startsWith('@') ? handle : null);
+  const emailUrl = rawEmail ? `mailto:${rawEmail}` : null;
+
   return (
     <div className="bg-white rounded-2xl border border-neutral-200 hover:border-neutral-300 shadow-xs overflow-hidden transition-all">
       <button
@@ -510,8 +537,25 @@ function CalendarLeadCard({
         className="w-full flex items-center justify-between p-4 text-left hover:bg-neutral-50/60 transition-colors cursor-pointer"
       >
         <div className="flex items-center gap-3.5 min-w-0">
-          <div className="h-8 w-8 rounded-xl bg-neutral-100 border border-neutral-200 text-neutral-800 flex items-center justify-center font-black text-xs shrink-0">
-            {channel.charAt(0).toUpperCase()}
+          <div className={cn(
+            "h-9 w-9 rounded-xl border flex items-center justify-center font-black text-xs shrink-0 shadow-2xs",
+            channel === "instagram_dm" ? "bg-pink-50 border-pink-200 text-pink-700" :
+            channel === "whatsapp" ? "bg-emerald-50 border-emerald-200 text-emerald-700" :
+            channel === "linkedin" ? "bg-blue-50 border-blue-200 text-[#0A66C2]" :
+            channel === "email" ? "bg-violet-50 border-violet-200 text-violet-700" :
+            "bg-neutral-100 border-neutral-200 text-neutral-800"
+          )}>
+            {channel === "instagram_dm" ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4 text-pink-600"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><circle cx="12" cy="12" r="3.5"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+            ) : channel === "whatsapp" ? (
+              <MessageCircle className="h-4 w-4 text-emerald-600" />
+            ) : channel === "linkedin" ? (
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor" className="text-[#0A66C2]"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+            ) : channel === "email" ? (
+              <Mail className="h-4 w-4 text-violet-600" />
+            ) : (
+              <Phone className="h-4 w-4 text-neutral-700" />
+            )}
           </div>
           <div className="min-w-0">
             <p className="text-xs font-black text-black truncate">{companyName}</p>
@@ -520,8 +564,63 @@ function CalendarLeadCard({
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0 ml-2">
-          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full border border-neutral-200 bg-neutral-100 text-neutral-800">
+        
+        {/* Header Outreach Quick Actions */}
+        <div className="flex items-center gap-1.5 shrink-0 ml-2" onClick={e => e.stopPropagation()}>
+          {waUrl && (
+            <a
+              href={waUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="h-7 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-[10px] font-black flex items-center gap-1 transition-colors cursor-pointer"
+              title="Open WhatsApp Chat"
+            >
+              <MessageCircle className="h-3 w-3 text-emerald-600" /> WA
+            </a>
+          )}
+          {igUrl && (
+            <a
+              href={igUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="h-7 px-2 bg-pink-50 hover:bg-pink-100 text-pink-800 border border-pink-300 rounded-lg text-[10px] font-black flex items-center gap-1 transition-colors cursor-pointer"
+              title="Open Instagram Profile"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3 w-3 text-pink-600"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><circle cx="12" cy="12" r="3.5"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+              IG
+            </a>
+          )}
+          {liUrl && (
+            <a
+              href={liUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="h-7 px-2 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-300 rounded-lg text-[10px] font-black flex items-center gap-1 transition-colors cursor-pointer"
+              title="Open LinkedIn Profile"
+            >
+              <svg width={12} height={12} viewBox="0 0 24 24" fill="currentColor" className="text-[#0A66C2]"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+              LI
+            </a>
+          )}
+          {phone && (
+            <a
+              href={`tel:${phone}`}
+              className="h-7 px-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-900 border border-neutral-300 rounded-lg text-[10px] font-black flex items-center gap-1 transition-colors cursor-pointer"
+              title="Call Number"
+            >
+              <Phone className="h-3 w-3 text-neutral-700" /> Call
+            </a>
+          )}
+          {emailUrl && (
+            <a
+              href={emailUrl}
+              className="h-7 px-2 bg-violet-50 hover:bg-violet-100 text-violet-800 border border-violet-300 rounded-lg text-[10px] font-black flex items-center gap-1 transition-colors cursor-pointer"
+              title="Send Email"
+            >
+              <Mail className="h-3 w-3 text-violet-600" /> Mail
+            </a>
+          )}
+          <span className="text-[10px] font-black px-2.5 py-1 rounded-full border border-neutral-200 bg-neutral-100 text-neutral-800">
             {statusConfig.label}
           </span>
         </div>
@@ -533,25 +632,28 @@ function CalendarLeadCard({
           {/* Status Buttons */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-black uppercase tracking-wider text-neutral-500">Update Status</p>
+              <p className="text-[10px] font-black uppercase tracking-wider text-neutral-500">Pipeline Stage</p>
               {saving && <span className="text-[10px] font-bold text-neutral-400 flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Saving...</span>}
             </div>
             <div className="flex gap-1.5 flex-wrap">
-              {STATUSES.map(s => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => handleStatusChange(s)}
-                  className={cn(
-                    "text-xs font-black px-3 py-1 rounded-xl border transition-all cursor-pointer",
-                    status === s
-                      ? "bg-black text-white border-black shadow-xs"
-                      : "bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-100"
-                  )}
-                >
-                  {STATUS_CONFIG[s].label}
-                </button>
-              ))}
+              {STATUSES.map(s => {
+                const isSelected = normalizeStatus(status) === s;
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => handleStatusChange(s)}
+                    className={cn(
+                      "text-xs font-black px-3 py-1 rounded-xl border transition-all cursor-pointer",
+                      isSelected
+                        ? "bg-black text-white border-black shadow-xs"
+                        : "bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-100"
+                    )}
+                  >
+                    {STATUS_CONFIG[s]?.label || s}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -601,11 +703,11 @@ function CalendarLeadCard({
               </div>
 
               <div>
-                <label className="text-[10px] font-bold text-neutral-600 block mb-1">Logged Notes</label>
+                <label className="text-[10px] font-bold text-neutral-600 block mb-1">Logged Notes / Sent Message</label>
                 <Textarea
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
-                  placeholder="Notes about outreach..."
+                  placeholder="Notes or message body sent..."
                   className="text-xs resize-none bg-white border-neutral-200 rounded-xl p-3"
                   rows={2}
                 />
@@ -625,8 +727,8 @@ function CalendarLeadCard({
             <div className="space-y-2 pt-1">
               {notes && (
                 <div className="bg-white border border-neutral-200 rounded-xl p-3 shadow-xs">
-                  <p className="text-[9px] font-black text-neutral-400 uppercase tracking-wider mb-0.5">Logged Notes</p>
-                  <p className="text-xs text-neutral-800 font-medium">{notes}</p>
+                  <p className="text-[9px] font-black text-neutral-400 uppercase tracking-wider mb-0.5">Outreach Message / Notes</p>
+                  <p className="text-xs text-neutral-800 font-medium leading-relaxed">{notes}</p>
                 </div>
               )}
               {reply && (
@@ -637,7 +739,7 @@ function CalendarLeadCard({
               )}
               {pain && (
                 <div className="bg-neutral-100 border border-neutral-200 rounded-xl p-3 shadow-xs">
-                  <p className="text-[9px] font-black text-neutral-600 uppercase tracking-wider mb-0.5">Pain Point</p>
+                  <p className="text-[9px] font-black text-neutral-600 uppercase tracking-wider mb-0.5">Pain Point / Angle</p>
                   <p className="text-xs text-neutral-900 font-bold">{pain}</p>
                 </div>
               )}
@@ -653,14 +755,106 @@ function CalendarLeadCard({
             </div>
           )}
 
-          {/* Action Row */}
+          {/* Expanded Action Toolbar - All Outreach Actions */}
           <div className="flex items-center gap-2 pt-2 border-t border-neutral-100 flex-wrap">
+            {waUrl && (
+              <a
+                href={waUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black px-3 py-1.5 rounded-xl shadow-xs transition-all cursor-pointer"
+              >
+                <MessageCircle className="h-3.5 w-3.5" /> Launch WhatsApp
+              </a>
+            )}
+            {igUrl && (
+              <a
+                href={igUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 text-white text-xs font-black px-3 py-1.5 rounded-xl shadow-xs transition-all cursor-pointer"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><circle cx="12" cy="12" r="3.5"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+                Open Instagram
+              </a>
+            )}
+            {liUrl && (
+              <a
+                href={liUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 bg-[#0A66C2] hover:bg-[#084e96] text-white text-xs font-black px-3 py-1.5 rounded-xl shadow-xs transition-all cursor-pointer"
+              >
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                Open LinkedIn
+              </a>
+            )}
+            {phone && (
+              <a
+                href={`tel:${phone}`}
+                className="flex items-center gap-1.5 bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-black px-3 py-1.5 rounded-xl shadow-xs transition-all cursor-pointer"
+              >
+                <Phone className="h-3.5 w-3.5" /> Call
+              </a>
+            )}
+            {emailUrl && (
+              <a
+                href={emailUrl}
+                className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-black px-3 py-1.5 rounded-xl shadow-xs transition-all cursor-pointer"
+              >
+                <Mail className="h-3.5 w-3.5" /> Email
+              </a>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setScriptModalOpen(true)}
+              className="flex items-center gap-1.5 bg-neutral-100 hover:bg-neutral-200 text-black text-xs font-black px-3 py-1.5 rounded-xl transition-all cursor-pointer border border-neutral-200"
+            >
+              <BookOpen className="h-3.5 w-3.5 text-neutral-700" />
+              Call Script
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTemplateModalOpen(true)}
+              className="flex items-center gap-1.5 bg-neutral-100 hover:bg-neutral-200 text-black text-xs font-black px-3 py-1.5 rounded-xl transition-all cursor-pointer border border-neutral-200"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-amber-600" />
+              Templates
+            </button>
+
+            <button
+              type="button"
+              onClick={() => openLead(lead.company_id)}
+              className="flex items-center gap-1.5 bg-[#0f343c] hover:bg-[#16434d] text-[#e8d5a7] text-xs font-black px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-xs border border-[#16434d]"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Lead Workspace
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleStatusChange('meeting_booked')}
+              className="flex items-center gap-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-black px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+            >
+              📅 Booked
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleStatusChange('called')}
+              className="flex items-center gap-1 bg-violet-50 hover:bg-violet-100 text-violet-800 border border-violet-300 text-xs font-black px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" /> Called
+            </button>
+
             {editing ? (
               <>
                 <Button
                   onClick={handleSaveAll}
                   disabled={saving}
-                  className="bg-black hover:bg-neutral-800 text-white text-xs font-black h-8 px-4 rounded-xl shadow-xs"
+                  className="bg-black hover:bg-neutral-800 text-white text-xs font-black h-8 px-4 rounded-xl shadow-xs ml-auto"
                 >
                   {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Check className="h-3.5 w-3.5 mr-1.5" />}
                   Save All Changes
@@ -677,36 +871,18 @@ function CalendarLeadCard({
               <button
                 type="button"
                 onClick={() => setEditing(true)}
-                className="flex items-center gap-1.5 bg-neutral-100 hover:bg-neutral-200 text-black text-xs font-black px-3 py-1.5 rounded-xl transition-all cursor-pointer border border-neutral-200"
+                className="text-xs font-bold text-neutral-600 hover:text-black px-2.5 py-1.5 ml-auto cursor-pointer"
               >
-                Edit Entry
+                ✏️ Edit
               </button>
             )}
 
             <button
-              type="button"
-              onClick={() => openLead(lead.company_id)}
-              className="flex items-center gap-1.5 bg-black hover:bg-neutral-800 text-white text-xs font-black px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-xs"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Open Lead Workspace
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setScriptModalOpen(true)}
-              className="flex items-center gap-1.5 bg-neutral-100 hover:bg-neutral-200 text-black text-xs font-black px-3 py-1.5 rounded-xl transition-all cursor-pointer border border-neutral-200"
-            >
-              <BookOpen className="h-3.5 w-3.5 text-neutral-700" />
-              Select Script
-            </button>
-
-            <button
               onClick={handleDelete}
-              className="ml-auto flex items-center gap-1 text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-xl transition-colors cursor-pointer border border-red-200"
+              className="text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer border border-red-200"
               title="Delete log"
             >
-              <Trash2 className="h-3.5 w-3.5" /> Delete
+              <Trash2 className="h-3.5 w-3.5" />
             </button>
           </div>
 
@@ -724,6 +900,19 @@ function CalendarLeadCard({
             openingLine: opening,
           }}
           onClose={() => setScriptModalOpen(false)}
+        />
+      )}
+
+      {templateModalOpen && (
+        <DMEmailTemplateModal
+          ctx={{
+            companyName: lead.company_name,
+            industry: lead.industry,
+            contactName: (lead.handle && !/^[\d\+\-\s\(\)]+$/.test(lead.handle)) ? lead.handle : "Contact",
+            channel: lead.channel,
+            handle: lead.handle
+          }}
+          onClose={() => setTemplateModalOpen(false)}
         />
       )}
     </div>

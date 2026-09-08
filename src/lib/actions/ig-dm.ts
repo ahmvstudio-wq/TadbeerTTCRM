@@ -223,8 +223,7 @@ export async function getOutreachLeads(
     let query = supabase
       .from('activities')
       .select('*, companies(id, company_name, industry, phone, notes)')
-      .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach'])
-      .order('created_at', { ascending: false })
+      .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent'])
       .order('created_at', { ascending: false })
 
     if (dateFilter === 'today') {
@@ -241,26 +240,34 @@ export async function getOutreachLeads(
       query = query.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString())
     }
 
-    const { data, error } = await query.limit(300)
+    const { data, error } = await query.limit(500)
     if (error) return { data: null, error: error.message }
 
     let parsed = (data || []).map((act: any) => {
       let payload: any = {}
       try { payload = act.description ? JSON.parse(act.description) : {} } catch {}
+      const actTitle = (act.title || '').toLowerCase()
+      const channel: OutreachChannel = payload.channel || (
+        act.activity_type === 'ig_dm' || actTitle.includes('instagram') ? 'instagram_dm' :
+        act.activity_type === 'whatsapp_sent' || actTitle.includes('whatsapp') ? 'whatsapp' :
+        act.activity_type === 'email_sent' || actTitle.includes('email') ? 'email' :
+        actTitle.includes('linkedin') ? 'linkedin' :
+        'cold_call'
+      )
       return {
         id: act.id,
         company_id: act.company_id,
         company_name: act.companies?.company_name || 'Unknown',
         industry: act.companies?.industry || 'Unknown',
-        phone: act.companies?.phone || null,
-        channel: (payload.channel || 'cold_call') as OutreachChannel,
+        phone: act.companies?.phone || (payload.handle && /^[\d\+\-\s\(\)]+$/.test(payload.handle) ? payload.handle : null),
+        channel,
         handle: payload.handle || '',
         template_used: (payload.template_used || 'custom') as OutreachTemplate,
         status: (payload.status || 'sent') as OutreachStatus,
-        prospect_reply: payload.prospect_reply || '',
+        prospect_reply: payload.prospect_reply || payload.reply || '',
         pain_point: payload.pain_point || '',
         call_opening_line: payload.call_opening_line || '',
-        notes: payload.notes || act.notes || '',
+        notes: payload.notes || payload.message || payload.sent_message || act.notes || '',
         sent_at: act.created_at,
         updated_at: act.updated_at || act.created_at,
       } as OutreachLead
@@ -288,7 +295,7 @@ export async function getAllLeadsForPipeline(
     const { data: activities, error: actErr } = await supabase
       .from('activities')
       .select('*, companies(id, company_name, industry, phone, notes, research_json, category, draft_message, status)')
-      .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach'])
+      .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent'])
       .order('created_at', { ascending: false })
 
     if (actErr) {
@@ -405,7 +412,14 @@ export async function getAllLeadsForPipeline(
       try { payload = act.description ? JSON.parse(act.description) : {} } catch {}
 
       const co = act.companies || {}
-      const channel: OutreachChannel = payload.channel || (act.activity_type === 'ig_dm' ? 'instagram_dm' : (act.activity_type === 'whatsapp_sent' ? 'whatsapp' : (act.activity_type === 'email_sent' ? 'email' : 'cold_call')))
+      const actTitle = (act.title || '').toLowerCase()
+      const channel: OutreachChannel = payload.channel || (
+        act.activity_type === 'ig_dm' || actTitle.includes('instagram') ? 'instagram_dm' :
+        act.activity_type === 'whatsapp_sent' || actTitle.includes('whatsapp') ? 'whatsapp' :
+        act.activity_type === 'email_sent' || actTitle.includes('email') ? 'email' :
+        actTitle.includes('linkedin') ? 'linkedin' :
+        'cold_call'
+      )
       let status: OutreachStatus = payload.status || 'gate_opener_sent'
       if (status === 'sent') status = 'gate_opener_sent'
       if (status === 'reply_received') status = 'warm_up'
@@ -414,18 +428,23 @@ export async function getAllLeadsForPipeline(
       const existingLead = leadMap.get(act.company_id)
       const specificObs = payload.pain_point || existingLead?.specific_observation || ''
 
+      const phone = co.phone || existingLead?.phone || (payload.handle && /^[\d\+\-\s\(\)]+$/.test(payload.handle) ? payload.handle : null)
+      const igHandle = existingLead?.instagram_handle || (channel === 'instagram_dm' ? (payload.handle || co.notes?.match(/@[\w.]+/)?.[0]) : null)
+      const liUrl = existingLead?.linkedin_url || (channel === 'linkedin' ? (payload.profile_url || co.linkedin_url) : null)
+      const email = existingLead?.email || co.email || null
+
       leadMap.set(act.company_id || act.id, {
         id: act.id,
         company_id: act.company_id,
         company_name: co.company_name || existingLead?.company_name || 'Unknown',
-        contact_name: existingLead?.contact_name || 'Decision Maker',
+        contact_name: existingLead?.contact_name || payload.contact_name || 'Decision Maker',
         contact_title: existingLead?.contact_title || 'Owner',
         industry: co.industry || existingLead?.industry || 'General',
         sector: existingLead?.sector || 'general',
-        phone: co.phone || existingLead?.phone || null,
-        instagram_handle: existingLead?.instagram_handle || payload.handle || null,
-        linkedin_url: existingLead?.linkedin_url || null,
-        email: existingLead?.email || null,
+        phone,
+        instagram_handle: igHandle,
+        linkedin_url: liUrl,
+        email,
         channel,
         handle: payload.handle || existingLead?.handle || '',
         template_used: (payload.template_used || 'gate_opener') as OutreachTemplate,
@@ -479,7 +498,14 @@ export async function getAllLeadsForPipeline(
         try { payload = act.description ? JSON.parse(act.description) : {} } catch {}
 
         const co = act.companies || {}
-        const channel: OutreachChannel = payload.channel || (act.activity_type === 'ig_dm' ? 'instagram_dm' : (act.activity_type === 'whatsapp_sent' ? 'whatsapp' : (act.activity_type === 'email_sent' ? 'email' : 'cold_call')))
+        const actTitle = (act.title || '').toLowerCase()
+        const channel: OutreachChannel = payload.channel || (
+          act.activity_type === 'ig_dm' || actTitle.includes('instagram') ? 'instagram_dm' :
+          act.activity_type === 'whatsapp_sent' || actTitle.includes('whatsapp') ? 'whatsapp' :
+          act.activity_type === 'email_sent' || actTitle.includes('email') ? 'email' :
+          actTitle.includes('linkedin') ? 'linkedin' :
+          'cold_call'
+        )
         let status: OutreachStatus = payload.status || 'gate_opener_sent'
         if (status === 'sent') status = 'gate_opener_sent'
         if (status === 'reply_received') status = 'warm_up'
@@ -487,18 +513,23 @@ export async function getAllLeadsForPipeline(
 
         const baseLead = act.company_id ? leadMap.get(act.company_id) : undefined
 
+        const rawPhone = co.phone || baseLead?.phone || (payload.handle && /^[\d\+\-\s\(\)]+$/.test(payload.handle) ? payload.handle : null)
+        const igHandle = baseLead?.instagram_handle || (channel === 'instagram_dm' ? (payload.handle || co.notes?.match(/@[\w.]+/)?.[0]) : null)
+        const liUrl = baseLead?.linkedin_url || (channel === 'linkedin' ? (payload.profile_url || co.linkedin_url) : null)
+        const email = baseLead?.email || co.email || null
+
         return {
           id: act.id,
           company_id: act.company_id,
           company_name: co.company_name || baseLead?.company_name || 'Unknown',
-          contact_name: baseLead?.contact_name || 'Decision Maker',
+          contact_name: baseLead?.contact_name || payload.contact_name || 'Decision Maker',
           contact_title: baseLead?.contact_title || 'Owner',
           industry: co.industry || baseLead?.industry || 'General',
           sector: baseLead?.sector || 'general',
-          phone: co.phone || baseLead?.phone || null,
-          instagram_handle: baseLead?.instagram_handle || payload.handle || null,
-          linkedin_url: baseLead?.linkedin_url || null,
-          email: baseLead?.email || null,
+          phone: rawPhone,
+          instagram_handle: igHandle,
+          linkedin_url: liUrl,
+          email: email,
           channel,
           handle: payload.handle || baseLead?.handle || '',
           template_used: (payload.template_used || 'gate_opener') as OutreachTemplate,
@@ -506,10 +537,10 @@ export async function getAllLeadsForPipeline(
           stage: status as any,
           touch_count: 1,
           specific_observation: payload.pain_point || baseLead?.specific_observation || '',
-          prospect_reply: payload.prospect_reply || '',
+          prospect_reply: payload.prospect_reply || payload.reply || '',
           pain_point: payload.pain_point || '',
           call_opening_line: payload.call_opening_line || baseLead?.call_opening_line || '',
-          notes: payload.notes || act.notes || baseLead?.notes || '',
+          notes: payload.notes || payload.message || payload.sent_message || act.notes || baseLead?.notes || '',
           staged_sequence: baseLead?.staged_sequence,
           sent_at: act.created_at,
           updated_at: act.updated_at || act.created_at,
@@ -540,7 +571,7 @@ export async function getChannelDailyBatch(
     const { data: touchedActs } = await supabase
       .from('activities')
       .select('company_id')
-      .in('activity_type', [validActType, 'ig_dm', 'outreach'])
+      .in('activity_type', [validActType, 'ig_dm', 'outreach', 'outreach_sent'])
 
     const touchedCompanyIds = new Set((touchedActs || []).map(a => a.company_id).filter(Boolean))
 
@@ -742,7 +773,7 @@ export async function getOutreachCountsForMonth(year: number, month: number) {
     const { data, error } = await supabase
       .from('activities')
       .select('created_at')
-      .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach'])
+      .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent'])
       .gte('created_at', startDate)
       .lte('created_at', endDate)
 
