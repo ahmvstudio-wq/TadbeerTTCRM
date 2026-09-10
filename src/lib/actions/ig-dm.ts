@@ -154,14 +154,60 @@ export async function updateOutreachEntry(activityId: string, update: {
   outreach_date?: string
 }) {
   try {
-    const { data: existing } = await supabase
-      .from('activities')
-      .select('company_id, description, created_at')
-      .eq('id', activityId)
-      .single()
+    await requireAuth()
 
-    const current = existing?.description ? JSON.parse(existing.description) : {}
-    const updated = { ...current, ...update }
+    // 1. Resolve target companyId and actual activity ID
+    let companyId: string | null = null
+    let actualActivityId: string | null = null
+    let existingActivity: any = null
+
+    if (activityId.startsWith('staged-')) {
+      companyId = activityId.replace(/^staged-/, '').trim()
+    } else {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activityId)
+      if (isUuid) {
+        const { data: act } = await supabase
+          .from('activities')
+          .select('id, company_id, description, created_at')
+          .eq('id', activityId)
+          .maybeSingle()
+
+        if (act) {
+          actualActivityId = act.id
+          companyId = act.company_id
+          existingActivity = act
+        } else {
+          // Check if this UUID is a company_id
+          const { data: co } = await supabase
+            .from('companies')
+            .select('id')
+            .eq('id', activityId)
+            .maybeSingle()
+          if (co) {
+            companyId = co.id
+          }
+        }
+      }
+    }
+
+    // If we have a companyId but no actualActivityId, check if this company already has an activity
+    if (companyId && !actualActivityId) {
+      const { data: act } = await supabase
+        .from('activities')
+        .select('id, company_id, description, created_at')
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (act) {
+        actualActivityId = act.id
+        existingActivity = act
+      }
+    }
+
+    const current = existingActivity?.description ? JSON.parse(existingActivity.description) : {}
+    const updated = { ...current, ...update, updated_at: new Date().toISOString() }
     const channel: OutreachChannel = updated.channel || 'cold_call'
     const status: OutreachStatus = updated.status || 'sent'
 
@@ -175,30 +221,71 @@ export async function updateOutreachEntry(activityId: string, update: {
       dbPayload.created_at = new Date(update.outreach_date + 'T12:00:00.000Z').toISOString()
     }
 
-    const { error } = await supabase
-      .from('activities')
-      .update(dbPayload)
-      .eq('id', activityId)
+    if (actualActivityId) {
+      const { error: actUpdateErr } = await supabase
+        .from('activities')
+        .update(dbPayload)
+        .eq('id', actualActivityId)
 
-    if (error) return { error: error.message }
+      if (actUpdateErr) return { error: actUpdateErr.message }
+    } else if (companyId) {
+      // Create new activity row for this company
+      const createdAt = update.outreach_date
+        ? new Date(update.outreach_date + 'T12:00:00.000Z').toISOString()
+        : new Date().toISOString()
 
-    // Sync company status & name in companies table if changed
-    if (existing?.company_id) {
-      const coUpdate: any = {}
-      if (update.company_name) coUpdate.company_name = update.company_name
-      
-      let coStatus: string | null = null
-      if (status === 'meeting_booked') coStatus = 'opportunity'
-      else if (status === 'ready_for_call' || status === 'replied_interested') coStatus = 'lead'
-      if (coStatus) coUpdate.status = coStatus
+      const { data: newAct, error: actInsertErr } = await supabase
+        .from('activities')
+        .insert({
+          company_id: companyId,
+          ...dbPayload,
+          created_at: createdAt,
+        })
+        .select('id')
+        .single()
 
-      if (Object.keys(coUpdate).length > 0) {
-        coUpdate.updated_at = new Date().toISOString()
-        await supabase.from('companies').update(coUpdate).eq('id', existing.company_id)
-      }
+      if (actInsertErr) return { error: actInsertErr.message }
+      actualActivityId = newAct.id
     }
 
-    return { error: null }
+    // 2. Sync company record in `companies` table (both status & pipeline_stage)
+    if (companyId) {
+      const coUpdate: any = {
+        updated_at: new Date().toISOString()
+      }
+      if (update.company_name) coUpdate.company_name = update.company_name
+
+      let coStatus = 'contacted'
+      let pipelineStage = 'Contacted'
+
+      if (status === 'meeting_booked') {
+        coStatus = 'opportunity'
+        pipelineStage = 'Meeting Booked'
+      } else if (['ready_for_call', 'coffee_invited'].includes(status)) {
+        coStatus = 'lead'
+        pipelineStage = 'Call Ready'
+      } else if (['warm_up', 'reply_received', 'replied_interested', 'replied_objection', 'opening_identified'].includes(status) || (update.prospect_reply && update.prospect_reply.trim().length > 0)) {
+        coStatus = 'lead'
+        pipelineStage = 'Replied'
+      } else if (['gate_opener_sent', 'sent', 'called', 'follow_up_sent'].includes(status)) {
+        coStatus = 'contacted'
+        pipelineStage = 'Contacted'
+      } else if (status === 'no_reply') {
+        coStatus = 'contacted'
+        pipelineStage = 'Contacted'
+      }
+
+      coUpdate.status = coStatus
+      coUpdate.pipeline_stage = pipelineStage
+
+      if (update.prospect_reply && update.prospect_reply.trim().length > 0) {
+        coUpdate.draft_message = update.prospect_reply.trim()
+      }
+
+      await supabase.from('companies').update(coUpdate).eq('id', companyId)
+    }
+
+    return { data: { activityId: actualActivityId, companyId }, error: null }
   } catch (err) {
     return { error: (err as Error).message }
   }
@@ -484,8 +571,14 @@ export async function getAllLeadsForPipeline(
 
       const matchedActs = (activities || []).filter(act => {
         if (!act.created_at) return false
+        let payload: any = {}
+        try { payload = act.description ? JSON.parse(act.description) : {} } catch {}
+
         if (targetDateStr) {
-          return act.created_at.split('T')[0] === targetDateStr
+          const createdDate = act.created_at.split('T')[0]
+          const explicitDate = payload.outreach_date ? payload.outreach_date.split('T')[0] : null
+          const updatedDate = payload.updated_at ? payload.updated_at.split('T')[0] : null
+          return createdDate === targetDateStr || explicitDate === targetDateStr || updatedDate === targetDateStr
         }
         if (isWeek) {
           return new Date(act.created_at).getTime() >= weekAgo.getTime()
@@ -510,6 +603,9 @@ export async function getAllLeadsForPipeline(
         if (status === 'sent') status = 'gate_opener_sent'
         if (status === 'reply_received') status = 'warm_up'
         if (status === 'replied_interested' || status === 'replied_objection') status = 'opening_identified'
+        if (co.pipeline_stage === 'Replied' && status === 'gate_opener_sent') {
+          status = 'warm_up'
+        }
 
         const baseLead = act.company_id ? leadMap.get(act.company_id) : undefined
 
@@ -517,6 +613,8 @@ export async function getAllLeadsForPipeline(
         const igHandle = baseLead?.instagram_handle || (channel === 'instagram_dm' ? (payload.handle || co.notes?.match(/@[\w.]+/)?.[0]) : null)
         const liUrl = baseLead?.linkedin_url || (channel === 'linkedin' ? (payload.profile_url || co.linkedin_url) : null)
         const email = baseLead?.email || co.email || null
+
+        const replySnippet = payload.prospect_reply || payload.reply || (co.pipeline_stage === 'Replied' ? (co.draft_message || 'Replied to outreach') : '') || baseLead?.prospect_reply || ''
 
         return {
           id: act.id,
@@ -537,15 +635,28 @@ export async function getAllLeadsForPipeline(
           stage: status as any,
           touch_count: 1,
           specific_observation: payload.pain_point || baseLead?.specific_observation || '',
-          prospect_reply: payload.prospect_reply || payload.reply || '',
+          prospect_reply: replySnippet,
           pain_point: payload.pain_point || '',
           call_opening_line: payload.call_opening_line || baseLead?.call_opening_line || '',
           notes: payload.notes || payload.message || payload.sent_message || act.notes || baseLead?.notes || '',
           staged_sequence: baseLead?.staged_sequence,
           sent_at: act.created_at,
-          updated_at: act.updated_at || act.created_at,
+          updated_at: payload.updated_at || act.created_at,
         } as OutreachLead
       })
+
+      // Also include any actively contacted companies from leadMap (excluding uncontacted staged prospects) that match targetDateStr and are not already in combined
+      if (targetDateStr) {
+        const existingCompanyIds = new Set(combined.map(l => l.company_id).filter(Boolean))
+        leadMap.forEach((lead, compId) => {
+          if (!existingCompanyIds.has(compId) && lead.status !== 'gate_opener_staged') {
+            const sentDate = lead.sent_at ? lead.sent_at.split('T')[0] : null
+            if (sentDate === targetDateStr) {
+              combined.push(lead)
+            }
+          }
+        })
+      }
     }
 
     if (channelFilter) {
@@ -772,7 +883,7 @@ export async function getOutreachCountsForMonth(year: number, month: number) {
 
     const { data, error } = await supabase
       .from('activities')
-      .select('created_at')
+      .select('created_at, company_id')
       .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent'])
       .gte('created_at', startDate)
       .lte('created_at', endDate)
@@ -780,9 +891,29 @@ export async function getOutreachCountsForMonth(year: number, month: number) {
     if (error) return { data: {}, error: error.message }
 
     const counts: Record<string, number> = {}
+    const companyIdsWithAct = new Set<string>()
+
     ;(data || []).forEach((act: any) => {
       if (act.created_at) {
         const day = act.created_at.split('T')[0]
+        counts[day] = (counts[day] || 0) + 1
+        if (act.company_id) {
+          companyIdsWithAct.add(act.company_id)
+        }
+      }
+    })
+
+    // Also include companies with outreach status that don't have an activity row yet
+    const { data: cos } = await supabase
+      .from('companies')
+      .select('id, created_at, status, pipeline_stage')
+      .not('status', 'in', '("prospect","won","lost")')
+      .gte('created_at', startDate)
+      .lte('created_at', endDate)
+
+    ;(cos || []).forEach((co: any) => {
+      if (co.created_at && !companyIdsWithAct.has(co.id)) {
+        const day = co.created_at.split('T')[0]
         counts[day] = (counts[day] || 0) + 1
       }
     })

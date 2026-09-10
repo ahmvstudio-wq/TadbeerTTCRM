@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Share2, Download, Copy, Check, X, Sparkles, RefreshCw, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { type OutreachLead, CHANNEL_CONFIG, STATUS_CONFIG } from "@/lib/types/outreach";
@@ -56,15 +56,36 @@ export function ShareProgressModal({
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [activeLeads, setActiveLeads] = useState<OutreachLead[]>(leads || []);
+
+  // Latest date with outreach records
+  const latestActiveDate = useMemo(() => {
+    const dates = Object.keys(dailyCounts || {})
+      .filter(d => (dailyCounts[d] || 0) > 0)
+      .sort()
+      .reverse();
+    return dates[0] || date;
+  }, [dailyCounts, date]);
+
+  // If passed date has no leads and no count, auto-focus latest active session
+  const [activeDate, setActiveDate] = useState(() => {
+    if ((!leads || leads.length === 0) && (!dailyCounts[date] || dailyCounts[date] === 0)) {
+      return latestActiveDate;
+    }
+    return date;
+  });
+
+  const [activeLeads, setActiveLeads] = useState<OutreachLead[]>(() => {
+    if (activeDate === date && leads && leads.length > 0) return leads;
+    return [];
+  });
   const [loadingFresh, setLoadingFresh] = useState(false);
 
-  // Always fetch full, unfiltered leads for this date from the database to ensure no channel filter or stale state affects the progress report
+  // Always fetch full, unfiltered leads for this activeDate from the database to ensure no channel filter or stale state affects the progress report
   const fetchFullDayLeads = useCallback(async () => {
     setLoadingFresh(true);
     try {
-      const res = await getAllLeadsForPipeline(date, undefined);
-      if (res.data && res.data.length > 0) {
+      const res = await getAllLeadsForPipeline(activeDate, undefined);
+      if (res.data) {
         setActiveLeads(res.data as OutreachLead[]);
       }
     } catch (e) {
@@ -72,18 +93,18 @@ export function ShareProgressModal({
     } finally {
       setLoadingFresh(false);
     }
-  }, [date]);
+  }, [activeDate]);
 
   useEffect(() => {
     fetchFullDayLeads();
   }, [fetchFullDayLeads]);
 
-  // Keep activeLeads updated if parent passes updated leads
+  // Keep activeLeads updated if parent passes updated leads and dates match
   useEffect(() => {
-    if (leads && leads.length > activeLeads.length) {
+    if (activeDate === date && leads && leads.length > activeLeads.length) {
       setActiveLeads(leads);
     }
-  }, [leads, activeLeads.length]);
+  }, [leads, activeLeads.length, activeDate, date]);
 
   const isJunaidLead = (l: OutreachLead) =>
     (l.company_name || "").toLowerCase().includes("junaid") ||
@@ -91,22 +112,22 @@ export function ShareProgressModal({
     (l.contact_name || "").toLowerCase().includes("junaid");
 
   // Use the fetched full day leads if available, otherwise fall back to passed leads
-  let effectiveLeads = activeLeads && activeLeads.length > 0 ? activeLeads : (leads || []);
+  let effectiveLeads = activeLeads && activeLeads.length > 0 ? activeLeads : (activeDate === date ? (leads || []) : []);
   if (!effectiveLeads.some(isJunaidLead)) {
     const junaidFromProps = (leads || []).find(isJunaidLead);
-    if (junaidFromProps) {
+    if (junaidFromProps && activeDate === date) {
       effectiveLeads = [junaidFromProps, ...effectiveLeads];
     }
   }
 
   // Construct exact link to daily cadence place
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
-  const exactCadenceUrl = `${baseUrl}/daily-cadence?date=${date}`;
+  const exactCadenceUrl = `${baseUrl}/daily-cadence?date=${activeDate}`;
 
   // Formatted date string
-  const dateObj = new Date(date + "T00:00:00");
+  const dateObj = new Date(activeDate + "T00:00:00");
   const formattedDateStr = isNaN(dateObj.getTime())
-    ? date
+    ? activeDate
     : dateObj.toLocaleDateString("en-US", {
         weekday: "long",
         month: "long",
@@ -482,7 +503,7 @@ export function ShareProgressModal({
     // Generate PNG Data URL for preview and downloading
     const dataUrl = canvas.toDataURL("image/png");
     setImageSrc(dataUrl);
-  }, [date, effectiveLeads, dailyCounts, exactCadenceUrl, formattedDateStr, total, replied, ready, booked, replyRate, theme]);
+  }, [activeDate, effectiveLeads, dailyCounts, exactCadenceUrl, formattedDateStr, total, replied, ready, booked, replyRate, theme]);
 
   useEffect(() => {
     renderCanvas();
@@ -493,7 +514,7 @@ export function ShareProgressModal({
     if (!imageSrc) return;
     const a = document.createElement("a");
     a.href = imageSrc;
-    a.download = `tadbeer-daily-outreach-${date}.png`;
+    a.download = `tadbeer-daily-outreach-${activeDate}.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -517,18 +538,18 @@ export function ShareProgressModal({
       if (navigator.share) {
         const response = await fetch(imageSrc);
         const blob = await response.blob();
-        const file = new File([blob], `tadbeer-daily-outreach-${date}.png`, { type: "image/png" });
+        const file = new File([blob], `tadbeer-daily-outreach-${activeDate}.png`, { type: "image/png" });
 
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
-            title: `TAdbeer CRM Daily Outreach Progress (${date})`,
+            title: `TAdbeer CRM Daily Outreach Progress (${activeDate})`,
             text: `Check out our daily outreach progress and metrics for ${formattedDateStr}:\n${exactCadenceUrl}`,
             files: [file]
           });
           return;
         } else {
           await navigator.share({
-            title: `TAdbeer CRM Daily Outreach Progress (${date})`,
+            title: `TAdbeer CRM Daily Outreach Progress (${activeDate})`,
             text: `Check out our daily outreach progress and metrics for ${formattedDateStr}:`,
             url: exactCadenceUrl
           });
@@ -546,7 +567,7 @@ export function ShareProgressModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto page-enter">
-      <div className={`${isLight ? "bg-white text-slate-900 border-slate-200" : "bg-slate-900 text-white border-slate-800"} border rounded-3xl max-w-4xl w-full p-6 shadow-2xl space-y-6 relative overflow-hidden transition-colors`}>
+      <div className={`${isLight ? "bg-white text-slate-900 border-slate-200" : "bg-slate-900 text-white border-slate-800"} border rounded-3xl max-w-4xl w-full p-6 shadow-2xl space-y-5 relative overflow-hidden transition-colors`}>
 
         {/* Top Header & Theme Switcher */}
         <div className={`flex items-center justify-between border-b ${isLight ? "border-slate-100" : "border-slate-800"} pb-4 flex-wrap gap-2`}>
@@ -612,6 +633,42 @@ export function ShareProgressModal({
           </div>
         </div>
 
+        {/* Quick Date Switcher Strip */}
+        {Object.keys(dailyCounts || {}).length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap text-xs">
+            <span className={`text-[10px] font-mono font-extrabold uppercase tracking-wider ${isLight ? "text-slate-400" : "text-slate-500"}`}>
+              Select Date:
+            </span>
+            {Object.keys(dailyCounts || {})
+              .filter(d => (dailyCounts[d] || 0) > 0)
+              .sort()
+              .reverse()
+              .slice(0, 6)
+              .map(d => {
+                const isCur = d === activeDate;
+                const dObj = new Date(d + "T00:00:00");
+                const label = isNaN(dObj.getTime()) ? d : dObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setActiveDate(d)}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer font-mono",
+                      isCur
+                        ? "bg-[#0f343c] text-white border-[#16434d] shadow-2xs font-black"
+                        : isLight
+                        ? "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                        : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700"
+                    )}
+                  >
+                    {label} ({dailyCounts[d]})
+                  </button>
+                );
+              })}
+          </div>
+        )}
+
         {/* Hidden Working Canvas */}
         <canvas ref={canvasRef} className="hidden" />
 
@@ -620,7 +677,7 @@ export function ShareProgressModal({
           {imageSrc ? (
             <img
               src={imageSrc}
-              alt={`Daily Outreach Progress ${date}`}
+              alt={`Daily Outreach Progress ${activeDate}`}
               className="w-full h-auto rounded-xl object-contain border border-slate-200/80 shadow-md max-h-[500px]"
             />
           ) : (

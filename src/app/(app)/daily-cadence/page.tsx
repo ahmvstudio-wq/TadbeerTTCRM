@@ -115,6 +115,29 @@ export default function DailyCadencePage() {
     setDailyCounts(res.data || {});
   }, [currentYear, currentMonth]);
 
+  // If user opens the page without an explicit ?date in URL and today has no leads,
+  // automatically focus on the most recent day with active outreach records
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (!params.get("date")) {
+        const activeDates = Object.keys(dailyCounts)
+          .filter(d => (dailyCounts[d] || 0) > 0)
+          .sort()
+          .reverse();
+        const todayStr = new Date().toISOString().split("T")[0];
+        if (activeDates.length > 0 && (!dailyCounts[todayStr] || dailyCounts[todayStr] === 0)) {
+          setSelectedDate(activeDates[0]);
+          const [y, m] = activeDates[0].split("-").map(Number);
+          if (y && m) {
+            setCurrentYear(y);
+            setCurrentMonth(m);
+          }
+        }
+      }
+    }
+  }, [dailyCounts]);
+
   // Fetch leads for selected date (always fetch all channels to ensure complete operational metrics and share report fidelity)
   const fetchDateLeads = useCallback(async () => {
     setLoading(true);
@@ -443,10 +466,29 @@ export default function DailyCadencePage() {
                 <Loader2 className="h-7 w-7 animate-spin text-black" />
               </div>
             ) : leads.length === 0 ? (
-              <div className="bg-white border border-dashed border-neutral-300 rounded-2xl p-10 text-center">
-                <Send className="h-7 w-7 text-neutral-300 mx-auto mb-2" />
-                <p className="text-xs font-bold text-neutral-700">No messages logged on this date</p>
-                <p className="text-[11px] text-neutral-400 mt-0.5">Select another day on the calendar.</p>
+              <div className="bg-white border border-dashed border-neutral-300 rounded-2xl p-8 text-center space-y-3">
+                <Send className="h-7 w-7 text-neutral-300 mx-auto" />
+                <div>
+                  <p className="text-xs font-bold text-neutral-700">No messages logged on {selectedDate}</p>
+                  <p className="text-[11px] text-neutral-400 mt-0.5">Select an active day on the calendar or jump directly to the latest outreach session.</p>
+                </div>
+                {(() => {
+                  const latestDate = Object.keys(dailyCounts)
+                    .filter(d => (dailyCounts[d] || 0) > 0)
+                    .sort()
+                    .reverse()[0];
+                  if (!latestDate || latestDate === selectedDate) return null;
+                  return (
+                    <div className="pt-1">
+                      <Button
+                        onClick={() => changeSelectedDate(latestDate)}
+                        className="bg-[#0f343c] hover:bg-[#091f24] text-[#e8d5a7] text-xs font-bold px-4 py-2 rounded-xl shadow-xs cursor-pointer border border-[#16434d]"
+                      >
+                        ⚡ View Latest Session ({latestDate} · {dailyCounts[latestDate]} messages) →
+                      </Button>
+                    </div>
+                  );
+                })()}
               </div>
             ) : displayedLeads.length === 0 ? (
               <div className="bg-white border border-dashed border-neutral-300 rounded-2xl p-10 text-center">
