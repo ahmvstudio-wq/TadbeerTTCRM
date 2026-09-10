@@ -604,7 +604,7 @@ export async function logResponse(data: {
       // Move company status
       await supabase
         .from('companies')
-        .update({ status: 'in_call_queue', updated_at: now })
+        .update({ status: 'in_call_queue', pipeline_stage: 'Call Ready', updated_at: now })
         .eq('id', data.companyId)
 
     } else if (data.responseType === 'call_tomorrow') {
@@ -623,7 +623,7 @@ export async function logResponse(data: {
 
       await supabase
         .from('companies')
-        .update({ status: 'in_call_queue', updated_at: now })
+        .update({ status: 'in_call_queue', pipeline_stage: 'Call Ready', updated_at: now })
         .eq('id', data.companyId)
 
     } else if (data.responseType === 'contact_next_month') {
@@ -646,13 +646,13 @@ export async function logResponse(data: {
     } else if (data.responseType === 'not_interested') {
       await supabase
         .from('companies')
-        .update({ status: 'lost', updated_at: now })
+        .update({ status: 'lost', pipeline_stage: 'Lost', updated_at: now })
         .eq('id', data.companyId)
 
     } else if (data.responseType === 'meeting_booked') {
       await supabase
         .from('companies')
-        .update({ status: 'meeting_booked', updated_at: now })
+        .update({ status: 'meeting_booked', pipeline_stage: 'Meeting Booked', updated_at: now })
         .eq('id', data.companyId)
 
     } else if (data.responseType === 'proposal_requested') {
@@ -670,7 +670,7 @@ export async function logResponse(data: {
 
       await supabase
         .from('companies')
-        .update({ status: 'opportunity', updated_at: now })
+        .update({ status: 'opportunity', pipeline_stage: 'Opportunity', updated_at: now })
         .eq('id', data.companyId)
     }
 
@@ -759,7 +759,7 @@ export async function completeCallTask(data: {
     } else if (data.outcome === 'meeting_booked' || data.outcome === 'meeting_requested') {
       await supabase
         .from('companies')
-        .update({ status: 'meeting_booked', updated_at: now })
+        .update({ status: 'meeting_booked', pipeline_stage: 'Meeting Booked', updated_at: now })
         .eq('id', data.companyId)
 
       if (data.followUpDate) {
@@ -787,12 +787,12 @@ export async function completeCallTask(data: {
       })
       await supabase
         .from('companies')
-        .update({ status: 'opportunity', updated_at: now })
+        .update({ status: 'opportunity', pipeline_stage: 'Opportunity', updated_at: now })
         .eq('id', data.companyId)
     } else if (data.outcome === 'not_interested') {
       await supabase
         .from('companies')
-        .update({ status: 'lost', updated_at: now })
+        .update({ status: 'lost', pipeline_stage: 'Lost', updated_at: now })
         .eq('id', data.companyId)
     }
 

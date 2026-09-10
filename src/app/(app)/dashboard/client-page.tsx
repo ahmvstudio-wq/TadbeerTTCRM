@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Users, Send, Phone, Clock, Calendar, TrendingUp, AlertTriangle,
   Building2, ChevronDown, ChevronRight, Sparkles, Zap, Flame, DollarSign,
@@ -89,6 +90,7 @@ export interface DashboardInitialData {
 }
 
 export function TealCRMDashboardClient({ initialData }: { initialData: DashboardInitialData }) {
+  const router = useRouter();
   const [stats, setStats] = useState<any>(initialData.stats);
   const [activity, setActivity] = useState<any[]>(initialData.activity);
   const [companies, setCompanies] = useState<any[]>(initialData.companies);
@@ -296,8 +298,8 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
       return initialData.stats.stage_funnel;
     }
     const total = Math.max(1, totalProspects);
-    const contacted = companies.filter(c => c.status === "contacted" || c.pipeline_stage === "Contacted" || c.pipeline_stage === "Replied").length;
-    const ready = callReadyLeads.length;
+    const contacted = companies.filter(c => c.status === "contacted" || c.pipeline_stage === "Contacted" || c.pipeline_stage === "Replied" || c.pipeline_stage === "Call Ready" || c.status === "in_call_queue" || c.status === "meeting_booked" || c.status === "opportunity").length;
+    const ready = companies.filter(c => c.pipeline_stage === "Call Ready" || c.status === "in_call_queue").length;
     const booked = meetingsBooked;
 
     return [
@@ -306,7 +308,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
       { label: "3. Call Ready", count: ready, pct: Math.round((ready / total) * 100), color: "bg-[#174E59]", textColor: "text-[#174E59]" },
       { label: "4. Meetings Booked", count: booked, pct: Math.round((booked / total) * 100), color: "bg-[#257584]", textColor: "text-[#257584]" },
     ];
-  }, [companies, totalProspects, callReadyLeads, meetingsBooked, initialData.stats]);
+  }, [companies, totalProspects, meetingsBooked, initialData.stats]);
 
   return (
     <div className="min-h-screen bg-transparent p-3 sm:p-6 lg:p-8 space-y-5 font-sans max-w-7xl mx-auto">
@@ -862,12 +864,33 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
         lead={drawerLead}
         onStatusChange={async (id, s) => {
           await updateOutreachStatus(id, { status: s });
+          setDrawerLead(prev => prev ? { ...prev, status: s } : null);
+          setOutreachLeads(prev => prev.map(l => l.id === id || l.company_id === id ? { ...l, status: s } : l));
+          setCompanies(prev => prev.map(c => {
+            if (c.id === id || (drawerLead && c.id === drawerLead.company_id)) {
+              let stage = 'Contacted';
+              let st = 'contacted';
+              if (s === 'ready_for_call' || s === 'coffee_invited') { stage = 'Call Ready'; st = 'in_call_queue'; }
+              else if (s === 'warm_up' || s === 'opening_identified') { stage = 'Replied'; st = 'contacted'; }
+              else if (s === 'meeting_booked') { stage = 'Meeting Booked'; st = 'meeting_booked'; }
+              return { ...c, status: st as any, pipeline_stage: stage };
+            }
+            return c;
+          }));
+          router.refresh();
         }}
         onDelete={async (id) => {
           await deleteOutreachLog(id);
+          setDrawerLead(null);
+          setOutreachLeads(prev => prev.filter(l => l.id !== id));
+          router.refresh();
         }}
         onSaveEntry={async (id, data) => {
           await updateOutreachEntry(id, data);
+          if (data.status) {
+            setDrawerLead(prev => prev ? { ...prev, ...data } : null);
+          }
+          router.refresh();
         }}
       />
 

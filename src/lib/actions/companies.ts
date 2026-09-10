@@ -222,21 +222,79 @@ export async function updateCompany(id: string, data: { company_name?: string; i
 export async function updateCompanyStatus(id: string, status: string) {
   try {
     await requireAuth()
+
+    // Map status to valid database status and pipeline_stage
+    let dbStatus = status
+    let pipelineStage = 'New'
+
+    if (status === 'prospect') {
+      dbStatus = 'prospect'
+      pipelineStage = 'New'
+    } else if (status === 'contacted' || status === 'no_reply') {
+      dbStatus = 'contacted'
+      pipelineStage = 'Contacted'
+    } else if (['reply_received', 'interested', 'objection', 'followup_required', 'warm_up', 'replied_interested', 'opening_identified'].includes(status)) {
+      dbStatus = 'contacted'
+      pipelineStage = 'Replied'
+    } else if (['in_call_queue', 'ready_for_call', 'call_ready', 'coffee_invited'].includes(status)) {
+      dbStatus = 'in_call_queue'
+      pipelineStage = 'Call Ready'
+    } else if (['meeting_booked', 'proposal'].includes(status)) {
+      dbStatus = 'meeting_booked'
+      pipelineStage = 'Meeting Booked'
+    } else if (status === 'opportunity') {
+      dbStatus = 'opportunity'
+      pipelineStage = 'Opportunity'
+    } else if (status === 'won') {
+      dbStatus = 'won'
+      pipelineStage = 'Won'
+    } else if (['lost', 'dormant'].includes(status)) {
+      dbStatus = 'lost'
+      pipelineStage = 'Lost'
+    }
+
     const { data: company, error: updateError } = await supabase
       .from('companies')
-      .update({ status, updated_at: new Date().toISOString() })
+      .update({
+        status: dbStatus,
+        pipeline_stage: pipelineStage,
+        updated_at: new Date().toISOString()
+      })
       .eq('id', id)
       .select()
       .single()
 
     if (updateError) return { data: null, error: updateError.message }
 
+    // Sync latest outreach activity if exists
+    const { data: acts } = await supabase
+      .from('activities')
+      .select('id, description')
+      .eq('company_id', id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    if (acts && acts.length > 0) {
+      const act = acts[0]
+      let p: any = {}
+      try { p = JSON.parse(act.description) } catch {}
+      let actStatus: string = 'gate_opener_sent'
+      if (pipelineStage === 'New') actStatus = 'gate_opener_staged'
+      else if (pipelineStage === 'Contacted') actStatus = 'gate_opener_sent'
+      else if (pipelineStage === 'Replied') actStatus = 'warm_up'
+      else if (pipelineStage === 'Call Ready') actStatus = 'ready_for_call'
+      else if (pipelineStage === 'Meeting Booked') actStatus = 'meeting_booked'
+
+      const newP = { ...p, status: actStatus, updated_at: new Date().toISOString() }
+      await supabase.from('activities').update({ description: JSON.stringify(newP) }).eq('id', act.id)
+    }
+
     await supabase.from('activities').insert({
       company_id: id,
       activity_type: 'status_changed',
       title: 'Company status updated',
-      description: `Status changed to "${status}"`,
-      metadata: { new_status: status },
+      description: `Status changed to "${pipelineStage}" (${dbStatus})`,
+      metadata: { new_status: dbStatus, pipeline_stage: pipelineStage },
       created_at: new Date().toISOString()
     })
 

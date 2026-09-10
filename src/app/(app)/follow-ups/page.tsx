@@ -526,14 +526,19 @@ export default function FollowUpsPage() {
         onClose={() => setDrawerLead(null)}
         lead={drawerLead}
         onStatusChange={async (id, s) => {
+          setDrawerLead(prev => prev ? { ...prev, status: s } : null);
           await updateOutreachStatus(id, { status: s });
           fetchFollowupsData();
         }}
         onDelete={async (id) => {
+          setDrawerLead(null);
           await deleteOutreachLog(id);
           fetchFollowupsData();
         }}
         onSaveEntry={async (id, data) => {
+          if (data.status) {
+            setDrawerLead(prev => prev ? { ...prev, ...data } : null);
+          }
           await updateOutreachEntry(id, data);
           fetchFollowupsData();
         }}

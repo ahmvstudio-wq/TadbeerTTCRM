@@ -97,13 +97,13 @@ export async function getDashboardStats() {
       }
 
       // Outreach & Funnel
-      if (c.status === 'contacted' || c.pipeline_stage === 'Contacted' || c.pipeline_stage === 'Replied' || c.status === 'meeting_booked' || c.status === 'in_call_queue') {
+      if (c.status === 'contacted' || c.pipeline_stage === 'Contacted' || c.pipeline_stage === 'Replied' || c.status === 'meeting_booked' || c.status === 'in_call_queue' || c.pipeline_stage === 'Call Ready' || c.status === 'opportunity') {
         inOutreachCount++
       }
-      if (c.status === 'contacted' || c.pipeline_stage === 'Contacted' || c.pipeline_stage === 'Replied') {
+      if (c.status === 'contacted' || c.pipeline_stage === 'Contacted' || c.pipeline_stage === 'Replied' || c.pipeline_stage === 'Call Ready' || c.status === 'in_call_queue' || c.status === 'meeting_booked' || c.status === 'opportunity') {
         contactedCount++
       }
-      if (c.status === 'in_call_queue' || (c.phone && c.status === 'prospect')) {
+      if (c.status === 'in_call_queue' || c.pipeline_stage === 'Call Ready' || c.status === 'ready_for_call') {
         callReadyCount++
       }
     })

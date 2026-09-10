@@ -803,14 +803,22 @@ export default function OutreachPipelinePage() {
         onClose={() => setDrawerLead(null)}
         lead={drawerLead}
         onStatusChange={async (id, s) => {
+          setDrawerLead(prev => prev ? { ...prev, status: s } : null);
+          setLeads(prev => prev.map(l => l.id === id ? { ...l, status: s } : l));
           await updateOutreachStatus(id, { status: s });
           handleSilentUpdate();
         }}
         onDelete={async (id) => {
+          setDrawerLead(null);
+          setLeads(prev => prev.filter(l => l.id !== id));
           await deleteOutreachLog(id);
           handleSilentUpdate();
         }}
         onSaveEntry={async (id, data) => {
+          if (data.status) {
+            setDrawerLead(prev => prev ? { ...prev, ...data } : null);
+            setLeads(prev => prev.map(l => l.id === id ? { ...l, ...data } : l));
+          }
           await updateOutreachEntry(id, data);
           handleSilentUpdate();
         }}

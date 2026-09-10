@@ -259,13 +259,13 @@ export async function updateOutreachEntry(activityId: string, update: {
       let pipelineStage = 'Contacted'
 
       if (status === 'meeting_booked') {
-        coStatus = 'opportunity'
+        coStatus = 'meeting_booked'
         pipelineStage = 'Meeting Booked'
       } else if (['ready_for_call', 'coffee_invited'].includes(status)) {
-        coStatus = 'lead'
+        coStatus = 'in_call_queue'
         pipelineStage = 'Call Ready'
       } else if (['warm_up', 'reply_received', 'replied_interested', 'replied_objection', 'opening_identified'].includes(status) || (update.prospect_reply && update.prospect_reply.trim().length > 0)) {
-        coStatus = 'lead'
+        coStatus = 'contacted'
         pipelineStage = 'Replied'
       } else if (['gate_opener_sent', 'sent', 'called', 'follow_up_sent'].includes(status)) {
         coStatus = 'contacted'
@@ -273,6 +273,9 @@ export async function updateOutreachEntry(activityId: string, update: {
       } else if (status === 'no_reply') {
         coStatus = 'contacted'
         pipelineStage = 'Contacted'
+      } else if (status === 'gate_opener_staged') {
+        coStatus = 'prospect'
+        pipelineStage = 'New'
       }
 
       coUpdate.status = coStatus
@@ -282,7 +285,10 @@ export async function updateOutreachEntry(activityId: string, update: {
         coUpdate.draft_message = update.prospect_reply.trim()
       }
 
-      await supabase.from('companies').update(coUpdate).eq('id', companyId)
+      const { error: coUpdateErr } = await supabase.from('companies').update(coUpdate).eq('id', companyId)
+      if (coUpdateErr) {
+        console.error("Company stage update error in updateOutreachEntry:", coUpdateErr.message)
+      }
     }
 
     return { data: { activityId: actualActivityId, companyId }, error: null }
@@ -381,7 +387,7 @@ export async function getAllLeadsForPipeline(
     // 1. Fetch activities with company joins
     const { data: activities, error: actErr } = await supabase
       .from('activities')
-      .select('*, companies(id, company_name, industry, phone, notes, research_json, category, draft_message, status)')
+      .select('*, companies(id, company_name, industry, phone, notes, research_json, category, draft_message, status, pipeline_stage)')
       .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent'])
       .order('created_at', { ascending: false })
 
@@ -512,6 +518,15 @@ export async function getAllLeadsForPipeline(
       if (status === 'reply_received') status = 'warm_up'
       if (status === 'replied_interested' || status === 'replied_objection') status = 'opening_identified'
 
+      // Synchronize with companies table stage if advanced
+      if (co.pipeline_stage === 'Call Ready' || co.status === 'in_call_queue') {
+        if (status !== 'meeting_booked') status = 'ready_for_call'
+      } else if (co.pipeline_stage === 'Meeting Booked' || co.status === 'meeting_booked' || co.status === 'opportunity') {
+        status = 'meeting_booked'
+      } else if (co.pipeline_stage === 'Replied' && status === 'gate_opener_sent') {
+        status = 'warm_up'
+      }
+
       const existingLead = leadMap.get(act.company_id)
       const specificObs = payload.pain_point || existingLead?.specific_observation || ''
 
@@ -519,6 +534,8 @@ export async function getAllLeadsForPipeline(
       const igHandle = existingLead?.instagram_handle || (channel === 'instagram_dm' ? (payload.handle || co.notes?.match(/@[\w.]+/)?.[0]) : null)
       const liUrl = existingLead?.linkedin_url || (channel === 'linkedin' ? (payload.profile_url || co.linkedin_url) : null)
       const email = existingLead?.email || co.email || null
+
+      const replySnippet = payload.prospect_reply || payload.reply || (co.pipeline_stage === 'Replied' || co.pipeline_stage === 'Call Ready' ? (co.draft_message || '') : '') || existingLead?.prospect_reply || ''
 
       leadMap.set(act.company_id || act.id, {
         id: act.id,
@@ -539,13 +556,13 @@ export async function getAllLeadsForPipeline(
         stage: status as any,
         touch_count: (existingLead?.touch_count || 0) + 1,
         specific_observation: specificObs,
-        prospect_reply: payload.prospect_reply || '',
+        prospect_reply: replySnippet,
         pain_point: payload.pain_point || '',
         call_opening_line: payload.call_opening_line || existingLead?.call_opening_line || '',
         notes: payload.notes || act.notes || existingLead?.notes || '',
         staged_sequence: existingLead?.staged_sequence,
         sent_at: act.created_at,
-        updated_at: act.updated_at || act.created_at,
+        updated_at: payload.updated_at || act.created_at,
       })
     })
 

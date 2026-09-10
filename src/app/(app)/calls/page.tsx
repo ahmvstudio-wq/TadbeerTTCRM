@@ -428,14 +428,19 @@ export default function CallsPage() {
         onClose={() => setDrawerLead(null)}
         lead={drawerLead}
         onStatusChange={async (id, s) => {
+          setDrawerLead(prev => prev ? { ...prev, status: s } : null);
           await updateOutreachStatus(id, { status: s });
           fetchCallsData();
         }}
         onDelete={async (id) => {
+          setDrawerLead(null);
           await deleteOutreachLog(id);
           fetchCallsData();
         }}
         onSaveEntry={async (id, data) => {
+          if (data.status) {
+            setDrawerLead(prev => prev ? { ...prev, ...data } : null);
+          }
           await updateOutreachEntry(id, data);
           fetchCallsData();
         }}

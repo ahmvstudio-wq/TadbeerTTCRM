@@ -200,13 +200,13 @@ export async function addToCallQueue(companyId: string, contactId?: string, prio
       .single()
 
     if (error) {
-      await supabase.from('companies').update({ status: 'in_call_queue', updated_at: new Date().toISOString() }).eq('id', companyId)
+      await supabase.from('companies').update({ status: 'in_call_queue', pipeline_stage: 'Call Ready', updated_at: new Date().toISOString() }).eq('id', companyId)
       return { data: null, error: error.message }
     }
 
     await supabase
       .from('companies')
-      .update({ status: 'in_call_queue', updated_at: new Date().toISOString() })
+      .update({ status: 'in_call_queue', pipeline_stage: 'Call Ready', updated_at: new Date().toISOString() })
       .eq('id', companyId)
 
     return { data, error: null }

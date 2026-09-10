@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   X, Phone, MessageCircle, Mail, Globe, Sparkles, Pencil,
   Trash2, Calendar, Building, User, Clock, CheckCircle2,
@@ -48,10 +48,18 @@ export function ContactDetailDrawer({
   const [handle, setHandle] = useState("");
   const [channel, setChannel] = useState<OutreachChannel>("cold_call");
   const [status, setStatus] = useState<OutreachStatus>("sent");
+  const [currentStatus, setCurrentStatus] = useState<OutreachStatus>(lead?.status || "sent");
   const [notes, setNotes] = useState("");
   const [reply, setReply] = useState("");
   const [pain, setPain] = useState("");
   const [opening, setOpening] = useState("");
+
+  // Keep currentStatus in sync with lead prop
+  useEffect(() => {
+    if (lead?.status) {
+      setCurrentStatus(lead.status);
+    }
+  }, [lead?.status]);
 
   if (!isOpen || !lead) return null;
 
@@ -139,10 +147,13 @@ export function ContactDetailDrawer({
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Pipeline Status:</span>
             {onStatusChange ? (
               <select
-                value={lead.status}
+                value={currentStatus}
                 onChange={async (e) => {
                   const newS = e.target.value as OutreachStatus;
-                  await onStatusChange(lead.id, newS);
+                  setCurrentStatus(newS);
+                  if (onStatusChange) {
+                    await onStatusChange(lead.id, newS);
+                  }
                 }}
                 className="bg-white border border-slate-200 rounded-xl text-xs font-extrabold text-slate-800 px-3 py-1 focus:ring-2 focus:ring-teal-500 cursor-pointer shadow-2xs"
               >
