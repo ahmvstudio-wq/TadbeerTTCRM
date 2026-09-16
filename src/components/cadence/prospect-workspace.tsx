@@ -239,7 +239,7 @@ export function ProspectWorkspace({
 
     // Append the strategic intelligence proposal to the message body
     if (proposalData) {
-      text += `\n\n---\n📋 STRATEGIC PROPOSAL PACKAGE\nReport: ${proposalData.tagline}\nValid Until: ${proposalData.proposalValidUntil}`
+      text += `\n\n---\nSTRATEGIC PROPOSAL PACKAGE\nReport: ${proposalData.tagline}\nValid Until: ${proposalData.proposalValidUntil}`
     }
 
     setOutreachMessage(text)
@@ -365,6 +365,9 @@ export function ProspectWorkspace({
         addToast('success', 'Outreach logged successfully')
         setOutreachMessage('')
         onUpdate()
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('lead-updated', { detail: { companyId: company.id } }))
+        }
       }
     } catch (err) {
       addToast('error', 'Outreach log failed')
@@ -389,6 +392,9 @@ export function ProspectWorkspace({
         setResponseType('none')
         setResponseNotes('')
         onUpdate()
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('lead-updated', { detail: { companyId: company.id } }))
+        }
       }
     } catch (err) {
       addToast('error', 'Failed to log response')
@@ -406,6 +412,9 @@ export function ProspectWorkspace({
       } else {
         addToast('success', 'Research notes saved successfully')
         onUpdate()
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('lead-updated', { detail: { companyId: company.id } }))
+        }
       }
     } catch (err) {
       addToast('error', 'Failed to save research notes')
@@ -534,7 +543,7 @@ export function ProspectWorkspace({
               const waUrl = `https://wa.me/${digits}?text=${encodeURIComponent(waMsg)}`
               return (
                 <div className="p-3 bg-green-50 border border-green-200 rounded-xl">
-                  <p className="text-[9px] uppercase tracking-wider font-extrabold text-green-700 mb-2">📨 Proposal WhatsApp Shortcut</p>
+                  <p className="text-[9px] uppercase tracking-wider font-extrabold text-green-700 mb-2">Proposal WhatsApp Shortcut</p>
                   <a
                     href={waUrl}
                     target="_blank"
@@ -997,7 +1006,7 @@ export function ProspectWorkspace({
                   if (!hasWa && !hasEmail) return null
                   return (
                     <div className="flex gap-2 p-3 bg-green-50 border border-green-200 rounded-xl">
-                      <span className="text-[9px] uppercase tracking-wider font-extrabold text-green-700 self-center whitespace-nowrap">📨 Quick Send:</span>
+                      <span className="text-[9px] uppercase tracking-wider font-extrabold text-green-700 self-center whitespace-nowrap">Quick Send:</span>
                       {hasWa && (
                         <a
                           href={`https://wa.me/${contact.whatsapp!.replace(/\D/g, '')}?text=${encodeURIComponent(waMsg)}`}

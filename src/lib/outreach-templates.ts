@@ -39,7 +39,7 @@ export const DEFAULT_WHATSAPP_TEMPLATES: MessageTemplate[] = [
   {
     id: "wa-t1", name: "WA Step 1: Introduction", channel: "whatsapp", category: "Cold Outreach",
     touch_number: 1, created_at: "2026-01-01",
-    body: `Hi {name} 👋
+    body: `Hi {name},
 
 I came across {company} and was really impressed by your work in {industry}.
 
@@ -69,9 +69,9 @@ Would a 15-minute call this week work for you?`,
 
 I thought you might find this interesting — we recently helped a {industry} company similar to {company}:
 
-✅ 40% reduction in operational costs
-✅ 3x faster processing times
-✅ Full team adoption within 2 weeks
+- 40% reduction in operational costs
+- 3x faster processing times
+- Full team adoption within 2 weeks
 
 Happy to share the full case study if you're interested. Would that be helpful?`,
   },
@@ -97,7 +97,7 @@ I've reached out a few times and I don't want to be pushy!
 
 If {service} isn't a priority right now, no worries at all. I'll keep you in mind for future updates.
 
-If anything changes, feel free to reach out anytime. Wishing {company} continued success! 🙏`,
+If anything changes, feel free to reach out anytime. Wishing {company} continued success!`,
   },
 ];
 

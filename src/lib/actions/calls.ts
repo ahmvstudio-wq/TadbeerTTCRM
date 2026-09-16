@@ -2,6 +2,22 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth-guard'
+import { revalidatePath } from 'next/cache'
+
+function revalidateAllCRMPages() {
+  try {
+    revalidatePath('/outreach')
+    revalidatePath('/daily-cadence')
+    revalidatePath('/dashboard')
+    revalidatePath('/prospects')
+    revalidatePath('/pipeline')
+    revalidatePath('/meetings')
+    revalidatePath('/calls')
+    revalidatePath('/follow-ups')
+  } catch (e) {
+    // ignore in non-request contexts
+  }
+}
 
 export async function getCallQueue(userId?: string) {
   try {
@@ -138,6 +154,7 @@ export async function recordCall(data: {
       console.error('Failed to log activity:', activityError)
     }
 
+    revalidateAllCRMPages()
     return { data: callRecord, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -209,6 +226,7 @@ export async function addToCallQueue(companyId: string, contactId?: string, prio
       .update({ status: 'in_call_queue', pipeline_stage: 'Call Ready', updated_at: new Date().toISOString() })
       .eq('id', companyId)
 
+    revalidateAllCRMPages()
     return { data, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }

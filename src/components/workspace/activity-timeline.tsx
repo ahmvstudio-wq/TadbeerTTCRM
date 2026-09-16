@@ -15,8 +15,7 @@ import {
   Send,
   Loader2,
   CheckCircle2,
-  AlertCircle,
-  Sparkles
+  AlertCircle
 } from "lucide-react";
 import { Activity, FollowUp, Meeting } from "@/lib/types/database";
 import { addCompanyActivity } from "@/lib/actions/companies";
@@ -54,6 +53,9 @@ export function ActivityTimeline({
     setNewNote("");
     setAddingNote(false);
     if (onRefresh) onRefresh();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { companyId } }));
+    }
   };
 
   // Combine activities, follow-ups, meetings, touches into a single timeline feed

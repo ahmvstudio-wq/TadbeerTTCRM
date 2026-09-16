@@ -2,6 +2,22 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth-guard'
+import { revalidatePath } from 'next/cache'
+
+function revalidateAllCRMPages() {
+  try {
+    revalidatePath('/follow-ups')
+    revalidatePath('/outreach')
+    revalidatePath('/daily-cadence')
+    revalidatePath('/dashboard')
+    revalidatePath('/prospects')
+    revalidatePath('/pipeline')
+    revalidatePath('/meetings')
+    revalidatePath('/calls')
+  } catch {
+    // safe fallback
+  }
+}
 
 export async function getFollowUps(filter: 'due_today' | 'overdue' | 'all' | 'pending') {
   try {
@@ -99,6 +115,13 @@ export async function createFollowUp(data: {
       console.error('Failed to log activity:', activityError)
     }
 
+    if (data.company_id) {
+      await supabase.from('companies').update({
+        updated_at: new Date().toISOString()
+      }).eq('id', data.company_id)
+    }
+
+    revalidateAllCRMPages()
     return { data: followUp, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -147,6 +170,13 @@ export async function completeFollowUp(id: string, notes?: string) {
       console.error('Failed to log activity:', activityError)
     }
 
+    if (followUp.company_id) {
+      await supabase.from('companies').update({
+        updated_at: new Date().toISOString()
+      }).eq('id', followUp.company_id)
+    }
+
+    revalidateAllCRMPages()
     return { data: completed, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -169,6 +199,7 @@ export async function rescheduleFollowUp(id: string, newDate: string, newTime?: 
       .single()
 
     if (updateError) return { data: null, error: updateError.message }
+    revalidateAllCRMPages()
     return { data: updated, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }

@@ -2,6 +2,22 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth-guard'
+import { revalidatePath } from 'next/cache'
+
+function revalidateAllCRMPages() {
+  try {
+    revalidatePath('/outreach')
+    revalidatePath('/daily-cadence')
+    revalidatePath('/dashboard')
+    revalidatePath('/prospects')
+    revalidatePath('/pipeline')
+    revalidatePath('/meetings')
+    revalidatePath('/calls')
+    revalidatePath('/follow-ups')
+  } catch (e) {
+    // ignore in non-request contexts
+  }
+}
 
 export async function getMeetings(filter: 'upcoming' | 'past' | 'all') {
   try {
@@ -12,8 +28,8 @@ export async function getMeetings(filter: 'upcoming' | 'past' | 'all') {
       .from('meetings')
       .select(`
         *,
-        companies (company_name),
-        contacts (full_name)
+        companies (*),
+        contacts (*)
       `)
 
     const now = new Date().toISOString()
@@ -82,12 +98,42 @@ export async function bookMeeting(data: {
       .from('companies')
       .update({
         status: 'meeting_booked',
+        pipeline_stage: 'Meeting Booked',
         updated_at: new Date().toISOString()
       })
       .eq('id', data.company_id)
 
     if (statusError) {
       console.error('Failed to update company status:', statusError)
+    }
+
+    // Also sync or insert outreach activity with status: meeting_booked
+    const { data: acts } = await supabase
+      .from('activities')
+      .select('id, description')
+      .eq('company_id', data.company_id)
+      .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    if (acts && acts.length > 0) {
+      let p: any = {}
+      try { p = acts[0].description ? JSON.parse(acts[0].description) : {} } catch {}
+      await supabase.from('activities').update({
+        description: JSON.stringify({ ...p, status: 'meeting_booked', updated_at: new Date().toISOString() })
+      }).eq('id', acts[0].id)
+    } else {
+      await supabase.from('activities').insert({
+        company_id: data.company_id,
+        activity_type: 'call_made',
+        title: 'Meeting Scheduled — meeting_booked',
+        description: JSON.stringify({
+          channel: 'cold_call',
+          status: 'meeting_booked',
+          updated_at: new Date().toISOString()
+        }),
+        created_at: new Date().toISOString()
+      })
     }
 
     const { error: activityError } = await supabase
@@ -109,6 +155,8 @@ export async function bookMeeting(data: {
     if (activityError) {
       console.error('Failed to log activity:', activityError)
     }
+
+    revalidateAllCRMPages()
 
     return { data: meeting, error: null }
   } catch (error) {
@@ -138,6 +186,14 @@ export async function updateMeetingStatus(id: string, status: 'completed' | 'can
 
     if (updateError) return { data: null, error: updateError.message }
 
+    // If meeting was completed, advance company to opportunity; if cancelled, set back to contacted
+    if (meeting.company_id) {
+      const coUpdate = status === 'completed'
+        ? { status: 'opportunity', pipeline_stage: 'Opportunity', updated_at: new Date().toISOString() }
+        : { status: 'contacted', pipeline_stage: 'Contacted', updated_at: new Date().toISOString() }
+      await supabase.from('companies').update(coUpdate).eq('id', meeting.company_id)
+    }
+
     const { error: activityError } = await supabase
       .from('activities')
       .insert({
@@ -153,6 +209,8 @@ export async function updateMeetingStatus(id: string, status: 'completed' | 'can
     if (activityError) {
       console.error('Failed to log activity:', activityError)
     }
+
+    revalidateAllCRMPages()
 
     return { data: updated, error: null }
   } catch (error) {

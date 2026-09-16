@@ -5,7 +5,6 @@ import {
   Phone,
   MessageCircle,
   CheckCircle2,
-  Sparkles,
   X,
   Plus,
   Loader2,
@@ -244,7 +243,7 @@ export function ToCallListDrawer({
                       onClick={() => openLead(lead.id)}
                       className="h-8 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs flex items-center gap-1"
                     >
-                      <Sparkles className="h-3 w-3 text-teal-400" /> Workspace
+                      Workspace
                     </Button>
 
                     {!isCalled && (

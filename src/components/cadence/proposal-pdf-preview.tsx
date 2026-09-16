@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Download, X, ChevronLeft, ChevronRight, Layers, Presentation, ShieldCheck, Sparkles, Building2, Globe, Phone, Mail, ExternalLink, CheckCircle2, ArrowRight, Star, AlertCircle, Wrench, Trophy } from 'lucide-react'
+import { Download, X, ChevronLeft, ChevronRight, Layers, Presentation, ShieldCheck, Building2, Globe, Phone, Mail, ExternalLink, CheckCircle2, ArrowRight, Star, AlertCircle, Wrench, Trophy } from 'lucide-react'
 import { CaseStudy, ApprovedClientLogo, CASE_STUDIES_LIBRARY, APPROVED_CLIENT_LOGOS, getRecommendedCaseStudies, getRecommendedClientLogos } from '@/lib/credibility-library'
 import { cn } from '@/lib/utils'
 
@@ -987,7 +987,7 @@ export function ProposalPdfPreview({ company, contact, proposalData, onClose }: 
               <div className="bg-white border border-[#E6E1D8] border-l-4 border-l-[#C8A951] rounded-xl p-3.5 shadow-sm flex flex-col justify-between">
                 <div>
                   <div className="flex items-center gap-1.5 mb-1">
-                    <Sparkles className="h-4 w-4 text-[#C8A951]" />
+                    <Layers className="h-4 w-4 text-[#C8A951]" />
                     <h4 className="text-[11px] font-extrabold text-[#0D4F4F] uppercase tracking-wider">Smart Technology & AI</h4>
                   </div>
                   <p className="text-[9.5px] text-slate-500 leading-relaxed">Smart document tools, pricing calculators, and WhatsApp helpers that answer customer questions 24/7.</p>

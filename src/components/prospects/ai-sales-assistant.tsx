@@ -15,7 +15,7 @@ import {
   Copy,
   Check,
   Pencil,
-  Sparkles,
+  RefreshCw,
   FlaskConical,
   ChevronDown,
   ChevronUp,
@@ -91,7 +91,7 @@ export function AISalesAssistant({ company }: { company: any }) {
                 rows={6}
               />
               <p className="text-[11px] text-slate-400 mt-2 flex items-center gap-1">
-                <Sparkles className="h-3 w-3" /> These notes are injected directly into the AI prompt as high-priority context.
+                <Bot className="h-3 w-3" /> These notes are injected directly into the AI prompt as high-priority context.
               </p>
             </div>
           )}
@@ -117,7 +117,7 @@ export function AISalesAssistant({ company }: { company: any }) {
               </>
             ) : (
               <>
-                <Sparkles className="mr-2 h-4 w-4" />
+                <Bot className="mr-2 h-4 w-4" />
                 Generate Cold Call Script
               </>
             )}
@@ -185,7 +185,7 @@ export function AISalesAssistant({ company }: { company: any }) {
               rows={4}
             />
             <Button size="sm" onClick={handleGenerate} disabled={loading} className="mt-2 bg-violet-600 hover:bg-violet-700 text-white text-xs h-8 rounded-lg">
-              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
+              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
               Regenerate with Notes
             </Button>
           </div>
@@ -306,10 +306,10 @@ export function AISalesAssistant({ company }: { company: any }) {
               <h3 className="text-sm font-bold text-slate-900">Follow-up Messages</h3>
               <span className="text-xs text-slate-400 ml-auto">If they do not answer or need time.</span>
             </div>
-            <FollowUpBlock platform="WhatsApp" emoji="💬" color="emerald" content={strategy.followUpMessages.whatsapp} />
-            <FollowUpBlock platform="Instagram DM" emoji="📸" color="pink" content={strategy.followUpMessages.instagram} />
-            <FollowUpBlock platform="LinkedIn" emoji="💼" color="blue" content={strategy.followUpMessages.linkedin} />
-            <FollowUpBlock platform="Email" emoji="📧" color="slate" content={`Subject: ${strategy.followUpMessages.email.subject}\n\n${strategy.followUpMessages.email.body}`} />
+            <FollowUpBlock platform="WhatsApp" color="emerald" content={strategy.followUpMessages.whatsapp} />
+            <FollowUpBlock platform="Instagram DM" color="pink" content={strategy.followUpMessages.instagram} />
+            <FollowUpBlock platform="LinkedIn" color="blue" content={strategy.followUpMessages.linkedin} />
+            <FollowUpBlock platform="Email" color="slate" content={`Subject: ${strategy.followUpMessages.email.subject}\n\n${strategy.followUpMessages.email.body}`} />
           </TabsContent>
 
           <TabsContent value="insights" className="m-0 space-y-4">
@@ -416,7 +416,7 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function FollowUpBlock({ platform, emoji, color, content }: { platform: string; emoji: string; color: string; content: string }) {
+function FollowUpBlock({ platform, color, content }: { platform: string; color: string; content: string }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(content);
   const [copied, setCopied] = useState(false);
@@ -425,7 +425,7 @@ function FollowUpBlock({ platform, emoji, color, content }: { platform: string; 
   return (
     <div className={`border rounded-xl overflow-hidden ${colorMap[color] || colorMap.slate}`}>
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-black/5">
-        <span className="text-xs font-bold text-slate-700">{emoji} {platform}</span>
+        <span className="text-xs font-bold text-slate-700">{platform}</span>
         <div className="flex gap-1">
           <button onClick={() => setEditing(!editing)} className={`h-6 w-6 rounded-lg flex items-center justify-center transition-colors ${editing ? "bg-slate-700 text-white" : "text-slate-400 hover:bg-white/70 hover:text-slate-600"}`}>
             <Pencil className="h-3 w-3" />

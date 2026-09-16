@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import {
   Building,
   User,
-  Sparkles,
+  Compass,
   Clock,
   FileText,
   Calendar,
@@ -29,21 +29,30 @@ import { LeadResearchCard } from "./lead-research-card";
 import { LeadScriptsTemplates } from "./lead-scripts-templates";
 import { LeadTasksManager } from "./lead-tasks-manager";
 import { LeadAICopilot } from "./lead-ai-copilot";
-import { getCleanIndustry } from "@/lib/utils";
+import { LeadMeetingDocs } from "./lead-meeting-docs";
+import { getCleanIndustry, cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 export const UNIFIED_STATUSES = [
-  { id: "prospect", label: "Prospect", color: "bg-slate-100 text-slate-800 border-slate-300" },
-  { id: "contacted", label: "Reached Out", color: "bg-blue-100 text-blue-800 border-blue-300" },
-  { id: "no_reply", label: "No Reply", color: "bg-amber-100 text-amber-800 border-amber-300" },
-  { id: "reply_received", label: "Reply Received", color: "bg-indigo-100 text-indigo-800 border-indigo-300" },
-  { id: "interested", label: "Interested", color: "bg-emerald-100 text-emerald-800 border-emerald-300" },
-  { id: "objection", label: "Objection", color: "bg-rose-100 text-rose-800 border-rose-300" },
-  { id: "followup_required", label: "Follow-up Required", color: "bg-teal-100 text-teal-800 border-teal-300" },
-  { id: "meeting_booked", label: "Meeting Booked", color: "bg-purple-100 text-purple-800 border-purple-300" },
-  { id: "proposal", label: "Proposal Sent", color: "bg-violet-100 text-violet-800 border-violet-300" },
-  { id: "won", label: "Won", color: "bg-emerald-600 text-white border-emerald-700" },
-  { id: "lost", label: "Lost", color: "bg-slate-800 text-white border-slate-900" },
-  { id: "dormant", label: "Dormant", color: "bg-gray-200 text-gray-700 border-gray-300" }
+  { id: "prospect", label: "Prospect (New)", color: "bg-slate-200 text-slate-900 border-slate-400" },
+  { id: "contacted", label: "Reached Out / Contacted", color: "bg-blue-100 text-blue-900 border-blue-400" },
+  { id: "no_reply", label: "No Reply (Follow-up Due)", color: "bg-rose-100 text-rose-900 border-rose-400" },
+  { id: "reply_received", label: "Reply Received", color: "bg-indigo-100 text-indigo-900 border-indigo-400" },
+  { id: "warm_up", label: "Warm-Up In Progress", color: "bg-indigo-100 text-indigo-900 border-indigo-400" },
+  { id: "interested", label: "Interested / Opportunity", color: "bg-emerald-100 text-emerald-900 border-emerald-400" },
+  { id: "opening_identified", label: "Opening Identified", color: "bg-amber-100 text-amber-900 border-amber-400" },
+  { id: "objection", label: "Objection Handled", color: "bg-rose-100 text-rose-900 border-rose-400" },
+  { id: "followup_required", label: "Follow-up Required", color: "bg-teal-100 text-teal-900 border-teal-400" },
+  { id: "ready_for_call", label: "Ready for Call (Call Queue)", color: "bg-teal-100 text-teal-900 border-teal-400 font-bold" },
+  { id: "in_call_queue", label: "In Call Queue", color: "bg-teal-100 text-teal-900 border-teal-400 font-bold" },
+  { id: "coffee_invited", label: "Coffee Invited", color: "bg-orange-100 text-orange-900 border-orange-400" },
+  { id: "called", label: "Called", color: "bg-violet-100 text-violet-900 border-violet-400" },
+  { id: "meeting_booked", label: "Meeting Booked", color: "bg-purple-100 text-purple-900 border-purple-400 font-bold" },
+  { id: "proposal", label: "Proposal Sent", color: "bg-violet-100 text-violet-900 border-violet-400" },
+  { id: "proposal_requested", label: "Proposal Requested", color: "bg-violet-100 text-violet-900 border-violet-400" },
+  { id: "won", label: "Won (Closed)", color: "bg-emerald-700 text-white border-emerald-800" },
+  { id: "lost", label: "Lost", color: "bg-slate-900 text-white border-slate-950" },
+  { id: "dormant", label: "Dormant (60d Snooze)", color: "bg-gray-200 text-gray-800 border-gray-400" }
 ];
 
 export const TEAM_MEMBERS = [
@@ -57,12 +66,14 @@ interface UnifiedLeadWorkspaceProps {
   companyId: string;
   onClose?: () => void;
   currentUser?: string;
+  initialTab?: "overview" | "research" | "history" | "scripts" | "tasks" | "ai" | "meeting_docs";
 }
 
 export function UnifiedLeadWorkspace({
   companyId,
   onClose,
-  currentUser = "Ramij"
+  currentUser = "Ramij",
+  initialTab
 }: UnifiedLeadWorkspaceProps) {
   const [loading, setLoading] = useState(true);
   const [company, setCompany] = useState<Company | null>(null);
@@ -73,7 +84,13 @@ export function UnifiedLeadWorkspace({
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [touches, setTouches] = useState<any[]>([]);
 
-  const [activeTab, setActiveTab] = useState<"overview" | "research" | "history" | "scripts" | "tasks" | "ai">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "research" | "history" | "scripts" | "tasks" | "ai" | "meeting_docs">(initialTab || "overview");
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   // Edit states
   const [editingOverview, setEditingOverview] = useState(false);
@@ -96,7 +113,8 @@ export function UnifiedLeadWorkspace({
   const fetchLeadData = async () => {
     setLoading(true);
     try {
-      const res = await getCompany(companyId);
+      const cleanId = String(companyId || '').replace(/^staged-/, '').trim();
+      const res = await getCompany(cleanId);
       if (res.data) {
         const data = res.data;
         setCompany(data);
@@ -107,7 +125,6 @@ export function UnifiedLeadWorkspace({
         setMeetings(data.meetings || []);
         setTouches(data.outreach_touches || []);
 
-        // Populate edit fields
         setCompanyName(data.company_name || "");
         setIndustry(data.industry || "");
         setWebsite(data.website || "");
@@ -138,13 +155,22 @@ export function UnifiedLeadWorkspace({
     } else {
       setLoading(false);
     }
+    const handleLeadUpdated = (e: any) => {
+      const updatedId = e.detail?.companyId;
+      const cleanId = String(companyId || '').replace(/^staged-/, '').trim();
+      if (!updatedId || updatedId === cleanId) {
+        fetchLeadData();
+      }
+    };
+    window.addEventListener("lead-updated", handleLeadUpdated);
+    return () => window.removeEventListener("lead-updated", handleLeadUpdated);
   }, [companyId]);
 
   if (loading || !company) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 space-y-3 bg-white rounded-2xl">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
-        <p className="text-xs font-bold text-slate-500">Loading Unified Lead Workspace...</p>
+      <div className="flex flex-col items-center justify-center p-12 space-y-3 bg-white rounded-xl border border-neutral-200">
+        <Loader2 className="h-6 w-6 animate-spin text-neutral-400" />
+        <p className="text-xs text-neutral-400">Loading workspace...</p>
       </div>
     );
   }
@@ -154,13 +180,20 @@ export function UnifiedLeadWorkspace({
   const isAssignedToOther = assignedRep && assignedRep !== currentUser;
 
   const handleStatusChange = async (newStatus: string) => {
+    setCompany(prev => prev ? { ...prev, status: newStatus } : null);
     await updateCompanyStatus(company.id, newStatus);
-    fetchLeadData();
+    await fetchLeadData();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { companyId: company.id, status: newStatus } }));
+    }
   };
 
   const handleAssign = async (repId: string | null) => {
     await assignCompanyLead(company.id, repId);
-    fetchLeadData();
+    await fetchLeadData();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { companyId: company.id } }));
+    }
   };
 
   const handleSaveOverview = async () => {
@@ -190,7 +223,10 @@ export function UnifiedLeadWorkspace({
 
     setSaving(false);
     setEditingOverview(false);
-    fetchLeadData();
+    await fetchLeadData();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { companyId: company.id } }));
+    }
   };
 
   const rJson: any = (company as any).research_json || {};
@@ -200,119 +236,145 @@ export function UnifiedLeadWorkspace({
   const businessType = rJson.business_type || (company.industry && !company.industry.startsWith('@') && company.industry !== displayIndustry ? company.industry : null);
   const followers = rJson.followers;
 
+  const rawCoStatus = (company.status || '').toLowerCase();
+  const rawCoStage = (company.pipeline_stage || '').toLowerCase();
+  let currentActiveStatus = company.status;
+  if (UNIFIED_STATUSES.some(s => s.id === currentActiveStatus)) {
+    // exact match
+  } else if (rawCoStatus === 'in_call_queue' || rawCoStage === 'call ready') {
+    currentActiveStatus = 'ready_for_call';
+  } else if (rawCoStatus === 'meeting_booked' || rawCoStage === 'meeting booked') {
+    currentActiveStatus = 'meeting_booked';
+  } else if (rawCoStage === 'replied') {
+    currentActiveStatus = 'reply_received';
+  } else {
+    currentActiveStatus = 'prospect';
+  }
+
+  const meetingDocsCount = Array.isArray((company as any)?.research_json?.meeting_docs)
+    ? (company as any).research_json.meeting_docs.length : 0;
+  const hasMeetingDocs = meetingDocsCount > 0;
+
+  const TABS = [
+    { id: "overview", label: "Overview" },
+    { id: "meeting_docs", label: `Meeting Docs${meetingDocsCount > 0 ? ` (${meetingDocsCount})` : ""}`, badge: !hasMeetingDocs ? "!" : undefined },
+    { id: "research", label: "Research" },
+    { id: "history", label: `History (${activities.length})` },
+    { id: "scripts", label: "Scripts" },
+    { id: "tasks", label: `Tasks (${followUps.length + meetings.length})` },
+    { id: "ai", label: "AI Assistant" },
+  ];
+
   return (
-    <div className="bg-white rounded-xl border border-neutral-200 shadow-xl overflow-hidden font-sans flex flex-col max-w-6xl w-full mx-auto my-2">
-      {/* ── 1. Unified Lead Workspace Header ───────────────────────────── */}
-      <div className="bg-[#091f24] text-white p-5 space-y-3 border-b border-[#16434d]">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3.5 min-w-0">
-            <div className="h-11 w-11 rounded-lg bg-[#0f343c] border border-[#16434d] text-white font-mono font-black flex items-center justify-center text-lg shrink-0 shadow-xs">
-              {company.company_name.charAt(0).toUpperCase()}
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap font-mono">
-                <h1 className="text-base sm:text-lg font-black text-white tracking-tight truncate font-sans">
-                  {company.company_name}
-                </h1>
-                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-[#163f47] text-white border border-[#296875]">
-                  {displayIndustry}
-                </span>
-                {businessType && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#163f47] text-white border border-[#296875]">
-                    {businessType}
-                  </span>
-                )}
-                {followers && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#163f47] text-white border border-[#296875]">
-                    {followers}
-                  </span>
-                )}
-                {igHandle && (
-                  <a
-                    href={igUrl || `https://instagram.com/${igHandle.replace(/^@/, '')}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#163f47] text-white border border-[#296875] hover:bg-[#1f5560] transition flex items-center gap-1"
-                  >
-                    {igHandle} <ExternalLink className="h-2.5 w-2.5" />
-                  </a>
-                )}
-              </div>
-              <p className="text-xs text-neutral-300 font-medium truncate mt-1 flex items-center gap-2 font-sans">
-                <span className="flex items-center gap-1"><MapPin className="h-3 w-3 text-neutral-400" /> {company.city || "Location n/a"}{company.country ? `, ${company.country}` : ""}</span>
-                <span>•</span>
-                <span className="flex items-center gap-1"><User className="h-3 w-3 text-neutral-400" /> {primaryContact ? `${primaryContact.full_name} (${primaryContact.title || "Contact"})` : "No primary contact"}</span>
-              </p>
-            </div>
+    <div className="bg-white rounded-xl border border-neutral-200 shadow-lg overflow-hidden flex flex-col max-w-6xl w-full mx-auto my-2">
+
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <div className="px-5 pt-4 pb-3 border-b border-neutral-200 flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="h-9 w-9 rounded-lg bg-neutral-100 border border-neutral-200 text-neutral-700 font-bold flex items-center justify-center text-base shrink-0">
+            {company.company_name.charAt(0).toUpperCase()}
           </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Team Ownership Dropdown */}
-            <div className="flex items-center gap-1.5 bg-[#0f343c] border border-[#16434d] rounded-lg px-2.5 py-1 text-xs font-mono">
-              <User className="h-3 w-3 text-neutral-300" />
-              <span className="text-neutral-300 font-bold text-[10px]">OWNER:</span>
-              <select
-                value={assignedRep || ""}
-                onChange={(e) => handleAssign(e.target.value || null)}
-                className="bg-transparent text-white font-black cursor-pointer focus:outline-none text-xs"
-              >
-                <option value="" className="bg-[#091f24] text-neutral-300">Unassigned (Available)</option>
-                {TEAM_MEMBERS.map(m => (
-                  <option key={m.id} value={m.id} className="bg-[#091f24] text-white">
-                    {m.name}
-                  </option>
-                ))}
-              </select>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-base font-semibold text-neutral-900 truncate">{company.company_name}</h1>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-500 border border-neutral-200 font-medium">
+                {displayIndustry}
+              </span>
+              {businessType && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-500 border border-neutral-200 font-medium">
+                  {businessType}
+                </span>
+              )}
+              {followers && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-500 border border-neutral-200 font-medium">
+                  {followers}
+                </span>
+              )}
+              {igHandle && (
+                <a
+                  href={igUrl || `https://instagram.com/${igHandle.replace(/^@/, '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-500 border border-neutral-200 hover:text-neutral-800 transition flex items-center gap-1"
+                >
+                  {igHandle} <ExternalLink className="h-2.5 w-2.5" />
+                </a>
+              )}
             </div>
-
-            {onClose && (
-              <button
-                onClick={onClose}
-                className="h-8 w-8 rounded-lg bg-[#0f343c] text-neutral-300 hover:text-white border border-[#16434d] flex items-center justify-center transition-colors cursor-pointer"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
+            <p className="text-xs text-neutral-400 mt-0.5 flex items-center gap-2">
+              <span className="flex items-center gap-1">
+                <MapPin className="h-3 w-3 shrink-0" />
+                {company.city || "Location n/a"}{company.country ? `, ${company.country}` : ""}
+              </span>
+              {primaryContact && (
+                <>
+                  <span className="text-neutral-300">·</span>
+                  <span className="flex items-center gap-1">
+                    <User className="h-3 w-3 shrink-0" />
+                    {primaryContact.full_name}{primaryContact.title ? ` — ${primaryContact.title}` : ""}
+                  </span>
+                </>
+              )}
+            </p>
           </div>
         </div>
 
-        {/* Duplicate Work Warning Banner */}
-        {isAssignedToOther && (
-          <div className="p-2.5 bg-[#0f343c] border border-[#16434d] rounded-lg flex items-center gap-2 text-xs text-white">
-            <ShieldAlert className="h-4 w-4 text-white shrink-0" />
-            <span>
-              <strong>Notice:</strong> This lead is currently assigned to <strong>{assignedRep}</strong>. Communicate before taking action to avoid duplicate touches.
-            </span>
-          </div>
-        )}
-
-        {/* Unified Status Ribbon */}
-        <div className="flex items-center justify-between pt-2 border-t border-[#16434d] gap-2 flex-wrap text-xs font-mono">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black text-neutral-300 uppercase tracking-wider">STAGE:</span>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Owner assignment */}
+          <div className="flex items-center gap-1.5 text-xs text-neutral-500">
+            <span className="hidden sm:inline text-neutral-400 text-[11px]">Owner:</span>
             <select
-              value={company.status}
-              onChange={(e) => handleStatusChange(e.target.value)}
-              className="bg-[#0f343c] text-white border border-[#16434d] rounded-lg px-2.5 py-0.5 font-bold cursor-pointer focus:outline-none"
+              value={assignedRep || ""}
+              onChange={(e) => handleAssign(e.target.value || null)}
+              className="text-xs text-neutral-700 border border-neutral-200 rounded-md px-2 py-1 bg-white cursor-pointer focus:outline-none focus:ring-1 focus:ring-neutral-300"
             >
-              {UNIFIED_STATUSES.map(s => (
-                <option key={s.id} value={s.id} className="bg-[#091f24] text-white">
-                  {s.label}
-                </option>
+              <option value="">Unassigned</option>
+              {TEAM_MEMBERS.map(m => (
+                <option key={m.id} value={m.id}>{m.name}</option>
               ))}
             </select>
           </div>
 
-          <div className="flex items-center gap-2 text-[10px] text-neutral-300">
-            <span>UPDATED: {new Date(company.updated_at).toLocaleDateString()}</span>
-            <span>•</span>
-            <span>TOUCHES: {activities.length}</span>
-          </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="h-7 w-7 rounded-md text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 flex items-center justify-center transition cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 
-      {/* ── 2. Contact Channels Grid Bar ───────────────────────────────── */}
-      <div className="p-3.5 bg-neutral-50 border-b border-neutral-200">
+      {/* ── Pipeline Status + Meta row ──────────────────────────────────── */}
+      <div className="px-5 py-2.5 border-b border-neutral-100 bg-neutral-50 flex flex-wrap items-center gap-3">
+        {isAssignedToOther && (
+          <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
+            <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
+            <span>Assigned to <strong>{assignedRep}</strong> — coordinate before outreach</span>
+          </div>
+        )}
+        <div className="flex items-center gap-2 text-xs text-neutral-500">
+          <span className="text-neutral-400">Stage:</span>
+          <select
+            value={currentActiveStatus}
+            onChange={(e) => handleStatusChange(e.target.value)}
+            className="text-xs text-neutral-800 font-medium border border-neutral-200 rounded-md px-2 py-1 bg-white cursor-pointer focus:outline-none focus:ring-1 focus:ring-neutral-300"
+          >
+            {UNIFIED_STATUSES.map(s => (
+              <option key={s.id} value={s.id}>{s.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="ml-auto flex items-center gap-3 text-[11px] text-neutral-400">
+          <span>Updated {new Date(company.updated_at).toLocaleDateString()}</span>
+          <span>·</span>
+          <span>{activities.length} touches</span>
+        </div>
+      </div>
+
+      {/* ── Contact Channels Bar ─────────────────────────────────────────── */}
+      <div className="px-5 py-3 border-b border-neutral-100">
         <ContactChannelsGrid
           company={company}
           primaryContact={primaryContact}
@@ -321,174 +383,193 @@ export function UnifiedLeadWorkspace({
         />
       </div>
 
-      {/* ── 3. Workspace Navigation Tabs ────────────────────────────────── */}
-      <div className="bg-white border-b border-neutral-200 px-4 flex items-center gap-1 overflow-x-auto font-mono">
-        {[
-          { id: "overview", label: "Overview", icon: Building },
-          { id: "research", label: "Research", icon: Sparkles },
-          { id: "history", label: `History (${activities.length})`, icon: Clock },
-          { id: "scripts", label: "Scripts", icon: FileText },
-          { id: "tasks", label: `Tasks (${followUps.length + meetings.length})`, icon: Calendar },
-          { id: "ai", label: "AI Assistant", icon: Bot }
-        ].map((tab) => {
-          const Icon = tab.icon;
+      {/* ── Navigation Tabs ──────────────────────────────────────────────── */}
+      <div className="border-b border-neutral-200 px-5 flex items-center gap-0 overflow-x-auto">
+        {TABS.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`py-2.5 px-3 text-xs font-bold flex items-center gap-1.5 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+              className={cn(
+                "py-2.5 px-3 text-xs font-medium border-b-2 transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5",
                 isActive
-                  ? "border-black text-black bg-neutral-100 font-black"
-                  : "border-transparent text-neutral-500 hover:text-black hover:bg-neutral-50"
-              }`}
+                  ? "border-neutral-900 text-neutral-900"
+                  : "border-transparent text-neutral-400 hover:text-neutral-700"
+              )}
             >
-              <Icon className={`h-3.5 w-3.5 ${isActive ? "text-black" : "text-neutral-400"}`} />
               {tab.label}
+              {tab.badge && (
+                <span className="px-1 py-0.5 rounded text-[9px] bg-amber-100 text-amber-800 border border-amber-200 font-semibold leading-none">
+                  {tab.badge}
+                </span>
+              )}
             </button>
           );
         })}
       </div>
 
-      {/* ── 4. Main Body Content Area ───────────────────────────────────── */}
-      <div className="p-4 overflow-y-auto max-h-[600px] space-y-4">
+      {/* ── Tab Content ─────────────────────────────────────────────────── */}
+      <div className="p-5 overflow-y-auto max-h-[600px] space-y-5">
+
+        {/* OVERVIEW */}
         {activeTab === "overview" && (
-          <div className="space-y-4 font-sans">
-            <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
-              <h3 className="text-xs font-mono font-black text-black uppercase tracking-wider">
-                Company & Contact
-              </h3>
+          <div className="space-y-5">
+            {/* Company & Contact section header */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Company & Contact</span>
               {!editingOverview ? (
                 <button
                   onClick={() => setEditingOverview(true)}
-                  className="px-2.5 py-1 bg-black text-white font-mono font-bold text-xs rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer"
+                  className="flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-800 transition cursor-pointer"
                 >
-                  <Pencil className="h-3 w-3 text-white" /> Edit Details
+                  <Pencil className="h-3 w-3" /> Edit
                 </button>
               ) : (
-                <div className="flex gap-1.5 font-mono">
+                <div className="flex gap-2">
                   <button
                     onClick={() => setEditingOverview(false)}
-                    className="px-2.5 py-1 bg-neutral-100 text-neutral-700 font-bold text-xs rounded-lg cursor-pointer"
+                    className="text-xs text-neutral-400 hover:text-neutral-700 cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleSaveOverview}
                     disabled={saving}
-                    className="px-2.5 py-1 bg-black text-white font-bold text-xs rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer"
+                    className="flex items-center gap-1 text-xs text-neutral-800 font-semibold border border-neutral-300 rounded-md px-2.5 py-1 hover:bg-neutral-50 cursor-pointer"
                   >
                     {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                    Save Changes
+                    Save
                   </button>
                 </div>
               )}
             </div>
 
             {editingOverview ? (
-              <div className="bg-white p-4 rounded-xl border border-neutral-200 space-y-4 text-xs">
-                <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-wider block">Company Fields</span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-[10px] font-bold text-neutral-500 block mb-0.5">Company Name</label>
-                    <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="w-full bg-neutral-50 border border-neutral-200 p-2 rounded-lg" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-neutral-500 block mb-0.5">Industry</label>
-                    <input type="text" value={industry} onChange={e => setIndustry(e.target.value)} className="w-full bg-neutral-50 border border-neutral-200 p-2 rounded-lg" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-neutral-500 block mb-0.5">Website</label>
-                    <input type="text" value={website} onChange={e => setWebsite(e.target.value)} className="w-full bg-neutral-50 border border-neutral-200 p-2 rounded-lg" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-neutral-500 block mb-0.5">Phone</label>
-                    <input type="text" value={phone} onChange={e => setPhone(e.target.value)} className="w-full bg-neutral-50 border border-neutral-200 p-2 rounded-lg" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-neutral-500 block mb-0.5">Email</label>
-                    <input type="text" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-neutral-50 border border-neutral-200 p-2 rounded-lg" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-neutral-500 block mb-0.5">City / Country</label>
-                    <div className="flex gap-1">
-                      <input type="text" value={city} placeholder="City" onChange={e => setCity(e.target.value)} className="w-1/2 bg-neutral-50 border border-neutral-200 p-2 rounded-lg" />
-                      <input type="text" value={country} placeholder="Country" onChange={e => setCountry(e.target.value)} className="w-1/2 bg-neutral-50 border border-neutral-200 p-2 rounded-lg" />
+              <div className="space-y-4 text-xs">
+                <div>
+                  <p className="text-[10px] text-neutral-400 uppercase tracking-wider font-medium mb-2">Company</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {[
+                      { label: "Company Name", val: companyName, set: setCompanyName },
+                      { label: "Industry", val: industry, set: setIndustry },
+                      { label: "Website", val: website, set: setWebsite },
+                      { label: "Phone", val: phone, set: setPhone },
+                      { label: "Email", val: email, set: setEmail },
+                    ].map(f => (
+                      <div key={f.label}>
+                        <label className="text-[10px] text-neutral-400 block mb-1">{f.label}</label>
+                        <input
+                          type="text"
+                          value={f.val}
+                          onChange={e => f.set(e.target.value)}
+                          className="w-full border border-neutral-200 rounded-md px-2.5 py-1.5 text-xs text-neutral-800 bg-white focus:outline-none focus:ring-1 focus:ring-neutral-300"
+                        />
+                      </div>
+                    ))}
+                    <div>
+                      <label className="text-[10px] text-neutral-400 block mb-1">City / Country</label>
+                      <div className="flex gap-1.5">
+                        <input type="text" value={city} placeholder="City" onChange={e => setCity(e.target.value)} className="w-1/2 border border-neutral-200 rounded-md px-2.5 py-1.5 text-xs text-neutral-800 bg-white focus:outline-none focus:ring-1 focus:ring-neutral-300" />
+                        <input type="text" value={country} placeholder="Country" onChange={e => setCountry(e.target.value)} className="w-1/2 border border-neutral-200 rounded-md px-2.5 py-1.5 text-xs text-neutral-800 bg-white focus:outline-none focus:ring-1 focus:ring-neutral-300" />
+                      </div>
                     </div>
                   </div>
                 </div>
-
-                <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-wider block pt-2 border-t border-neutral-100">Primary Contact Fields</span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                  <div>
-                    <label className="text-[10px] font-bold text-neutral-500 block mb-0.5">Contact Full Name</label>
-                    <input type="text" value={contactName} onChange={e => setContactName(e.target.value)} className="w-full bg-neutral-50 border border-neutral-200 p-2 rounded-lg" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-neutral-500 block mb-0.5">Title / Role</label>
-                    <input type="text" value={contactTitle} onChange={e => setContactTitle(e.target.value)} className="w-full bg-neutral-50 border border-neutral-200 p-2 rounded-lg" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-neutral-500 block mb-0.5">WhatsApp Number</label>
-                    <input type="text" value={contactWhatsapp} onChange={e => setContactWhatsapp(e.target.value)} className="w-full bg-neutral-50 border border-neutral-200 p-2 rounded-lg" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-neutral-500 block mb-0.5">LinkedIn URL</label>
-                    <input type="text" value={contactLinkedin} onChange={e => setContactLinkedin(e.target.value)} className="w-full bg-neutral-50 border border-neutral-200 p-2 rounded-lg" />
+                <div>
+                  <p className="text-[10px] text-neutral-400 uppercase tracking-wider font-medium mb-2">Primary Contact</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                    {[
+                      { label: "Full Name", val: contactName, set: setContactName },
+                      { label: "Title / Role", val: contactTitle, set: setContactTitle },
+                      { label: "WhatsApp", val: contactWhatsapp, set: setContactWhatsapp },
+                      { label: "LinkedIn URL", val: contactLinkedin, set: setContactLinkedin },
+                    ].map(f => (
+                      <div key={f.label}>
+                        <label className="text-[10px] text-neutral-400 block mb-1">{f.label}</label>
+                        <input
+                          type="text"
+                          value={f.val}
+                          onChange={e => f.set(e.target.value)}
+                          className="w-full border border-neutral-200 rounded-md px-2.5 py-1.5 text-xs text-neutral-800 bg-white focus:outline-none focus:ring-1 focus:ring-neutral-300"
+                        />
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                <div className="bg-white p-4 rounded-xl border border-neutral-200 space-y-3">
-                  <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-wider block">Company Info</span>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-neutral-50 p-2.5 rounded-lg border border-neutral-200/80">
-                      <span className="text-[9px] font-bold text-neutral-400 uppercase block">Name</span>
-                      <span className="font-bold text-black truncate block">{company.company_name}</span>
-                    </div>
-                    <div className="bg-neutral-50 p-2.5 rounded-lg border border-neutral-200/80">
-                      <span className="text-[9px] font-bold text-neutral-400 uppercase block">Industry</span>
-                      <span className="font-bold text-black truncate block">{displayIndustry}</span>
-                    </div>
-                    <div className="bg-neutral-50 p-2.5 rounded-lg border border-neutral-200/80">
-                      <span className="text-[9px] font-bold text-neutral-400 uppercase block">Location</span>
-                      <span className="font-bold text-black truncate block">{company.city || "n/a"}{company.country ? `, ${company.country}` : ""}</span>
-                    </div>
-                    <div className="bg-neutral-50 p-2.5 rounded-lg border border-neutral-200/80">
-                      <span className="text-[9px] font-bold text-neutral-400 uppercase block">Website</span>
-                      <span className="font-bold text-black truncate block">{company.website || "n/a"}</span>
-                    </div>
+                {/* Company info */}
+                <div className="space-y-1">
+                  <p className="text-[10px] text-neutral-400 uppercase tracking-wider font-medium mb-2">Company</p>
+                  <div className="divide-y divide-neutral-100 border border-neutral-100 rounded-lg overflow-hidden">
+                    {[
+                      { label: "Name", value: company.company_name },
+                      { label: "Industry", value: displayIndustry },
+                      { label: "Location", value: [company.city, company.country].filter(Boolean).join(", ") || "—" },
+                      { label: "Website", value: company.website || "—" },
+                      { label: "Phone", value: company.phone || "—" },
+                      { label: "Email", value: company.email || "—" },
+                    ].map(row => (
+                      <div key={row.label} className="flex items-center px-3 py-2 text-xs">
+                        <span className="w-20 shrink-0 text-neutral-400">{row.label}</span>
+                        <span className="text-neutral-800 truncate">{row.value}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                <div className="bg-white p-4 rounded-xl border border-neutral-200 space-y-3">
-                  <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-wider block">Primary Contact</span>
+                {/* Contact info */}
+                <div className="space-y-1">
+                  <p className="text-[10px] text-neutral-400 uppercase tracking-wider font-medium mb-2">Primary Contact</p>
                   {primaryContact ? (
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-neutral-50 p-2.5 rounded-lg border border-neutral-200/80">
-                        <span className="text-[9px] font-bold text-neutral-400 uppercase block">Name</span>
-                        <span className="font-bold text-black truncate block">{primaryContact.full_name || "n/a"}</span>
-                      </div>
-                      <div className="bg-neutral-50 p-2.5 rounded-lg border border-neutral-200/80">
-                        <span className="text-[9px] font-bold text-neutral-400 uppercase block">Title</span>
-                        <span className="font-bold text-black truncate block">{primaryContact.title || "Decision Maker"}</span>
-                      </div>
-                      <div className="bg-neutral-50 p-2.5 rounded-lg border border-neutral-200/80">
-                        <span className="text-[9px] font-bold text-neutral-400 uppercase block">WhatsApp</span>
-                        <span className="font-bold text-black truncate block font-mono">{primaryContact.whatsapp || "n/a"}</span>
-                      </div>
-                      <div className="bg-neutral-50 p-2.5 rounded-lg border border-neutral-200/80">
-                        <span className="text-[9px] font-bold text-neutral-400 uppercase block">Email</span>
-                        <span className="font-bold text-black truncate block">{primaryContact.email || "n/a"}</span>
-                      </div>
+                    <div className="divide-y divide-neutral-100 border border-neutral-100 rounded-lg overflow-hidden">
+                      {[
+                        { label: "Name", value: primaryContact.full_name || "—" },
+                        { label: "Title", value: primaryContact.title || "—" },
+                        { label: "WhatsApp", value: primaryContact.whatsapp || "—" },
+                        { label: "Email", value: primaryContact.email || "—" },
+                        { label: "LinkedIn", value: primaryContact.linkedin_url || "—" },
+                      ].map(row => (
+                        <div key={row.label} className="flex items-center px-3 py-2 text-xs">
+                          <span className="w-20 shrink-0 text-neutral-400">{row.label}</span>
+                          <span className="text-neutral-800 truncate">{row.value}</span>
+                        </div>
+                      ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-neutral-400 italic py-4">No primary contact recorded. Click edit to add.</p>
+                    <p className="text-xs text-neutral-400 italic py-4">No primary contact recorded. Click Edit to add.</p>
                   )}
                 </div>
               </div>
             )}
+
+            {/* Meeting Docs status strip */}
+            <div className={cn(
+              "flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 py-3 rounded-lg border text-xs",
+              hasMeetingDocs
+                ? "bg-neutral-50 border-neutral-200 text-neutral-600"
+                : "bg-amber-50 border-amber-200 text-amber-800"
+            )}>
+              <div className="flex items-center gap-2">
+                {hasMeetingDocs
+                  ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                  : <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                }
+                <span>
+                  {hasMeetingDocs
+                    ? `Meeting docs ready — ${meetingDocsCount} document(s) attached`
+                    : "No meeting documents attached yet — upload proposals or links for SDR calls"}
+                </span>
+              </div>
+              <button
+                onClick={() => setActiveTab("meeting_docs")}
+                className="text-xs font-medium text-neutral-600 underline underline-offset-2 hover:text-neutral-900 cursor-pointer shrink-0"
+              >
+                {hasMeetingDocs ? "View docs" : "Add docs"}
+              </button>
+            </div>
 
             <LeadResearchCard
               company={company}
@@ -500,6 +581,15 @@ export function UnifiedLeadWorkspace({
               }}
             />
           </div>
+        )}
+
+        {activeTab === "meeting_docs" && (
+          <LeadMeetingDocs
+            company={company}
+            primaryContact={primaryContact}
+            meetings={meetings}
+            onRefresh={fetchLeadData}
+          />
         )}
 
         {activeTab === "research" && (

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import {
-  X, Phone, MessageCircle, Mail, Globe, Sparkles, Pencil,
+  X, Phone, MessageCircle, Mail, Globe, Pencil,
   Trash2, Calendar, Building, User, Clock, CheckCircle2,
   FileText, ExternalLink, Loader2, AlertCircle, AlertTriangle, Send
 } from "lucide-react";
@@ -175,7 +175,7 @@ export function ContactDetailDrawer({
               onClick={() => setScriptModalOpen(true)}
               className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-[11px] h-7 px-3 rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer"
             >
-              <Sparkles className="h-3 w-3 text-teal-400" /> Script
+              Script
             </button>
             <button
               onClick={() => setTemplateModalOpen(true)}

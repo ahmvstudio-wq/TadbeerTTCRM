@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   X, Check, ArrowRight, ExternalLink, MessageCircle, Phone, Mail,
-  Copy, Sparkles, ShieldCheck, ChevronLeft, ChevronRight, Zap, Building2, User
+  Copy, FileText, ShieldCheck, ChevronLeft, ChevronRight, Zap, Building2, User
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -281,7 +281,7 @@ export function PowerHourModal({
 
           {/* Specific Observation Snippet */}
           <div className="bg-amber-50 dark:bg-amber-950/30 p-3.5 rounded-xl border border-amber-200 dark:border-amber-900/40 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2">
-            <Sparkles className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <FileText className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
             <div>
               <span className="font-bold">Pre-Researched Observation:</span> &ldquo;{observation}&rdquo;
             </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Copy, Check, MessageSquare, Sparkles, Loader2 } from "lucide-react";
+import { X, Copy, Check, MessageSquare, Loader2, Globe, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -112,7 +112,7 @@ export function DMEmailTemplateModal({
               <div className="flex items-center gap-2">
                 <p className="font-extrabold text-sm text-slate-900">Message Templates (DM / Email)</p>
                 <span className="text-[10px] font-extrabold bg-slate-200/60 text-slate-700 border border-slate-300/60 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <Sparkles className="h-3 w-3" /> Outreach Playbook
+                  <BookOpen className="h-3 w-3" /> Outreach Playbook
                 </span>
               </div>
               <p className="text-slate-500 text-xs mt-0.5">
@@ -201,7 +201,7 @@ export function DMEmailTemplateModal({
                 {selected.variables.includes("specific observation") && (
                   <div className="bg-violet-50/50 border border-violet-100 p-4 rounded-2xl space-y-3">
                     <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-violet-600" />
+                      <Globe className="h-4 w-4 text-violet-600" />
                       <label className="text-xs font-bold text-violet-900">AI Personalization (Scrape URL)</label>
                     </div>
                     <div className="flex gap-2">

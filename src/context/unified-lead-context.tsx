@@ -4,26 +4,34 @@ import React, { createContext, useContext, useState } from "react";
 import { UnifiedLeadWorkspace } from "@/components/workspace/unified-lead-workspace";
 
 interface UnifiedLeadContextType {
-  openLead: (leadId: string) => void;
+  openLead: (leadId: string, initialTab?: string) => void;
   closeLead: () => void;
   selectedLeadId: string | null;
+  initialTab?: string | null;
 }
 
 const UnifiedLeadContext = createContext<UnifiedLeadContextType | undefined>(undefined);
 
 export function UnifiedLeadProvider({ children }: { children: React.ReactNode }) {
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [activeInitialTab, setActiveInitialTab] = useState<string | null>(null);
 
-  const openLead = (leadId: string) => {
+  const openLead = (leadId: string, initialTab?: string) => {
     setSelectedLeadId(leadId);
+    if (initialTab) {
+      setActiveInitialTab(initialTab);
+    } else {
+      setActiveInitialTab(null);
+    }
   };
 
   const closeLead = () => {
     setSelectedLeadId(null);
+    setActiveInitialTab(null);
   };
 
   return (
-    <UnifiedLeadContext.Provider value={{ openLead, closeLead, selectedLeadId }}>
+    <UnifiedLeadContext.Provider value={{ openLead, closeLead, selectedLeadId, initialTab: activeInitialTab }}>
       {children}
 
       {/* Global Slide-Over Modal for Unified Lead Workspace */}
@@ -40,6 +48,7 @@ export function UnifiedLeadProvider({ children }: { children: React.ReactNode })
               companyId={selectedLeadId}
               onClose={closeLead}
               currentUser="Ramij"
+              initialTab={activeInitialTab as any}
             />
           </div>
         </div>

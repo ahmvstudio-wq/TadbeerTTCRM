@@ -33,11 +33,11 @@ export async function POST(req: NextRequest) {
     // Helper for formatting tool outputs into natural text if model text is empty
     const formatToolResultsToText = (toolResults: any[]) => {
       if (!toolResults || toolResults.length === 0) return '';
-      let text = '### 🤖 AI Actions Executed & Data Updated\n\n';
+      let text = '### AI Actions Executed & Data Updated\n\n';
       for (const t of toolResults) {
         const name = t.toolName || t.tool || 'CRM Action';
         const formattedName = name.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
-        text += `- ✅ **${formattedName}**\n`;
+        text += `- **${formattedName}**\n`;
         const val = t.output || t.result;
         if (val) {
           if (typeof val === 'object') {

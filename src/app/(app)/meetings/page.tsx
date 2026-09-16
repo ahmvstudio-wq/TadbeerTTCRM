@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Calendar, Clock, MapPin, Users, Plus, CheckCircle2, XCircle, CalendarClock, Trash2, X, Loader2 } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, Plus, CheckCircle2, XCircle, CalendarClock, Trash2, X, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -43,13 +43,21 @@ export default function MeetingsPage() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { 
+    fetchData(); 
+    const handleLeadUpdated = () => {
+      fetchData();
+    };
+    window.addEventListener("lead-updated", handleLeadUpdated);
+    return () => window.removeEventListener("lead-updated", handleLeadUpdated);
+  }, []);
 
   const upcomingMeetings = meetings.filter((m) => m.status === "scheduled");
   const pastMeetings = meetings.filter((m) => m.status !== "scheduled");
 
   const handleBookMeeting = async () => {
     if (!newMeeting.title || !newMeeting.company_id || !newMeeting.date) return;
+    const targetCompanyId = newMeeting.company_id;
     const result = await bookMeeting({
       company_id: newMeeting.company_id,
       title: newMeeting.title,
@@ -63,6 +71,9 @@ export default function MeetingsPage() {
     setNewMeeting({ title: "", company_id: "", contact_name: "", date: "", duration: 30, location: "", description: "" });
     setToast({ type: "success", message: "Meeting booked" });
     fetchData();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { companyId: targetCompanyId, meetingBooked: true } }));
+    }
   };
 
   const handleStatusUpdate = async (id: string, status: "completed" | "cancelled") => {
@@ -70,6 +81,9 @@ export default function MeetingsPage() {
     if (result.error) { setToast({ type: "error", message: result.error }); return; }
     setToast({ type: "success", message: `Meeting ${status}` });
     fetchData();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { meetingId: id, status } }));
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -78,6 +92,9 @@ export default function MeetingsPage() {
     if (result.error) { setToast({ type: "error", message: result.error }); return; }
     setToast({ type: "success", message: "Meeting deleted" });
     fetchData();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { meetingId: id, deleted: true } }));
+    }
   };
 
   const renderMeetingCard = (meeting: any) => (
@@ -111,6 +128,31 @@ export default function MeetingsPage() {
               {meeting.location && <div className="flex items-center gap-1.5 text-text-secondary col-span-1 sm:col-span-2"><MapPin className="h-3.5 w-3.5 text-text-muted flex-shrink-0" /><span className="truncate">{meeting.location}</span></div>}
             </div>
             {meeting.description && <p className="text-xs text-text-muted mt-2.5 italic">{meeting.description}</p>}
+
+            {/* Meeting Docs Caution Banner — only for scheduled meetings missing docs */}
+            {(() => {
+              const rJson = meeting.companies?.research_json && typeof meeting.companies.research_json === "object"
+                ? meeting.companies.research_json : {};
+              const hasDocs = Array.isArray(rJson.meeting_docs) && rJson.meeting_docs.length > 0;
+              const docsMissing = meeting.status === "scheduled" && !hasDocs;
+              if (!docsMissing) return null;
+              return (
+                <div className="mt-3 flex flex-col sm:flex-row items-start sm:items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-300/70 text-amber-900">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-amber-900 leading-tight">No Meeting Docs Attached</p>
+                    <p className="text-[11px] text-amber-700 font-light leading-tight mt-0.5">Upload proposal PDFs or document links before this call.</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-medium h-7 px-3 shrink-0 whitespace-nowrap"
+                    onClick={() => meeting.company_id && openLead(meeting.company_id, "meeting_docs")}
+                  >
+                    Add Docs
+                  </Button>
+                </div>
+              );
+            })()}
           </div>
           {meeting.status === "scheduled" && (
             <div className="flex items-center gap-1.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">

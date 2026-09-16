@@ -12,7 +12,6 @@ import {
   Globe2,
   Users,
   MapPin,
-  Sparkles,
   FileText,
   CheckCircle2,
   AlertCircle,
@@ -247,7 +246,6 @@ export function AddProspectModal({ open, onClose, onSuccess }: AddProspectModalP
                   : "text-slate-500 hover:text-slate-900"
               }`}
             >
-              <Sparkles className="h-3.5 w-3.5 text-teal-600" />
               Complete Profile (All Data Points)
             </button>
           </div>

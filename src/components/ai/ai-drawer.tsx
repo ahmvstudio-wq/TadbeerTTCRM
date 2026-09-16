@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Sparkles, X, ChevronUp, Bot } from 'lucide-react';
+import { X, ChevronUp, Bot } from 'lucide-react';
 import { AIChatInterface } from './ai-chat-interface';
 
 export function AIDrawer() {
@@ -17,7 +17,7 @@ export function AIDrawer() {
           className="group flex items-center space-x-2 bg-gradient-to-r from-indigo-600 via-indigo-700 to-slate-900 text-white px-4 py-3 rounded-full shadow-2xl hover:scale-105 active:scale-95 transition-all duration-200 border border-indigo-400/30"
         >
           <div className="relative">
-            <Sparkles className="w-5 h-5 text-indigo-200 group-hover:rotate-12 transition-transform" />
+            <Bot className="w-5 h-5 text-indigo-200 transition-transform" />
             <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full animate-ping" />
             <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full" />
           </div>

@@ -2,6 +2,22 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth-guard'
+import { revalidatePath } from 'next/cache'
+
+function revalidateAllCRMPages() {
+  try {
+    revalidatePath('/outreach')
+    revalidatePath('/daily-cadence')
+    revalidatePath('/dashboard')
+    revalidatePath('/prospects')
+    revalidatePath('/pipeline')
+    revalidatePath('/meetings')
+    revalidatePath('/calls')
+    revalidatePath('/follow-ups')
+  } catch (e) {
+    // ignore in non-request contexts
+  }
+}
 
 export async function deleteCompany(id: string) {
   try {
@@ -9,6 +25,7 @@ export async function deleteCompany(id: string) {
     const supabase = await createClient()
     const { error } = await supabase.from('companies').delete().eq('id', id)
     if (error) return { error: error.message }
+    revalidateAllCRMPages()
     return { error: null }
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -21,6 +38,7 @@ export async function deleteContact(id: string) {
     const supabase = await createClient()
     const { error } = await supabase.from('contacts').delete().eq('id', id)
     if (error) return { error: error.message }
+    revalidateAllCRMPages()
     return { error: null }
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -33,6 +51,7 @@ export async function deleteFollowUp(id: string) {
     const supabase = await createClient()
     const { error } = await supabase.from('follow_ups').delete().eq('id', id)
     if (error) return { error: error.message }
+    revalidateAllCRMPages()
     return { error: null }
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -45,6 +64,7 @@ export async function deleteMeeting(id: string) {
     const supabase = await createClient()
     const { error } = await supabase.from('meetings').delete().eq('id', id)
     if (error) return { error: error.message }
+    revalidateAllCRMPages()
     return { error: null }
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -57,6 +77,7 @@ export async function deleteOpportunity(id: string) {
     const supabase = await createClient()
     const { error } = await supabase.from('opportunities').delete().eq('id', id)
     if (error) return { error: error.message }
+    revalidateAllCRMPages()
     return { error: null }
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -69,6 +90,7 @@ export async function deleteCall(id: string) {
     const supabase = await createClient()
     const { error } = await supabase.from('calls').delete().eq('id', id)
     if (error) return { error: error.message }
+    revalidateAllCRMPages()
     return { error: null }
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -81,6 +103,7 @@ export async function deleteActivity(id: string) {
     const supabase = await createClient()
     const { error } = await supabase.from('activities').delete().eq('id', id)
     if (error) return { error: error.message }
+    revalidateAllCRMPages()
     return { error: null }
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'An unexpected error occurred' }

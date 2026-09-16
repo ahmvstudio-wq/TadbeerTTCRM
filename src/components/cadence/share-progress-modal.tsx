@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { Share2, Download, Copy, Check, X, Sparkles, RefreshCw, Sun, Moon } from "lucide-react";
+import { Share2, Download, Copy, Check, X, RefreshCw, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { type OutreachLead, CHANNEL_CONFIG, STATUS_CONFIG } from "@/lib/types/outreach";
 
@@ -221,17 +221,17 @@ export function ShareProgressModal({
 
     // Pill text
     ctx.fillStyle = isLight ? "#0f766e" : "#2dd4bf";
-    ctx.font = "900 12px Inter, sans-serif";
+    ctx.font = "900 12px 'Poppins', sans-serif";
     ctx.fillText("TADBEER TT CRM", 84, 66);
 
     // Title
     ctx.fillStyle = isLight ? "#0f172a" : "#ffffff";
-    ctx.font = "900 32px Inter, sans-serif";
+    ctx.font = "900 32px 'Poppins', sans-serif";
     ctx.fillText("Daily Outreach Progress", 50, 120);
 
     // Date Subtitle
     ctx.fillStyle = isLight ? "#475569" : "#94a3b8";
-    ctx.font = "600 16px Inter, sans-serif";
+    ctx.font = "600 16px 'Poppins', sans-serif";
     ctx.fillText(formattedDateStr, 50, 148);
 
     // Right Side Header Badge (Active Days)
@@ -244,10 +244,10 @@ export function ShareProgressModal({
     ctx.stroke();
 
     ctx.fillStyle = isLight ? "#64748b" : "#64748b";
-    ctx.font = "800 11px Inter, sans-serif";
+    ctx.font = "800 11px 'Poppins', sans-serif";
     ctx.fillText("MONTHLY OPERATIONAL SNAPSHOT", 965, 68);
     ctx.fillStyle = isLight ? "#0284c7" : "#38bdf8";
-    ctx.font = "900 18px Inter, sans-serif";
+    ctx.font = "900 18px 'Poppins', sans-serif";
     ctx.fillText(`${activeDays} Active Outreach Days`, 965, 92);
 
     // ── 3. Metrics Cards Row (4 Cards) ──────────────────────────────────
@@ -313,17 +313,17 @@ export function ShareProgressModal({
 
       // Label
       ctx.fillStyle = isLight ? "#64748b" : "#94a3b8";
-      ctx.font = "800 11px Inter, sans-serif";
+      ctx.font = "800 11px 'Poppins', sans-serif";
       ctx.fillText(m.label, x + 20, cardY + 32);
 
       // Main Value
       ctx.fillStyle = isLight ? "#0f172a" : "#ffffff";
-      ctx.font = "900 36px Inter, sans-serif";
+      ctx.font = "900 36px 'Poppins', sans-serif";
       ctx.fillText(m.val, x + 20, cardY + 74);
 
       // Subtitle
       ctx.fillStyle = m.color;
-      ctx.font = "700 12px Inter, sans-serif";
+      ctx.font = "700 12px 'Poppins', sans-serif";
       ctx.fillText(m.sub, x + 20, cardY + 98);
     });
 
@@ -342,7 +342,7 @@ export function ShareProgressModal({
 
     // Inner Section 1: Channel Breakdown Header
     ctx.fillStyle = isLight ? "#334155" : "#cbd5e1";
-    ctx.font = "900 13px Inter, sans-serif";
+    ctx.font = "900 13px 'Poppins', sans-serif";
     ctx.fillText("OUTREACH CHANNELS UTILIZED TODAY", startX + 24, bodyY + 34);
 
     // Channel Badges Row
@@ -352,7 +352,7 @@ export function ShareProgressModal({
 
     if (channelsPresent.length === 0) {
       ctx.fillStyle = isLight ? "#94a3b8" : "#64748b";
-      ctx.font = "600 13px Inter, sans-serif";
+      ctx.font = "600 13px 'Poppins', sans-serif";
       ctx.fillText("No channel activity recorded yet.", chX, chY + 20);
     } else {
       channelsPresent.forEach(chKey => {
@@ -360,7 +360,7 @@ export function ShareProgressModal({
         const label = CHANNEL_CONFIG[chKey as keyof typeof CHANNEL_CONFIG]?.label || chKey;
         const badgeText = `${label}: ${count}`;
 
-        ctx.font = "800 12px Inter, sans-serif";
+        ctx.font = "800 12px 'Poppins', sans-serif";
         const textWidth = ctx.measureText(badgeText).width;
         const badgeWidth = textWidth + 24;
 
@@ -387,13 +387,13 @@ export function ShareProgressModal({
 
     // Inner Section 2: Lead Activity Summary Highlights
     ctx.fillStyle = isLight ? "#334155" : "#cbd5e1";
-    ctx.font = "900 13px Inter, sans-serif";
+    ctx.font = "900 13px 'Poppins', sans-serif";
     ctx.fillText("OUTREACH LOG HIGHLIGHTS & PROSPECT REPLIES", startX + 24, bodyY + 118);
 
     const leadStartY = bodyY + 140;
     if (effectiveLeads.length === 0) {
       ctx.fillStyle = isLight ? "#94a3b8" : "#64748b";
-      ctx.font = "500 14px Inter, sans-serif";
+      ctx.font = "500 14px 'Poppins', sans-serif";
       ctx.fillText("No outreach log entries recorded for this date.", startX + 24, leadStartY + 30);
     } else {
       // Prioritize genuine human replies first, then recent outreach entries
@@ -414,7 +414,7 @@ export function ShareProgressModal({
         ctx.arc(startX + 34, ly + 8, 11, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = isReply ? (isLight ? "#059669" : "#34d399") : (isLight ? "#0284c7" : "#38bdf8");
-        ctx.font = "900 10px Inter, sans-serif";
+        ctx.font = "900 10px 'Poppins', sans-serif";
         ctx.fillText(lead.channel.charAt(0).toUpperCase(), startX + 30, ly + 12);
 
         // Lead Company / Contact Name
@@ -423,7 +423,7 @@ export function ShareProgressModal({
           : lead.company_name;
 
         ctx.fillStyle = isLight ? "#0f172a" : "#ffffff";
-        ctx.font = isReply ? "900 13px Inter, sans-serif" : "800 13px Inter, sans-serif";
+        ctx.font = isReply ? "900 13px 'Poppins', sans-serif" : "800 13px 'Poppins', sans-serif";
         ctx.fillText(nameText.slice(0, 32), startX + 54, ly + 12);
 
         // Status Badge text
@@ -437,24 +437,24 @@ export function ShareProgressModal({
         ctx.stroke();
 
         ctx.fillStyle = isReply ? (isLight ? "#047857" : "#6ee7b7") : (isLight ? "#475569" : "#cbd5e1");
-        ctx.font = "800 11px Inter, sans-serif";
+        ctx.font = "800 11px 'Poppins', sans-serif";
         ctx.fillText(isReply ? "Warm-Up (Replied)" : statusCfg.label, startX + 312, ly + 12);
 
         // Note or prospect reply preview
         const snippet = lead.prospect_reply
-          ? `💬 Prospect Reply: "${lead.prospect_reply.slice(0, 50)}${lead.prospect_reply.length > 50 ? "..." : ""}"`
+          ? `Prospect Reply: "${lead.prospect_reply.slice(0, 50)}${lead.prospect_reply.length > 50 ? "..." : ""}"`
           : lead.notes
-          ? `📝 ${lead.notes.slice(0, 55)}${lead.notes.length > 55 ? "..." : ""}`
+          ? `${lead.notes.slice(0, 55)}${lead.notes.length > 55 ? "..." : ""}`
           : `Handle: ${lead.handle || "N/A"} · Industry: ${lead.industry || "General"}`;
 
         ctx.fillStyle = isReply ? (isLight ? "#047857" : "#a7f3d0") : (isLight ? "#64748b" : "#94a3b8");
-        ctx.font = isReply ? "700 12px Inter, sans-serif" : "500 12px Inter, sans-serif";
+        ctx.font = isReply ? "700 12px 'Poppins', sans-serif" : "500 12px 'Poppins', sans-serif";
         ctx.fillText(snippet, startX + 450, ly + 12);
       });
 
       if (effectiveLeads.length > 3) {
         ctx.fillStyle = isLight ? "#64748b" : "#64748b";
-        ctx.font = "700 12px Inter, sans-serif";
+        ctx.font = "700 12px 'Poppins', sans-serif";
         ctx.fillText(`+ ${effectiveLeads.length - 3} more outreach entries logged on this date`, startX + 24, leadStartY + 3 * 38 + 10);
       }
     }
@@ -481,23 +481,18 @@ export function ShareProgressModal({
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // Link Icon Symbol
-    ctx.fillStyle = isLight ? "#0d9488" : "#2dd4bf";
-    ctx.font = "900 16px Inter, sans-serif";
-    ctx.fillText("🔗", startX + 20, footerY + 38);
-
     // Label & URL
     ctx.fillStyle = isLight ? "#0f766e" : "#99f6e4";
-    ctx.font = "800 12px Inter, sans-serif";
-    ctx.fillText("EXACT DAILY CADENCE LINK", startX + 50, footerY + 27);
+    ctx.font = "800 12px 'Poppins', sans-serif";
+    ctx.fillText("EXACT DAILY CADENCE LINK", startX + 24, footerY + 27);
 
     ctx.fillStyle = isLight ? "#0f172a" : "#ffffff";
     ctx.font = "900 15px Inter, monospace";
-    ctx.fillText(exactCadenceUrl, startX + 50, footerY + 48);
+    ctx.fillText(exactCadenceUrl, startX + 24, footerY + 48);
 
     // Branding Tag on right of footer
     ctx.fillStyle = isLight ? "#475569" : "#64748b";
-    ctx.font = "700 12px Inter, sans-serif";
+    ctx.font = "700 12px 'Poppins', sans-serif";
     ctx.fillText("Generated via TAdbeer TT CRM Operational Intelligence", startX + 710, footerY + 38);
 
     // Generate PNG Data URL for preview and downloading
@@ -573,7 +568,7 @@ export function ShareProgressModal({
         <div className={`flex items-center justify-between border-b ${isLight ? "border-slate-100" : "border-slate-800"} pb-4 flex-wrap gap-2`}>
           <div className="flex items-center gap-3">
             <div className={`h-10 w-10 rounded-2xl ${isLight ? "bg-teal-50 border-teal-200 text-teal-700" : "bg-teal-500/20 border-teal-500/30 text-teal-400"} border flex items-center justify-center`}>
-              <Sparkles className="h-5 w-5" />
+              <Share2 className="h-5 w-5" />
             </div>
             <div>
               <h2 className={`text-lg font-black tracking-tight ${isLight ? "text-slate-900" : "text-white"} flex items-center gap-2`}>
@@ -691,7 +686,7 @@ export function ShareProgressModal({
         <div className={`${isLight ? "bg-slate-50 border-slate-200" : "bg-slate-950/70 border-slate-800"} border rounded-2xl p-3.5 flex items-center justify-between gap-3`}>
           <div className="min-w-0 flex-1">
             <p className={`text-[10px] font-black ${isLight ? "text-slate-400" : "text-slate-400"} uppercase tracking-wider mb-0.5`}>
-              🔗 Exact Cadence Deep Link
+              Exact Cadence Deep Link
             </p>
             <p className={`text-xs font-mono ${isLight ? "text-teal-700 font-bold" : "text-teal-300"} truncate`}>{exactCadenceUrl}</p>
           </div>

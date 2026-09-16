@@ -11,7 +11,6 @@ import {
   LayoutGrid,
   List,
   ChevronRight,
-  Sparkles,
   Building2,
   CheckCircle2,
   XCircle,
@@ -137,6 +136,11 @@ export default function PipelinePage() {
 
   useEffect(() => {
     fetchData();
+    const handleLeadUpdated = () => {
+      fetchData();
+    };
+    window.addEventListener("lead-updated", handleLeadUpdated);
+    return () => window.removeEventListener("lead-updated", handleLeadUpdated);
   }, []);
 
   const activeOpps = opportunities.filter(
@@ -163,6 +167,7 @@ export default function PipelinePage() {
 
   const handleCreate = async () => {
     if (!newForm.company_id || !newForm.title || !newForm.estimated_value) return;
+    const targetCompanyId = newForm.company_id;
     const result = await createOpportunity({
       company_id: newForm.company_id,
       title: newForm.title,
@@ -184,6 +189,9 @@ export default function PipelinePage() {
     });
     setToast({ type: "success", message: "Opportunity created" });
     fetchData();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { companyId: targetCompanyId } }));
+    }
   };
 
   const handleStageChange = async (id: string, stage: string) => {
@@ -201,6 +209,9 @@ export default function PipelinePage() {
       type: "success",
       message: `Stage updated to ${STAGE_CONFIGS[stage]?.label || stage}`,
     });
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { opportunityId: id, stage } }));
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -212,6 +223,9 @@ export default function PipelinePage() {
     }
     setToast({ type: "success", message: "Opportunity deleted" });
     fetchData();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { opportunityId: id, deleted: true } }));
+    }
   };
 
   if (loading)

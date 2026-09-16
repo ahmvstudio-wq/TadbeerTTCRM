@@ -2,8 +2,24 @@
 
 import { requireAuth } from '@/lib/auth-guard'
 import { getSupabaseAdminClient } from '@/lib/supabase/config'
+import { revalidatePath } from 'next/cache'
 
 const supabase = getSupabaseAdminClient()
+
+function revalidateAllCRMPages() {
+  try {
+    revalidatePath('/outreach')
+    revalidatePath('/daily-cadence')
+    revalidatePath('/dashboard')
+    revalidatePath('/prospects')
+    revalidatePath('/pipeline')
+    revalidatePath('/meetings')
+    revalidatePath('/calls')
+    revalidatePath('/follow-ups')
+  } catch (e) {
+    // ignore in non-request contexts
+  }
+}
 
 
 // ─── Daily Cadence Sessions ──────────────────────────────────────────
@@ -440,6 +456,7 @@ export async function saveProposal(companyId: string, contactId: string, content
     }
 
     await computeAndUpdateNextAction(companyId)
+    revalidateAllCRMPages()
 
     return { data: result.data, error: null }
   } catch (error) {
@@ -544,6 +561,7 @@ export async function markOutreachSent(data: {
     }
 
     await computeAndUpdateNextAction(data.companyId)
+    revalidateAllCRMPages()
 
     return { error: null }
   } catch (error) {
@@ -675,6 +693,7 @@ export async function logResponse(data: {
     }
 
     await computeAndUpdateNextAction(data.companyId)
+    revalidateAllCRMPages()
 
     return { error: null }
   } catch (error) {
@@ -797,6 +816,7 @@ export async function completeCallTask(data: {
     }
 
     await computeAndUpdateNextAction(data.companyId)
+    revalidateAllCRMPages()
 
     return { error: null }
   } catch (error) {

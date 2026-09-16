@@ -1,4 +1,4 @@
-﻿export interface User {
+export interface User {
   id: string;
   full_name: string;
   email: string;
@@ -22,6 +22,8 @@ export interface Company {
   employee_count: number | null;
   notes: string | null;
   status: string;
+  pipeline_stage?: string | null;
+  lead_status?: string | null;
   assigned_to: string | null;
   created_by: string | null;
   created_at: string;

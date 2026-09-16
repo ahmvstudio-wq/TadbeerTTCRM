@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import {
-  X, Mail, ExternalLink, Copy, Check, Sparkles, Building2, User, Send
+  X, Mail, ExternalLink, Copy, Check, FileText, Building2, User, Send
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -118,7 +118,7 @@ export function EmailComposerModal({
           {/* Observation Note if Available */}
           {observation && (
             <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-900/40 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2">
-              <Sparkles className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <FileText className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
               <div>
                 <span className="font-bold">Pre-Researched Signal:</span> &ldquo;{observation}&rdquo;
               </div>

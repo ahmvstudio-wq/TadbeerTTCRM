@@ -4,8 +4,24 @@ import { generateOutreachMessage } from '@/lib/ai/outreach-generator'
 import { requireAuth } from '@/lib/auth-guard'
 import { getSupabaseAdminClient } from '@/lib/supabase/config'
 import { isValidLinkedInUrl } from '@/lib/utils'
+import { revalidatePath } from 'next/cache'
 
 const supabase = getSupabaseAdminClient()
+
+function revalidateAllCRMPages() {
+  try {
+    revalidatePath('/outreach')
+    revalidatePath('/daily-cadence')
+    revalidatePath('/dashboard')
+    revalidatePath('/prospects')
+    revalidatePath('/pipeline')
+    revalidatePath('/meetings')
+    revalidatePath('/calls')
+    revalidatePath('/follow-ups')
+  } catch (e) {
+    // ignore in non-request contexts
+  }
+}
 
 
 interface CompanyFilters {
@@ -196,6 +212,7 @@ export async function createCompany(data: {
     // Auto-generate pre-staged sequence and warm draft
     generateOutreachMessage(company.id).catch(err => console.error("Auto draft error:", err))
 
+    revalidateAllCRMPages()
     return { data: company, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -213,6 +230,7 @@ export async function updateCompany(id: string, data: { company_name?: string; i
       .single()
 
     if (error) return { data: null, error: error.message }
+    revalidateAllCRMPages()
     return { data: company, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -224,33 +242,70 @@ export async function updateCompanyStatus(id: string, status: string) {
     await requireAuth()
 
     // Map status to valid database status and pipeline_stage
-    let dbStatus = status
+    // Allowed values for companies.status CHECK constraint:
+    // ('prospect', 'contacted', 'in_call_queue', 'meeting_booked', 'opportunity', 'won', 'lost')
+    let dbStatus = 'prospect'
     let pipelineStage = 'New'
+    let actStatus = 'gate_opener_staged'
 
-    if (status === 'prospect') {
+    const s = (status || '').toLowerCase().trim()
+
+    if (s === 'prospect' || s === 'gate_opener_staged' || s === 'new') {
       dbStatus = 'prospect'
       pipelineStage = 'New'
-    } else if (status === 'contacted' || status === 'no_reply') {
+      actStatus = 'gate_opener_staged'
+    } else if (s === 'no_reply') {
       dbStatus = 'contacted'
       pipelineStage = 'Contacted'
-    } else if (['reply_received', 'interested', 'objection', 'followup_required', 'warm_up', 'replied_interested', 'opening_identified'].includes(status)) {
+      actStatus = 'no_reply'
+    } else if (s === 'contacted' || s === 'gate_opener_sent' || s === 'sent' || s === 'follow_up_sent') {
+      dbStatus = 'contacted'
+      pipelineStage = 'Contacted'
+      actStatus = s === 'follow_up_sent' ? 'follow_up_sent' : 'gate_opener_sent'
+    } else if (['reply_received', 'warm_up', 'replied'].includes(s)) {
       dbStatus = 'contacted'
       pipelineStage = 'Replied'
-    } else if (['in_call_queue', 'ready_for_call', 'call_ready', 'coffee_invited'].includes(status)) {
+      actStatus = 'warm_up'
+    } else if (['interested', 'replied_interested', 'opening_identified'].includes(s)) {
+      dbStatus = 'contacted'
+      pipelineStage = 'Replied'
+      actStatus = 'opening_identified'
+    } else if (['objection', 'replied_objection'].includes(s)) {
+      dbStatus = 'contacted'
+      pipelineStage = 'Replied'
+      actStatus = 'opening_identified'
+    } else if (s === 'followup_required') {
+      dbStatus = 'contacted'
+      pipelineStage = 'Replied'
+      actStatus = 'warm_up'
+    } else if (['in_call_queue', 'ready_for_call', 'call_ready', 'coffee_invited'].includes(s)) {
       dbStatus = 'in_call_queue'
       pipelineStage = 'Call Ready'
-    } else if (['meeting_booked', 'proposal'].includes(status)) {
+      actStatus = s === 'coffee_invited' ? 'coffee_invited' : 'ready_for_call'
+    } else if (s === 'called') {
+      dbStatus = 'contacted'
+      pipelineStage = 'Contacted'
+      actStatus = 'called'
+    } else if (['meeting_booked', 'proposal', 'proposal_requested'].includes(s)) {
       dbStatus = 'meeting_booked'
       pipelineStage = 'Meeting Booked'
-    } else if (status === 'opportunity') {
+      actStatus = s === 'proposal_requested' ? 'proposal_requested' : 'meeting_booked'
+    } else if (s === 'opportunity') {
       dbStatus = 'opportunity'
       pipelineStage = 'Opportunity'
-    } else if (status === 'won') {
+      actStatus = 'meeting_booked'
+    } else if (s === 'won') {
       dbStatus = 'won'
       pipelineStage = 'Won'
-    } else if (['lost', 'dormant'].includes(status)) {
+      actStatus = 'meeting_booked'
+    } else if (['lost', 'dormant', 'not_now_snoozed'].includes(s)) {
       dbStatus = 'lost'
       pipelineStage = 'Lost'
+      actStatus = 'not_now_snoozed'
+    } else {
+      dbStatus = 'contacted'
+      pipelineStage = 'Contacted'
+      actStatus = 'gate_opener_sent'
     }
 
     const { data: company, error: updateError } = await supabase
@@ -266,27 +321,33 @@ export async function updateCompanyStatus(id: string, status: string) {
 
     if (updateError) return { data: null, error: updateError.message }
 
-    // Sync latest outreach activity if exists
+    // Sync latest outreach activity if exists, or insert new one so ig-dm has matching record
     const { data: acts } = await supabase
       .from('activities')
-      .select('id, description')
+      .select('id, description, activity_type')
       .eq('company_id', id)
+      .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent'])
       .order('created_at', { ascending: false })
       .limit(1)
 
     if (acts && acts.length > 0) {
       const act = acts[0]
       let p: any = {}
-      try { p = JSON.parse(act.description) } catch {}
-      let actStatus: string = 'gate_opener_sent'
-      if (pipelineStage === 'New') actStatus = 'gate_opener_staged'
-      else if (pipelineStage === 'Contacted') actStatus = 'gate_opener_sent'
-      else if (pipelineStage === 'Replied') actStatus = 'warm_up'
-      else if (pipelineStage === 'Call Ready') actStatus = 'ready_for_call'
-      else if (pipelineStage === 'Meeting Booked') actStatus = 'meeting_booked'
-
+      try { p = act.description ? JSON.parse(act.description) : {} } catch {}
       const newP = { ...p, status: actStatus, updated_at: new Date().toISOString() }
       await supabase.from('activities').update({ description: JSON.stringify(newP) }).eq('id', act.id)
+    } else {
+      await supabase.from('activities').insert({
+        company_id: id,
+        activity_type: 'call_made',
+        title: `Outreach Status — ${actStatus}`,
+        description: JSON.stringify({
+          channel: 'cold_call',
+          status: actStatus,
+          updated_at: new Date().toISOString()
+        }),
+        created_at: new Date().toISOString()
+      })
     }
 
     await supabase.from('activities').insert({
@@ -294,9 +355,20 @@ export async function updateCompanyStatus(id: string, status: string) {
       activity_type: 'status_changed',
       title: 'Company status updated',
       description: `Status changed to "${pipelineStage}" (${dbStatus})`,
-      metadata: { new_status: dbStatus, pipeline_stage: pipelineStage },
+      metadata: { new_status: dbStatus, pipeline_stage: pipelineStage, outreach_status: actStatus },
       created_at: new Date().toISOString()
     })
+
+    try {
+      revalidatePath('/outreach')
+      revalidatePath('/daily-cadence')
+      revalidatePath('/dashboard')
+      revalidatePath('/prospects')
+      revalidatePath('/pipeline')
+      revalidatePath('/meetings')
+      revalidatePath('/calls')
+      revalidatePath('/follow-ups')
+    } catch {}
 
     return { data: company, error: null }
   } catch (error) {
@@ -315,6 +387,7 @@ export async function updateCompanyLeadType(id: string, lead_type: string) {
       .single()
 
     if (error) return { data: null, error: error.message }
+    revalidateAllCRMPages()
     return { data: company, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -333,6 +406,7 @@ export async function addCompanyActivity(company_id: string, title: string, desc
     }).select().single()
 
     if (error) return { data: null, error: error.message }
+    revalidateAllCRMPages()
     return { data: activity, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -371,6 +445,7 @@ export async function assignCompanyLead(id: string, assigned_to: string | null) 
       created_at: new Date().toISOString()
     })
 
+    revalidateAllCRMPages()
     return { data: company, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -393,6 +468,7 @@ export async function upsertCompanyContact(companyId: string, contactData: { id?
         .single()
 
       if (error) return { data: null, error: error.message }
+      revalidateAllCRMPages()
       return { data, error: null }
     } else {
       const { data, error } = await supabase
@@ -407,9 +483,67 @@ export async function upsertCompanyContact(companyId: string, contactData: { id?
         .single()
 
       if (error) return { data: null, error: error.message }
+      revalidateAllCRMPages()
       return { data, error: null }
     }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
   }
 }
+
+export async function saveCompanyMeetingDocsAndSDRSheet(
+  companyId: string,
+  data: {
+    meeting_docs?: any[]
+    sdr_sheet?: any
+  }
+) {
+  try {
+    await requireAuth()
+    const cleanId = String(companyId || '').replace(/^staged-/, '').trim()
+
+    // 1. Fetch current research_json
+    const { data: co, error: fetchErr } = await supabase
+      .from('companies')
+      .select('research_json, notes')
+      .eq('id', cleanId)
+      .single()
+
+    if (fetchErr) return { data: null, error: fetchErr.message }
+
+    const currentRJson = (co?.research_json && typeof co.research_json === 'object') ? co.research_json : {}
+    const updatedRJson = {
+      ...currentRJson,
+      ...(data.meeting_docs !== undefined ? { meeting_docs: data.meeting_docs } : {}),
+      ...(data.sdr_sheet !== undefined ? { sdr_sheet: data.sdr_sheet } : {})
+    }
+
+    const { data: updatedCo, error: updateErr } = await supabase
+      .from('companies')
+      .update({
+        research_json: updatedRJson,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', cleanId)
+      .select()
+      .single()
+
+    if (updateErr) return { data: null, error: updateErr.message }
+
+    // 2. Log activity timeline item
+    const docsCount = Array.isArray(data.meeting_docs) ? data.meeting_docs.length : (updatedRJson.meeting_docs?.length || 0)
+    await supabase.from('activities').insert({
+      company_id: cleanId,
+      activity_type: 'meeting_docs_updated',
+      title: 'SDR Meeting Docs & Context Sheet Updated',
+      description: `Updated SDR pre-call sheet and meeting documents (${docsCount} doc${docsCount !== 1 ? 's' : ''} attached)`,
+      created_at: new Date().toISOString()
+    })
+
+    revalidateAllCRMPages()
+    return { data: updatedCo, error: null }
+  } catch (error) {
+    return { data: null, error: error instanceof Error ? error.message : 'Failed to save meeting docs' }
+  }
+}
+

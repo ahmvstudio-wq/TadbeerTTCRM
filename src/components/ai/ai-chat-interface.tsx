@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, Send, Bot, User, RefreshCw, CheckCircle2, Clock, Calendar, ArrowRight, Zap } from 'lucide-react';
+import { Send, Bot, User, RefreshCw, CheckCircle2, Clock, Calendar, ArrowRight, Zap } from 'lucide-react';
 
 export interface Message {
   id: string;
@@ -12,11 +12,11 @@ export interface Message {
 }
 
 const STARTER_PROMPTS = [
-  { label: '📊 Executive Summary', query: 'Show me today\'s executive summary and key CRM stats' },
-  { label: '⚠️ Overdue Follow-ups', query: 'What follow-ups are overdue and need urgent action?' },
-  { label: '💼 Pipeline Status', query: 'Give me a breakdown of all active pipeline opportunities' },
-  { label: '📅 Meetings Schedule', query: 'Show all upcoming meetings scheduled this week' },
-  { label: '✉️ Tadbeer Outreach Pitch', query: 'Recommend outreach message templates for manpower & domestic staffing' }
+  { label: 'Executive Summary', query: 'Show me today\'s executive summary and key CRM stats' },
+  { label: 'Overdue Follow-ups', query: 'What follow-ups are overdue and need urgent action?' },
+  { label: 'Pipeline Status', query: 'Give me a breakdown of all active pipeline opportunities' },
+  { label: 'Meetings Schedule', query: 'Show all upcoming meetings scheduled this week' },
+  { label: 'Tadbeer Outreach Pitch', query: 'Recommend outreach message templates for manpower & domestic staffing' }
 ];
 
 export function AIChatInterface({ isCompact = false }: { isCompact?: boolean }) {
@@ -24,7 +24,7 @@ export function AIChatInterface({ isCompact = false }: { isCompact?: boolean }) 
     {
       id: 'welcome',
       role: 'assistant',
-      content: `### 👋 Welcome to Tadbeer Co-Pilot!
+      content: `### Welcome to Tadbeer Co-Pilot!
 I am your **AI Sales Operations Employee**. I manage CRM records, keep track of daily follow-ups, update deal pipeline stages, and generate high-converting outreach copy.
 
 How can I assist your sales team today?`,
@@ -89,7 +89,7 @@ How can I assist your sales team today?`,
         {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: '⚠️ **Unable to process request**. Please verify server connection and try again.',
+          content: '**Unable to process request**. Please verify server connection and try again.',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);

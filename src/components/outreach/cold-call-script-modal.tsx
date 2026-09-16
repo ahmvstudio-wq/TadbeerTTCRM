@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Copy, Check, PhoneCall, Sparkles, BookOpen } from "lucide-react";
+import { X, Copy, Check, PhoneCall, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 

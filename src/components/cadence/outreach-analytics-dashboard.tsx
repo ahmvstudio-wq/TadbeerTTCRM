@@ -13,7 +13,6 @@ import {
   Mail,
   Camera,
   ArrowUpRight,
-  Sparkles,
   Filter,
   BarChart3,
   Loader2,

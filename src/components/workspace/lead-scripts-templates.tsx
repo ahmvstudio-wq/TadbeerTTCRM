@@ -5,7 +5,6 @@ import {
   FileText,
   Copy,
   Check,
-  Sparkles,
   Phone,
   MessageCircle,
   Globe2,

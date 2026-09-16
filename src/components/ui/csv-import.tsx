@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useMemo } from "react";
-import { Upload, FileText, AlertTriangle, CheckCircle2, X, ArrowRight, Sparkles, Filter, MessageSquare, PhoneCall, Layers } from "lucide-react";
+import { Upload, FileText, AlertTriangle, CheckCircle2, X, ArrowRight, Filter, MessageSquare, PhoneCall, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Select } from "@/components/ui/select";
@@ -486,7 +486,7 @@ export function CsvImport({
               {/* Group 3: Context & Segmentation */}
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-slate-800 border-b border-slate-100 pb-1">
-                  <Sparkles className="h-3 w-3 text-amber-500" />
+                  <Layers className="h-3 w-3 text-amber-600" />
                   <span>3. Research Context & Segmentation</span>
                 </div>
                 {effectiveFields.filter(f => f.group === 'context').map(field => {

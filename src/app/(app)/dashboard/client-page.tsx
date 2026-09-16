@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Users, Send, Phone, Clock, Calendar, TrendingUp, AlertTriangle,
-  Building2, ChevronDown, ChevronRight, Sparkles, Zap, Flame, DollarSign,
+  Building2, ChevronDown, ChevronRight, Zap, Flame, DollarSign,
   Activity, ArrowRight, MessageCircle, Mail, ExternalLink, CheckCircle2,
   BarChart3, PieChart, RefreshCw, ShieldAlert, ArrowUpRight, Plus, Filter,
   Target, Layers, Compass, Award, Percent, CheckSquare, LineChart, Briefcase, Search, Loader2
@@ -20,7 +20,6 @@ import { getFollowUps } from "@/lib/actions/followups";
 import { getMeetings } from "@/lib/actions/meetings";
 import { getOpportunities } from "@/lib/actions/opportunities";
 import { getLinkedInProspects } from "@/lib/actions/linkedin";
-import { ContactDetailDrawer } from "@/components/outreach/contact-detail-drawer";
 import { updateOutreachStatus, updateOutreachEntry, deleteOutreachLog, getAllLeadsForPipeline } from "@/lib/actions/ig-dm";
 import { type OutreachLead } from "@/lib/types/outreach";
 import { useUnifiedLead } from "@/context/unified-lead-context";
@@ -151,12 +150,35 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
     setGeneratingBatch(false);
   };
   const [chartView, setChartView] = useState<"monthly" | "yearly">("yearly");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
-  const [drawerLead, setDrawerLead] = useState<OutreachLead | null>(null);
 
-  // Data is fetched on the server now
+  const refreshDashboardData = useCallback(async () => {
+    try {
+      const [statsRes, compRes, fuRes, meetingsRes, outreachRes] = await Promise.all([
+        getDashboardStats(),
+        getCompanies(),
+        getFollowUps("pending"),
+        getMeetings("upcoming"),
+        getAllLeadsForPipeline("all")
+      ]);
+      if (statsRes.data) setStats(statsRes.data);
+      if (compRes.data) setCompanies(compRes.data);
+      if (fuRes.data) setFollowUpsList(fuRes.data);
+      if (meetingsRes.data) setMeetingsList(meetingsRes.data);
+      if (outreachRes.data) setOutreachLeads(outreachRes.data);
+    } catch (err) {
+      console.error("Dashboard silent refresh error:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleLeadUpdated = () => {
+      refreshDashboardData();
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("lead-updated", handleLeadUpdated);
+      return () => window.removeEventListener("lead-updated", handleLeadUpdated);
+    }
+  }, [refreshDashboardData]);
 
   // Verified Uncontacted & Ready Leads with Phone/WhatsApp
   const callReadyLeads = useMemo(() => {
@@ -167,30 +189,11 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
     });
   }, [companies]);
 
-  // Filtered CRM Companies
-  const filteredCompanies = useMemo(() => {
-    return companies.filter(c => {
-      const matchesSearch =
-        c.company_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.industry?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.status?.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      let matchesStatus = true;
-      if (statusFilter === "call_ready") {
-        const phoneNum = c.phone || (c.contacts && c.contacts.find((cnt: any) => cnt.phone || cnt.whatsapp)?.phone) || (c.contacts && c.contacts.find((cnt: any) => cnt.whatsapp)?.whatsapp);
-        matchesStatus = Boolean(phoneNum && String(phoneNum).trim().length >= 7) && c.status !== "won" && c.status !== "lost" && c.status !== "dormant";
-      } else if (statusFilter !== "all") {
-        matchesStatus = c.status === statusFilter;
-      }
-      return matchesSearch && matchesStatus;
-    });
-  }, [companies, searchQuery, statusFilter]);
-
   // Outreach Follow-ups Remaining (Reached Out 2-3+ Days Ago with No Reply)
   const outreachFollowupsRemaining = useMemo(() => {
     const now = Date.now();
     return outreachLeads.filter(l => {
-      const isPendingReply = l.status === "sent" || l.status === "no_reply";
+      const isPendingReply = l.status === "sent" || l.status === "no_reply" || l.status === "gate_opener_sent";
       if (!isPendingReply) return false;
       const sentTime = l.sent_at ? new Date(l.sent_at).getTime() : 0;
       if (!sentTime || isNaN(sentTime)) return false;
@@ -198,23 +201,6 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
       return diffDays >= 2;
     });
   }, [outreachLeads]);
-
-  const toggleSelectRow = (id: string) => {
-    setSelectedRows(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedRows.size === filteredCompanies.length) {
-      setSelectedRows(new Set());
-    } else {
-      setSelectedRows(new Set(filteredCompanies.map(c => c.id)));
-    }
-  };
 
   const totalProspects = initialData.stats?.total_companies ?? companies.length;
   const inOutreachCount = initialData.stats?.in_outreach ?? companies.filter(c => c.status === 'contacted' || c.status === 'in_call_queue' || c.status === 'meeting_booked' || c.pipeline_stage === 'Contacted' || c.pipeline_stage === 'Replied').length;
@@ -856,43 +842,6 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
           </Link>
         </div>
       </div>
-
-      {/* ── Standardized Contact Detail Drawer ─────────────────────────────── */}
-      <ContactDetailDrawer
-        isOpen={!!drawerLead}
-        onClose={() => setDrawerLead(null)}
-        lead={drawerLead}
-        onStatusChange={async (id, s) => {
-          await updateOutreachStatus(id, { status: s });
-          setDrawerLead(prev => prev ? { ...prev, status: s } : null);
-          setOutreachLeads(prev => prev.map(l => l.id === id || l.company_id === id ? { ...l, status: s } : l));
-          setCompanies(prev => prev.map(c => {
-            if (c.id === id || (drawerLead && c.id === drawerLead.company_id)) {
-              let stage = 'Contacted';
-              let st = 'contacted';
-              if (s === 'ready_for_call' || s === 'coffee_invited') { stage = 'Call Ready'; st = 'in_call_queue'; }
-              else if (s === 'warm_up' || s === 'opening_identified') { stage = 'Replied'; st = 'contacted'; }
-              else if (s === 'meeting_booked') { stage = 'Meeting Booked'; st = 'meeting_booked'; }
-              return { ...c, status: st as any, pipeline_stage: stage };
-            }
-            return c;
-          }));
-          router.refresh();
-        }}
-        onDelete={async (id) => {
-          await deleteOutreachLog(id);
-          setDrawerLead(null);
-          setOutreachLeads(prev => prev.filter(l => l.id !== id));
-          router.refresh();
-        }}
-        onSaveEntry={async (id, data) => {
-          await updateOutreachEntry(id, data);
-          if (data.status) {
-            setDrawerLead(prev => prev ? { ...prev, ...data } : null);
-          }
-          router.refresh();
-        }}
-      />
 
       {/* ── Dedicated Slide-Over Window for Daily To Call List ──────────── */}
       <ToCallListDrawer

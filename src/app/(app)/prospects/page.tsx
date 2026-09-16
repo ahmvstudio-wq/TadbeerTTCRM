@@ -8,7 +8,7 @@ import {
   AlertTriangle, Trash2, Pencil, ChevronDown, ChevronRight,
   MessageCircle, Download, LayoutGrid, List, ArrowUpDown, 
   TrendingUp, Users, Target, Clock, ArrowRight, Loader2, Activity,
-  Sparkles, Flame, UserCheck, X, FileText, Send, CheckCircle2,
+  Flame, UserCheck, X, FileText, Send, CheckCircle2,
   Grid, Calendar, Filter, Zap, Globe, MapPin, Tag, User, Layers, PhoneCall, Bot, Camera, Copy
 } from "lucide-react";
 import { cn, formatWhatsAppNumber, formatPhoneNumberForDisplay, formatOmanWhatsAppUrl, isValidLinkedInUrl } from "@/lib/utils";
@@ -154,6 +154,13 @@ export default function ProspectsPage() {
 
   useEffect(() => { fetchProspects(); }, [fetchProspects]);
   useEffect(() => { const t = setTimeout(() => fetchProspects(search, statusFilter), 300); return () => clearTimeout(t); }, [search, statusFilter, fetchProspects]);
+  useEffect(() => {
+    const handleLeadUpdated = () => {
+      fetchProspects(search, statusFilter);
+    };
+    window.addEventListener("lead-updated", handleLeadUpdated);
+    return () => window.removeEventListener("lead-updated", handleLeadUpdated);
+  }, [fetchProspects, search, statusFilter]);
 
   const handleImport = async (data: Record<string, string>[], channel?: any) => {
     const result = await bulkImportCompanies(data, channel);
@@ -165,6 +172,9 @@ export default function ProspectsPage() {
       addToast("success", `Successfully imported ${result.imported} prospects ${channel && channel !== 'all' ? `to ${channel}` : ''}!`);
     }
     fetchProspects(search, statusFilter);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { imported: true } }));
+    }
   };
 
   const handleDelete = async (id: string, name: string) => {
@@ -174,6 +184,9 @@ export default function ProspectsPage() {
     else { 
       addToast("success", `"${name}" deleted`); 
       fetchProspects(search, statusFilter); 
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("lead-updated", { detail: { companyId: id, deleted: true } }));
+      }
     }
   };
 
@@ -183,6 +196,9 @@ export default function ProspectsPage() {
     else {
       addToast("success", `Status updated to ${COMPANY_STATUSES[newStatus as CompanyStatus]?.label}`);
       setProspects(prev => prev.map(p => p.id === id ? { ...p, status: newStatus } : p));
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("lead-updated", { detail: { companyId: id, status: newStatus } }));
+      }
     }
   };
 
@@ -190,6 +206,9 @@ export default function ProspectsPage() {
     const res = await addToCallQueue(id);
     addToast("success", `"${name}" added to Daily Cadence Call Queue!`);
     setProspects(prev => prev.map(p => p.id === id ? { ...p, status: 'in_call_queue' } : p));
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { companyId: id, status: 'in_call_queue' } }));
+    }
   };
 
   const handleBatchSendToCadence = async () => {
@@ -197,6 +216,9 @@ export default function ProspectsPage() {
     const res = await addBatchToCallQueue(selectedIds);
     addToast("success", `Queued ${res.count || selectedIds.length} prospects to Daily Cadence Call Queue!`);
     fetchProspects(search, statusFilter);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { status: 'in_call_queue' } }));
+    }
   };
 
   const handleLeadTypeChange = async (id: string, newType: string) => {
@@ -205,6 +227,9 @@ export default function ProspectsPage() {
     else {
       addToast("success", `Categorized as ${newType}`);
       setProspects(prev => prev.map(p => p.id === id ? { ...p, lead_type: newType } : p));
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("lead-updated", { detail: { companyId: id, leadType: newType } }));
+      }
     }
   };
 
@@ -217,6 +242,9 @@ export default function ProspectsPage() {
     }
     addToast("success", `Updated ${count} prospects to ${COMPANY_STATUSES[newStatus as CompanyStatus]?.label}`);
     fetchProspects(search, statusFilter);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { status: newStatus } }));
+    }
   };
 
   const extractInstagramUrl = useCallback((input: any): string => {
@@ -636,7 +664,7 @@ export default function ProspectsPage() {
               disabled={batchGenerating}
               className="bg-[#0f343c] hover:bg-[#091f24] text-white border border-[#16434d] text-xs font-mono font-bold h-8 rounded-lg transition-all cursor-pointer shadow-xs flex items-center gap-1.5"
             >
-              {batchGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 text-white" />}
+              {batchGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5 text-white" />}
               AI Drafts
             </Button>
             <Link href="/daily-cadence">
@@ -1273,6 +1301,9 @@ export default function ProspectsPage() {
                   // Optimistic local UI update
                   setProspects(prev => prev.map(p => p.id === prospectId ? { ...p, status: statusKey } : p));
                   addToast("success", `Moved "${targetProspect.company_name}" to ${statusConfig?.label || statusKey}`);
+                  if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("lead-updated", { detail: { companyId: prospectId, status: statusKey } }));
+                  }
 
                   try {
                     const res = await updateCompanyStatus(prospectId, statusKey);

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import {
-  Sparkles,
   Send,
   Loader2,
   Bot,
@@ -122,7 +121,7 @@ export function LeadAICopilot({
       <div className="flex items-center justify-between border-b border-slate-200 pb-3 shrink-0">
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black">
-            <Sparkles className="h-4 w-4 text-teal-400" />
+            <Bot className="h-4 w-4 text-teal-400" />
           </div>
           <div>
             <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
@@ -143,7 +142,7 @@ export function LeadAICopilot({
             onClick={() => handleAsk(qq)}
             className="px-2.5 py-1 bg-slate-100 hover:bg-teal-50 hover:text-teal-900 border border-slate-200 hover:border-teal-200 text-slate-700 font-semibold text-[10px] rounded-lg cursor-pointer whitespace-nowrap transition-all"
           >
-            💡 {qq}
+            {qq}
           </button>
         ))}
       </div>

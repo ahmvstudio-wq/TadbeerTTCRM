@@ -31,9 +31,6 @@ const mainNav = [
 ]
 
 const extraNav = [
-  { name: "Bulk Proposals", href: "/daily-cadence/bulk-proposals", icon: FileText },
-  { name: "Calls", href: "/calls", icon: Phone },
-  { name: "Follow-ups", href: "/follow-ups", icon: Clock },
   { name: "Meetings", href: "/meetings", icon: Calendar },
   { name: "Pipeline", href: "/pipeline", icon: TrendingUp },
   { name: "Settings", href: "/settings", icon: Settings },

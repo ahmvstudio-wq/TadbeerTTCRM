@@ -4,15 +4,16 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Plus, X, ChevronDown, ChevronUp, Phone, MessageCircle,
   Loader2, Trash2, CheckCircle2, RefreshCw, Moon, Send,
-  Check, AlertTriangle, Mail, BookOpen, Sparkles, Globe,
+  Check, AlertTriangle, Mail, BookOpen, Globe,
   Upload, FileSpreadsheet, Table, Settings2, FileUp, FileText,
+  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn, formatWhatsAppNumber, getCleanDisplayNotes, getCleanObservation, getCleanDraftMessage } from "@/lib/utils";
 import {
-  logOutreach, updateOutreachStatus, updateOutreachEntry, getAllLeadsForPipeline, deleteOutreachLog, bulkLogOutreach, importCSVOutreach, markChannelTouchSent, type MappedCSVRow
+  logOutreach, updateOutreachStatus, updateOutreachEntry, getAllLeadsForPipeline, deleteOutreachLog, bulkLogOutreach, importCSVOutreach, markChannelTouchSent, markLeadFollowedUp, type MappedCSVRow
 } from "@/lib/actions/ig-dm";
 import { getCompanies } from "@/lib/actions/companies";
 import {
@@ -21,7 +22,6 @@ import {
 } from "@/lib/types/outreach";
 import { ColdCallScriptModal } from "@/components/outreach/cold-call-script-modal";
 import { DMEmailTemplateModal } from "@/components/outreach/dm-email-template-modal";
-import { ContactDetailDrawer } from "@/components/outreach/contact-detail-drawer";
 import { PowerHourModal } from "@/components/outreach/power-hour-modal";
 import { EmailComposerModal } from "@/components/outreach/email-composer-modal";
 import { CsvImport } from "@/components/ui/csv-import";
@@ -57,23 +57,23 @@ function getDaysElapsed(dateStr: string): number {
 
 // ─── Status chip styles ───────────────────────────────────────────────────────
 const STATUS_CHIP: Record<OutreachStatus, string> = {
-  gate_opener_staged: "bg-slate-100 text-slate-700 border-slate-200",
-  gate_opener_sent:   "bg-blue-50 text-blue-700 border-blue-200",
-  warm_up:            "bg-indigo-50 text-indigo-700 border-indigo-200",
-  opening_identified: "bg-amber-50 text-amber-700 border-amber-200",
-  coffee_invited:     "bg-teal-50 text-teal-700 border-teal-200",
-  meeting_booked:     "bg-pink-50 text-pink-700 border-pink-200",
-  follow_up_sent:     "bg-violet-50 text-violet-700 border-violet-200",
-  proposal_requested: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  not_now_snoozed:    "bg-gray-100 text-gray-500 border-gray-200",
-  agency_existing:    "bg-orange-50 text-orange-700 border-orange-200",
-  sent:               "bg-blue-50 text-blue-700 border-blue-200",
-  no_reply:           "bg-slate-100 text-slate-500 border-slate-200",
-  reply_received:     "bg-indigo-50 text-indigo-700 border-indigo-200",
-  replied_interested: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  replied_objection:  "bg-amber-50 text-amber-700 border-amber-200",
-  ready_for_call:     "bg-teal-50 text-teal-700 border-teal-200",
-  called:             "bg-violet-50 text-violet-600 border-violet-200",
+  gate_opener_staged: "bg-slate-200 text-slate-900 border-slate-400 font-bold",
+  gate_opener_sent:   "bg-blue-100 text-blue-950 border-blue-400 font-bold",
+  warm_up:            "bg-indigo-100 text-indigo-950 border-indigo-400 font-bold",
+  opening_identified: "bg-amber-100 text-amber-950 border-amber-400 font-bold",
+  coffee_invited:     "bg-orange-100 text-orange-950 border-orange-400 font-bold",
+  meeting_booked:     "bg-emerald-100 text-emerald-950 border-emerald-500 font-bold",
+  follow_up_sent:     "bg-teal-100 text-teal-950 border-teal-400 font-bold",
+  proposal_requested: "bg-purple-100 text-purple-950 border-purple-400 font-bold",
+  not_now_snoozed:    "bg-gray-200 text-gray-800 border-gray-400 font-bold",
+  agency_existing:    "bg-cyan-100 text-cyan-950 border-cyan-400 font-bold",
+  sent:               "bg-blue-100 text-blue-950 border-blue-400 font-bold",
+  no_reply:           "bg-rose-100 text-rose-950 border-rose-300 font-bold",
+  reply_received:     "bg-indigo-100 text-indigo-950 border-indigo-400 font-bold",
+  replied_interested: "bg-emerald-100 text-emerald-950 border-emerald-500 font-bold",
+  replied_objection:  "bg-amber-100 text-amber-950 border-amber-400 font-bold",
+  ready_for_call:     "bg-teal-100 text-teal-950 border-teal-500 font-bold",
+  called:             "bg-violet-100 text-violet-950 border-violet-400 font-bold",
 };
 
 const STATUSES: OutreachStatus[] = [
@@ -114,10 +114,19 @@ export default function OutreachPipelinePage() {
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const { openLead } = useUnifiedLead();
-  const [viewMode, setViewMode] = useState<"table" | "kanban">("table");
+  const [viewMode, setViewMode] = useState<"all" | "followups" | "calls" | "kanban">("all");
   const [logOpen, setLogOpen] = useState(false);
   const [activeCard, setActiveCard] = useState<string | null>(null);
-  const [drawerLead, setDrawerLead] = useState<OutreachLead | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab");
+      if (tab === "followups" || tab === "follow-ups") setViewMode("followups");
+      else if (tab === "calls" || tab === "call") setViewMode("calls");
+      else if (tab === "kanban") setViewMode("kanban");
+    }
+  }, []);
 
   // Power-Hour Focus State
   const [powerHourOpen, setPowerHourOpen] = useState(false);
@@ -153,6 +162,16 @@ export default function OutreachPipelinePage() {
     fetchLeads(true);
   }, [fetchLeads]);
 
+  useEffect(() => {
+    const handleLeadUpdated = () => {
+      fetchLeads(true);
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("lead-updated", handleLeadUpdated);
+      return () => window.removeEventListener("lead-updated", handleLeadUpdated);
+    }
+  }, [fetchLeads]);
+
   // Filtered Leads by Search Query, Sector, and Stage
   const filteredLeads = leads.filter(l => {
     if (sectorFilter !== "all" && l.sector !== sectorFilter) return false;
@@ -184,18 +203,71 @@ export default function OutreachPipelinePage() {
     });
   }, [filteredLeads]);
 
-  // Reset pagination on filter changes
+  // Reset pagination on filter or viewMode changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [dateFilter, channelFilter, sectorFilter, stageFilter, searchQuery]);
+  }, [dateFilter, channelFilter, sectorFilter, stageFilter, searchQuery, viewMode]);
 
-  const totalItems = sortedFilteredLeads.length;
+  // Metrics & Compiled Lists
+  const total             = leads.length;
+  const replyReceivedList = filteredLeads.filter(l => l.status === "reply_received" || l.stage === "warm_up");
+  const followupsDueList  = leads.filter(l => (l.status === "sent" || l.status === "no_reply" || l.status === "gate_opener_sent" || l.stage === "gate_opener_sent") && getDaysElapsed(l.sent_at) >= 2);
+  const interested        = leads.filter(l => l.status === "replied_interested" || l.stage === "opening_identified").length;
+  const callReady         = leads.filter(l => l.status === "ready_for_call" || l.stage === "coffee_invited").length;
+  const booked            = leads.filter(l => l.status === "meeting_booked" || l.stage === "meeting_booked").length;
+
+  const callList          = filteredLeads.filter(l => l.status === "ready_for_call" || l.stage === "coffee_invited");
+  const pipeList          = filteredLeads.filter(l => l.status === "sent" || l.status === "no_reply" || l.status === "replied_interested" || l.status === "replied_objection");
+  const doneList          = filteredLeads.filter(l => l.status === "called" || l.status === "meeting_booked");
+
+  // Active Leads for Current Compiled Tab
+  const activeLeadsList = useMemo(() => {
+    if (viewMode === "followups") {
+      return followupsDueList.filter(l => {
+        if (sectorFilter !== "all" && l.sector !== sectorFilter) return false;
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase().trim();
+          return l.company_name.toLowerCase().includes(q) || (l.handle || "").toLowerCase().includes(q);
+        }
+        return true;
+      });
+    }
+    if (viewMode === "calls") {
+      return callList.filter(l => {
+        if (sectorFilter !== "all" && l.sector !== sectorFilter) return false;
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase().trim();
+          return l.company_name.toLowerCase().includes(q) || (l.handle || "").toLowerCase().includes(q);
+        }
+        return true;
+      });
+    }
+    return sortedFilteredLeads;
+  }, [viewMode, followupsDueList, callList, sortedFilteredLeads, sectorFilter, searchQuery]);
+
+  const totalItems = activeLeadsList.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const paginatedLeads = useMemo(() => {
-    if (pageSize >= 999999) return sortedFilteredLeads;
+    if (pageSize >= 999999) return activeLeadsList;
     const start = (currentPage - 1) * pageSize;
-    return sortedFilteredLeads.slice(start, start + pageSize);
-  }, [sortedFilteredLeads, currentPage, pageSize]);
+    return activeLeadsList.slice(start, start + pageSize);
+  }, [activeLeadsList, currentPage, pageSize]);
+
+  const handleMarkFollowedUp = async (lead: OutreachLead) => {
+    setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: "follow_up_sent", sent_at: new Date().toISOString() } : l));
+    try {
+      await markLeadFollowedUp(lead.id, lead.company_id);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("lead-updated", {
+          detail: { companyId: lead.company_id || lead.id, status: "follow_up_sent" }
+        }));
+      }
+      handleSilentUpdate();
+    } catch (err) {
+      console.error("Failed to mark follow-up:", err);
+      fetchLeads(true);
+    }
+  };
 
   const handleDropToColumn = async (leadId: string, targetCol: "call_tonight" | "reply_received" | "pipeline" | "done") => {
     let targetStatus: OutreachStatus = "sent";
@@ -204,9 +276,15 @@ export default function OutreachPipelinePage() {
     else if (targetCol === "pipeline") targetStatus = "sent";
     else if (targetCol === "done") targetStatus = "called";
 
+    const targetLead = leads.find(l => l.id === leadId);
     setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: targetStatus } : l));
     try {
       await updateOutreachStatus(leadId, { status: targetStatus });
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("lead-updated", {
+          detail: { companyId: targetLead?.company_id || leadId, status: targetStatus }
+        }));
+      }
       handleSilentUpdate();
     } catch (err) {
       console.error("Failed to update status on drop:", err);
@@ -221,18 +299,6 @@ export default function OutreachPipelinePage() {
     setPowerHourChannel(ch);
     setPowerHourOpen(true);
   };
-
-  // Metrics & Lists
-  const total             = leads.length;
-  const replyReceivedList = filteredLeads.filter(l => l.status === "reply_received" || l.stage === "warm_up");
-  const followupsDueList  = leads.filter(l => (l.status === "sent" || l.status === "no_reply" || l.stage === "gate_opener_sent") && getDaysElapsed(l.sent_at) >= 2);
-  const interested        = leads.filter(l => l.status === "replied_interested" || l.stage === "opening_identified").length;
-  const callReady         = leads.filter(l => l.status === "ready_for_call" || l.stage === "coffee_invited").length;
-  const booked            = leads.filter(l => l.status === "meeting_booked" || l.stage === "meeting_booked").length;
-
-  const callList          = filteredLeads.filter(l => l.status === "ready_for_call" || l.stage === "coffee_invited");
-  const pipeList          = filteredLeads.filter(l => l.status === "sent" || l.status === "no_reply" || l.status === "replied_interested" || l.status === "replied_objection");
-  const doneList          = filteredLeads.filter(l => l.status === "called" || l.status === "meeting_booked");
 
   return (
     <div className="space-y-4 page-enter pb-24 max-w-[1850px] w-full mx-auto font-sans">
@@ -252,25 +318,43 @@ export default function OutreachPipelinePage() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-            {/* View Mode Switcher */}
-            <div className="flex bg-slate-100 p-0.5 rounded-xl text-xs font-bold border border-slate-200/60">
+            {/* Compiled Outreach View Switcher */}
+            <div className="flex bg-slate-100 p-0.5 rounded-xl text-xs font-bold border border-slate-200/60 flex-wrap gap-1">
               <button
-                onClick={() => setViewMode("table")}
+                onClick={() => { setViewMode("all"); setCurrentPage(1); }}
                 className={cn(
                   "px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer",
-                  viewMode === "table" ? "bg-white text-slate-900 shadow-2xs font-extrabold" : "text-slate-500 hover:text-slate-900"
+                  viewMode === "all" ? "bg-white text-slate-900 shadow-2xs font-extrabold" : "text-slate-500 hover:text-slate-900"
                 )}
               >
-                📋 Compact Table
+                All Outreach ({total})
               </button>
               <button
-                onClick={() => setViewMode("kanban")}
+                onClick={() => { setViewMode("followups"); setCurrentPage(1); }}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer",
+                  viewMode === "followups" ? "bg-white text-amber-900 shadow-2xs font-extrabold ring-1 ring-amber-300" : "text-slate-500 hover:text-slate-900"
+                )}
+              >
+                Due Follow-ups ({followupsDueList.length})
+              </button>
+              <button
+                onClick={() => { setViewMode("calls"); setCurrentPage(1); }}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer",
+                  viewMode === "calls" ? "bg-white text-teal-900 shadow-2xs font-extrabold ring-1 ring-teal-300" : "text-slate-500 hover:text-slate-900"
+                )}
+              >
+                Call Queue ({callList.length})
+              </button>
+              <button
+                onClick={() => { setViewMode("kanban"); setCurrentPage(1); }}
                 className={cn(
                   "px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer",
                   viewMode === "kanban" ? "bg-white text-slate-900 shadow-2xs font-extrabold" : "text-slate-500 hover:text-slate-900"
                 )}
               >
-                📊 7-Stage Kanban
+                7-Stage Kanban
               </button>
             </div>
 
@@ -278,7 +362,7 @@ export default function OutreachPipelinePage() {
               onClick={handleLaunchPowerHour}
               className="bg-teal-600 hover:bg-teal-700 text-white font-black h-9 px-3.5 rounded-xl text-xs cursor-pointer shadow-md flex items-center gap-1.5"
             >
-              <Sparkles className="h-3.5 w-3.5 text-amber-300" /> ⚡ 25-Lead Power-Hour
+              25-Lead Power-Hour
             </Button>
 
             <Button
@@ -305,7 +389,7 @@ export default function OutreachPipelinePage() {
             <Input
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="🔍 Search prospect name, @handle, phone, industry..."
+              placeholder="Search prospect name, @handle, phone, industry..."
               className="h-8 text-xs bg-slate-50 border-slate-200 rounded-xl pr-8 focus:bg-white transition-colors"
             />
             {searchQuery && (
@@ -323,7 +407,7 @@ export default function OutreachPipelinePage() {
             </div>
             {followupsDueList.length > 0 && (
               <div className="flex items-center gap-1 font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
-                <span>⏰ Follow-ups (Day 3+):</span>
+                <span>Follow-ups (Day 3+):</span>
                 <span className="font-extrabold">{followupsDueList.length}</span>
               </div>
             )}
@@ -426,26 +510,36 @@ export default function OutreachPipelinePage() {
         <div className="flex items-center justify-center py-24 bg-white rounded-2xl border border-slate-200">
           <Loader2 className="h-6 w-6 animate-spin text-teal-500" />
         </div>
-      ) : viewMode === "table" ? (
+      ) : viewMode !== "kanban" ? (
         /* ── HIGH-DENSITY COMPACT CONTACT TABLE VIEW (NO BORING SCROLLING!) ── */
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden font-sans">
           <div className="p-3 bg-slate-50/70 border-b border-slate-200 flex items-center justify-between gap-3 text-xs">
             <span className="font-extrabold text-slate-700">
-              Showing {filteredLeads.length} contacts {searchQuery && `matching "${searchQuery}"`}
+              {viewMode === "followups"
+                ? `Showing ${activeLeadsList.length} leads due for follow-up (2-3+ days with no reply)`
+                : viewMode === "calls"
+                ? `Showing ${activeLeadsList.length} leads in Call Queue`
+                : `Showing ${activeLeadsList.length} contacts ${searchQuery && `matching "${searchQuery}"`}`}
             </span>
             <span className="text-slate-400 text-[11px]">Click status dropdown to update directly inline</span>
           </div>
 
-          {filteredLeads.length === 0 ? (
+          {activeLeadsList.length === 0 ? (
             <div className="p-12 text-center text-slate-400 font-medium">
-              <p className="text-sm font-bold text-slate-600">No contacts match your search or filters</p>
-              <p className="text-xs text-slate-400 mt-0.5">Try clearing search or changing filters.</p>
+              <p className="text-sm font-bold text-slate-600">
+                {viewMode === "followups"
+                  ? "No follow-ups due right now! All reached-out prospects are up to date."
+                  : viewMode === "calls"
+                  ? "No calls queued right now. Mark leads Ready for Call or drag them in Kanban."
+                  : "No contacts match your search or filters."}
+              </p>
+              <p className="text-xs text-slate-400 mt-0.5">Try clearing search or changing tabs.</p>
             </div>
           ) : (
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-slate-100/70 border-b border-slate-200 text-slate-700 font-black text-[11px] tracking-wide">
+                  <thead className="bg-slate-200/90 border-b border-slate-300 text-slate-900 font-black text-[11px] tracking-wide">
                     <tr>
                       <th className="p-3">Company / Business</th>
                       <th className="p-3">Channel & Handle</th>
@@ -454,7 +548,7 @@ export default function OutreachPipelinePage() {
                       <th className="p-3 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                  <tbody className="divide-y divide-slate-200 font-medium text-slate-900">
                     {paginatedLeads.map(lead => {
                       const daysAgo = getDaysElapsed(lead.sent_at);
                       const phone = lead.phone || (lead.channel === "cold_call" || lead.channel === "whatsapp" ? lead.handle : null);
@@ -463,13 +557,16 @@ export default function OutreachPipelinePage() {
                       const cleanH = (lead.handle || "").trim();
 
                       return (
-                        <tr key={lead.id} className="hover:bg-slate-50/80 transition-colors group">
+                        <tr key={lead.id} className="hover:bg-slate-100/70 transition-colors group">
                           {/* Company & Industry */}
                           <td className="p-3">
-                            <span className="font-black text-slate-900 text-xs block truncate max-w-[220px]">
+                            <button
+                              onClick={() => openLead(lead.company_id || lead.id)}
+                              className="font-black text-slate-950 text-xs block truncate max-w-[220px] hover:text-teal-700 hover:underline cursor-pointer text-left"
+                            >
                               {lead.company_name}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-medium block truncate max-w-[220px]">
+                            </button>
+                            <span className="text-[10px] text-slate-600 font-medium block truncate max-w-[220px]">
                               {lead.industry || lead.sector || "General"}
                             </span>
                           </td>
@@ -477,10 +574,10 @@ export default function OutreachPipelinePage() {
                           {/* Channel & Handle */}
                           <td className="p-3">
                             <div className="flex items-center gap-1.5">
-                              <span className="p-1 rounded bg-slate-100 text-slate-700">
+                              <span className="p-1 rounded bg-slate-200 text-slate-800">
                                 <ChannelIcon channel={lead.channel} size={13} />
                               </span>
-                              <span className="font-mono text-[11px] text-slate-600 truncate max-w-[140px]">
+                              <span className="font-mono text-[11px] text-slate-800 font-bold truncate max-w-[140px]">
                                 {cleanH || "—"}
                               </span>
                             </div>
@@ -492,13 +589,19 @@ export default function OutreachPipelinePage() {
                               value={lead.status}
                               onChange={async (e) => {
                                 const newStatus = e.target.value as OutreachStatus;
+                                setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: newStatus } : l));
                                 await updateOutreachStatus(lead.id, { status: newStatus });
+                                if (typeof window !== "undefined") {
+                                  window.dispatchEvent(new CustomEvent("lead-updated", {
+                                    detail: { companyId: lead.company_id || lead.id, status: newStatus }
+                                  }));
+                                }
                                 handleSilentUpdate();
                               }}
-                              className={cn("text-[10px] font-bold rounded-lg px-2 py-1 border cursor-pointer font-mono", STATUS_CHIP[lead.status])}
+                              className={cn("text-[10px] font-black rounded-lg px-2.5 py-1 border-2 cursor-pointer font-mono shadow-2xs", STATUS_CHIP[lead.status])}
                             >
                               {STATUSES.map(s => (
-                                <option key={s} value={s}>
+                                <option key={s} value={s} className="bg-white text-slate-900 font-bold">
                                   {STATUS_CONFIG[s].label}
                                 </option>
                               ))}
@@ -506,9 +609,9 @@ export default function OutreachPipelinePage() {
                           </td>
 
                           {/* Outreach Date */}
-                          <td className="p-3 text-slate-500 font-mono text-[11px]">
+                          <td className="p-3 text-slate-700 font-mono font-bold text-[11px]">
                             {daysAgo === 0 ? (
-                              <span className="text-teal-700 font-extrabold bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">Today</span>
+                              <span className="text-teal-800 font-extrabold bg-teal-100 px-2 py-0.5 rounded-md border border-teal-300">Today</span>
                             ) : (
                               <span>{daysAgo}d ago</span>
                             )}
@@ -517,6 +620,15 @@ export default function OutreachPipelinePage() {
                           {/* Actions Row */}
                           <td className="p-3 text-right">
                             <div className="inline-flex items-center gap-1 justify-end">
+                              {(viewMode === "followups" || ((lead.status === "sent" || lead.status === "no_reply" || lead.status === "gate_opener_sent") && daysAgo >= 2)) && (
+                                <button
+                                  onClick={() => handleMarkFollowedUp(lead)}
+                                  className="px-2.5 py-1 rounded-md bg-amber-600 text-white text-[10px] font-extrabold hover:bg-amber-700 transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                                  title="Mark follow-up sent / touch completed today"
+                                >
+                                  <CheckCircle2 className="h-3 w-3" /> Mark Followed Up
+                                </button>
+                              )}
                               {waUrl && (
                                 <a
                                   href={waUrl}
@@ -541,7 +653,6 @@ export default function OutreachPipelinePage() {
                                 onClick={() => openLead(lead.company_id || lead.id)}
                                 className="px-2.5 py-1 rounded-md bg-teal-600 text-white text-[10px] font-extrabold hover:bg-teal-700 transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
                               >
-                                <Sparkles className="h-3 w-3" />
                                 Open Lead Workspace
                               </button>
                             </div>
@@ -593,7 +704,7 @@ export default function OutreachPipelinePage() {
               dragOverColumn === "call_tonight" && "ring-2 ring-teal-500/50 bg-teal-50/50 scale-[1.01]"
             )}
           >
-            <ColumnHeader emoji="📞" title="Call Tonight" subtitle="Warm leads" count={callList.length} color="teal" />
+            <ColumnHeader title="Call Tonight" subtitle="Warm leads" count={callList.length} color="teal" />
             <div className="space-y-2.5 max-h-[680px] overflow-y-auto pr-1">
               {callList.length === 0 ? (
                 <EmptyCol icon={<Phone className="h-6 w-6 text-slate-300" />} text="No warm leads queued" sub="Drag cards or mark Ready for Call" />
@@ -649,7 +760,7 @@ export default function OutreachPipelinePage() {
               dragOverColumn === "reply_received" && "ring-2 ring-indigo-500/50 bg-indigo-50/50 scale-[1.01]"
             )}
           >
-            <ColumnHeader emoji="📬" title="Reply Received" subtitle="Needs review" count={replyReceivedList.length} color="indigo" />
+            <ColumnHeader title="Reply Received" subtitle="Needs review" count={replyReceivedList.length} color="indigo" />
             <div className="space-y-2.5 max-h-[680px] overflow-y-auto pr-1">
               {replyReceivedList.length === 0 ? (
                 <EmptyCol icon={<Mail className="h-6 w-6 text-slate-300" />} text="No replies received yet" sub="Prospect replies appear here" />
@@ -705,7 +816,7 @@ export default function OutreachPipelinePage() {
               dragOverColumn === "pipeline" && "ring-2 ring-slate-500/50 bg-slate-50/50 scale-[1.01]"
             )}
           >
-            <ColumnHeader emoji="💬" title="Active Pipeline" subtitle="In progress" count={pipeList.length} color="slate" />
+            <ColumnHeader title="Active Pipeline" subtitle="In progress" count={pipeList.length} color="slate" />
             <div className="space-y-2.5 max-h-[680px] overflow-y-auto pr-1">
               {pipeList.length === 0 ? (
                 <EmptyCol icon={<Send className="h-6 w-6 text-slate-300" />} text="Nothing active" sub='Log Outreach to start' />
@@ -761,7 +872,7 @@ export default function OutreachPipelinePage() {
               dragOverColumn === "done" && "ring-2 ring-violet-500/50 bg-violet-50/50 scale-[1.01]"
             )}
           >
-            <ColumnHeader emoji="✅" title="Done" subtitle="Completed" count={doneList.length} color="violet" />
+            <ColumnHeader title="Done" subtitle="Completed" count={doneList.length} color="violet" />
             <div className="space-y-2.5 max-h-[680px] overflow-y-auto pr-1">
               {doneList.length === 0 ? (
                 <EmptyCol icon={<CheckCircle2 className="h-6 w-6 text-slate-300" />} text="No completions" sub="Called leads appear here" />
@@ -797,33 +908,6 @@ export default function OutreachPipelinePage() {
         </div>
       )}
 
-      {/* ── Standardized Contact Detail Drawer ─────────────────────────────── */}
-      <ContactDetailDrawer
-        isOpen={!!drawerLead}
-        onClose={() => setDrawerLead(null)}
-        lead={drawerLead}
-        onStatusChange={async (id, s) => {
-          setDrawerLead(prev => prev ? { ...prev, status: s } : null);
-          setLeads(prev => prev.map(l => l.id === id ? { ...l, status: s } : l));
-          await updateOutreachStatus(id, { status: s });
-          handleSilentUpdate();
-        }}
-        onDelete={async (id) => {
-          setDrawerLead(null);
-          setLeads(prev => prev.filter(l => l.id !== id));
-          await deleteOutreachLog(id);
-          handleSilentUpdate();
-        }}
-        onSaveEntry={async (id, data) => {
-          if (data.status) {
-            setDrawerLead(prev => prev ? { ...prev, ...data } : null);
-            setLeads(prev => prev.map(l => l.id === id ? { ...l, ...data } : l));
-          }
-          await updateOutreachEntry(id, data);
-          handleSilentUpdate();
-        }}
-      />
-
       {/* ── Dedicated Power-Hour Focus Mode Modal ──────────────────────── */}
       <PowerHourModal
         isOpen={powerHourOpen}
@@ -855,20 +939,20 @@ export default function OutreachPipelinePage() {
 }
 
 // ─── Column Header ────────────────────────────────────────────────────────────
-function ColumnHeader({ emoji, title, subtitle, count, color }: { emoji: string; title: string; subtitle: string; count: number; color: string }) {
+function ColumnHeader({ title, subtitle, count, color }: { title: string; subtitle: string; count: number; color: string }) {
   const countCls: Record<string, string> = {
-    teal: "bg-teal-50 text-teal-700 border-teal-200",
-    indigo: "bg-indigo-50 text-indigo-700 border-indigo-200",
-    slate: "bg-slate-100 text-slate-600 border-slate-200",
-    violet: "bg-violet-50 text-violet-600 border-violet-200",
+    teal: "bg-teal-100 text-teal-950 border-teal-400 font-black",
+    indigo: "bg-indigo-100 text-indigo-950 border-indigo-400 font-black",
+    slate: "bg-slate-200 text-slate-900 border-slate-400 font-black",
+    violet: "bg-violet-100 text-violet-950 border-violet-400 font-black",
   };
   return (
     <div className="flex items-center justify-between mb-0.5">
       <div>
-        <p className="text-xs font-black text-slate-900">{emoji} {title}</p>
-        <p className="text-[10px] text-slate-400 font-medium">{subtitle}</p>
+        <p className="text-xs font-black text-slate-950">{title}</p>
+        <p className="text-[10px] text-slate-600 font-semibold">{subtitle}</p>
       </div>
-      <span className={cn("text-[10px] font-black px-2 py-0.5 rounded-full border", countCls[color] || countCls.slate)}>{count}</span>
+      <span className={cn("text-[10px] font-black px-2.5 py-0.5 rounded-full border", countCls[color] || countCls.slate)}>{count}</span>
     </div>
   );
 }
@@ -876,10 +960,10 @@ function ColumnHeader({ emoji, title, subtitle, count, color }: { emoji: string;
 // ─── Empty Column ─────────────────────────────────────────────────────────────
 function EmptyCol({ icon, text, sub }: { icon: React.ReactNode; text: string; sub: string }) {
   return (
-    <div className="bg-slate-50/60 border border-dashed border-slate-200 rounded-xl p-5 text-center">
+    <div className="bg-slate-100/60 border-2 border-dashed border-slate-300 rounded-xl p-5 text-center">
       <div className="flex justify-center mb-1.5">{icon}</div>
-      <p className="text-xs font-bold text-slate-500">{text}</p>
-      <p className="text-[10px] text-slate-400 mt-0.5">{sub}</p>
+      <p className="text-xs font-black text-slate-700">{text}</p>
+      <p className="text-[10px] text-slate-500 font-medium mt-0.5">{sub}</p>
     </div>
   );
 }
@@ -889,28 +973,48 @@ function CallReadyCard({ lead, expanded, onToggle, onUpdate }: { lead: OutreachL
   const [marking, setMarking] = useState(false);
   const [scriptModalOpen, setScriptModalOpen] = useState(false);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
-  const markCalled = async () => { setMarking(true); await updateOutreachStatus(lead.id, { status: "called" }); await onUpdate(); setMarking(false); };
-  const markBooked = async () => { setMarking(true); await updateOutreachStatus(lead.id, { status: "meeting_booked" }); await onUpdate(); setMarking(false); };
+  const markCalled = async () => {
+    setMarking(true);
+    await updateOutreachStatus(lead.id, { status: "called" });
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", {
+        detail: { companyId: lead.company_id || lead.id, status: "called" }
+      }));
+    }
+    await onUpdate();
+    setMarking(false);
+  };
+  const markBooked = async () => {
+    setMarking(true);
+    await updateOutreachStatus(lead.id, { status: "meeting_booked" });
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", {
+        detail: { companyId: lead.company_id || lead.id, status: "meeting_booked" }
+      }));
+    }
+    await onUpdate();
+    setMarking(false);
+  };
   const phone = lead.phone || (lead.channel === "cold_call" || lead.channel === "whatsapp" ? lead.handle : null);
   const waDigits = phone ? formatWhatsAppNumber(phone) : "";
   const waUrl = waDigits ? `https://wa.me/${waDigits}` : null;
   const channelLabel = CHANNEL_CONFIG[lead.channel]?.label || "Cold Call";
 
   return (
-    <div className="bg-white border border-slate-200/80 rounded-xl overflow-hidden hover:border-slate-300 transition-all shadow-2xs">
-      <button onClick={onToggle} className="w-full flex items-center justify-between p-3 text-left hover:bg-slate-50/60 transition-colors">
+    <div className="bg-white border border-slate-300 rounded-xl overflow-hidden hover:border-slate-400 transition-all shadow-2xs">
+      <button onClick={onToggle} className="w-full flex items-center justify-between p-3 text-left hover:bg-slate-100/60 transition-colors cursor-pointer">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="h-8 w-8 rounded-lg bg-slate-100 border border-slate-200/80 text-slate-700 flex items-center justify-center shrink-0">
+          <div className="h-8 w-8 rounded-lg bg-slate-200 border border-slate-300 text-slate-800 flex items-center justify-center shrink-0">
             <ChannelIcon channel={lead.channel} size={14} />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-black text-slate-900 truncate">{lead.company_name}</p>
-            <p className="text-[10px] text-slate-400 font-medium truncate">{lead.industry || 'General'} · {channelLabel}</p>
+            <p className="text-xs font-black text-slate-950 truncate">{lead.company_name}</p>
+            <p className="text-[10px] text-slate-600 font-medium truncate">{lead.industry || 'General'} · {channelLabel}</p>
           </div>
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
-          <span className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 border border-teal-200">Call Ready</span>
-          {expanded ? <ChevronUp className="h-3.5 w-3.5 text-slate-400" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400" />}
+          <span className="text-[9px] font-black px-2 py-0.5 rounded-md bg-teal-100 text-teal-950 border border-teal-400">Call Ready</span>
+          {expanded ? <ChevronUp className="h-3.5 w-3.5 text-slate-600" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-600" />}
         </div>
       </button>
 
@@ -922,13 +1026,13 @@ function CallReadyCard({ lead, expanded, onToggle, onUpdate }: { lead: OutreachL
               onClick={() => setScriptModalOpen(true)}
               className="bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
             >
-              <Sparkles className="h-3 w-3 text-teal-400" /> Call Script
+              Call Script
             </button>
             <button
               onClick={() => setTemplateModalOpen(true)}
               className="bg-slate-100 hover:bg-slate-200 text-slate-800 text-[10px] font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
             >
-              📝 Templates
+              Templates
             </button>
           </div>
 
@@ -955,7 +1059,7 @@ function CallReadyCard({ lead, expanded, onToggle, onUpdate }: { lead: OutreachL
             {phone && <a href={`tel:${phone}`} className="flex items-center gap-1 bg-slate-900 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg"><Phone className="h-3 w-3" /> Call</a>}
             {waUrl && <a href={waUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 bg-emerald-700 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg"><MessageCircle className="h-3 w-3" /> WA</a>}
             <button onClick={markBooked} disabled={marking} className="flex items-center gap-1 bg-white border border-slate-200 hover:bg-slate-100 text-slate-900 text-[11px] font-bold px-2.5 py-1.5 rounded-lg ml-auto cursor-pointer">
-              {marking ? <Loader2 className="h-3 w-3 animate-spin" /> : "📅"} Booked
+              {marking ? <Loader2 className="h-3 w-3 animate-spin" /> : <Calendar className="h-3 w-3" />} Booked
             </button>
             <button onClick={markCalled} disabled={marking} className="flex items-center gap-1 bg-slate-900 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg cursor-pointer">
               {marking ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />} Called
@@ -1039,6 +1143,11 @@ function OutreachCard({ lead, expanded, onToggle, onUpdate, compact }: { lead: O
       pain_point: pain,
       call_opening_line: opening
     });
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", {
+        detail: { companyId: lead.company_id || lead.id, status: newStatus }
+      }));
+    }
     await onUpdate();
     setSaving(false);
   };
@@ -1056,6 +1165,11 @@ function OutreachCard({ lead, expanded, onToggle, onUpdate, compact }: { lead: O
       pain_point: pain,
       call_opening_line: opening
     });
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", {
+        detail: { companyId: lead.company_id || lead.id, status }
+      }));
+    }
     await onUpdate();
     setSaving(false);
     setEditing(false);
@@ -1065,6 +1179,11 @@ function OutreachCard({ lead, expanded, onToggle, onUpdate, compact }: { lead: O
     if (!confirm(`Remove outreach log entry for "${lead.company_name}"?`)) return;
     setDeleting(true);
     await deleteOutreachLog(lead.id);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", {
+        detail: { companyId: lead.company_id || lead.id }
+      }));
+    }
     await onUpdate();
     setDeleting(false);
   };
@@ -1182,7 +1301,7 @@ function OutreachCard({ lead, expanded, onToggle, onUpdate, compact }: { lead: O
                   onClick={() => setScriptModalOpen(true)}
                   className="bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer"
                 >
-                  <Sparkles className="h-3 w-3 text-teal-400" /> Script
+                  Script
                 </button>
 
                 <button
@@ -1190,7 +1309,7 @@ function OutreachCard({ lead, expanded, onToggle, onUpdate, compact }: { lead: O
                   onClick={() => setTemplateModalOpen(true)}
                   className="bg-slate-100 hover:bg-slate-200 text-slate-800 text-[10px] font-bold px-2 py-1 rounded-lg cursor-pointer"
                 >
-                  📝 Templates
+                  Templates
                 </button>
 
                 {cleanHandle && (isPhone || channel === 'whatsapp' || channel === 'cold_call') && (
@@ -1231,15 +1350,15 @@ function OutreachCard({ lead, expanded, onToggle, onUpdate, compact }: { lead: O
                   onClick={() => setEditing(true)}
                   className="text-[10px] font-bold text-slate-500 hover:text-slate-900 ml-auto cursor-pointer"
                 >
-                  ✏️ Edit
+                  Edit
                 </button>
 
                 <button
                   onClick={handleDelete}
                   disabled={deleting}
-                  className="text-[10px] font-bold text-red-500 hover:text-red-700 cursor-pointer"
+                  className="text-[10px] font-bold text-red-500 hover:text-red-700 cursor-pointer flex items-center"
                 >
-                  {deleting ? "..." : "🗑️"}
+                  {deleting ? "..." : <Trash2 className="h-3 w-3" />}
                 </button>
               </div>
             </>
@@ -1292,16 +1411,16 @@ function OutreachCard({ lead, expanded, onToggle, onUpdate, compact }: { lead: O
 
 // ─── Log Modal ────────────────────────────────────────────────────────────────
 const TEMPLATES: { id: OutreachTemplate; label: string }[] = [
-  { id: "approach_a",     label: "🤝 Approach A"          },
-  { id: "approach_b",     label: "💡 Approach B"          },
-  { id: "approach_c",     label: "⚡ Approach C"          },
-  { id: "approach_d",     label: "📊 Approach D"          },
-  { id: "growth_offer",   label: "📈 Growth Offer"       },
-  { id: "free_website",   label: "🌐 Free Website Audit"  },
-  { id: "digital_audit",  label: "🔍 Digital Audit"       },
-  { id: "referral",       label: "🤝 Referral"            },
-  { id: "event_followup", label: "🎪 Event Follow-up"     },
-  { id: "custom",         label: "✍️ Custom"              },
+  { id: "approach_a",     label: "Approach A"          },
+  { id: "approach_b",     label: "Approach B"          },
+  { id: "approach_c",     label: "Approach C"          },
+  { id: "approach_d",     label: "Approach D"          },
+  { id: "growth_offer",   label: "Growth Offer"        },
+  { id: "free_website",   label: "Free Website Audit"  },
+  { id: "digital_audit",  label: "Digital Audit"       },
+  { id: "referral",       label: "Referral"            },
+  { id: "event_followup", label: "Event Follow-up"     },
+  { id: "custom",         label: "Custom"              },
 ];
 
 // ─── CSV Parser & Auto Matcher ────────────────────────────────────────────────
@@ -1436,14 +1555,12 @@ const SUPABASE_TARGET_SECTIONS: {
   tableName: string;
   tableBadge: string;
   title: string;
-  iconEmoji: string;
   fields: { key: keyof MappedCSVRow; label: string; dbCol: string; desc: string }[];
 }[] = [
   {
     tableName: "companies",
     tableBadge: "Supabase DB: companies",
     title: "1. Company / Business Profile",
-    iconEmoji: "🏢",
     fields: [
       { key: "company_name",     label: "Company Name",           dbCol: "companies.company_name", desc: "Default: 'Unnamed Prospect #[Row]'" },
       { key: "industry",         label: "Industry / Sector",       dbCol: "companies.industry",     desc: "Default: 'General'" },
@@ -1457,7 +1574,6 @@ const SUPABASE_TARGET_SECTIONS: {
     tableName: "contacts",
     tableBadge: "Supabase DB: contacts",
     title: "2. Primary Contact Person",
-    iconEmoji: "👤",
     fields: [
       { key: "contact_name",     label: "Contact Person Name",     dbCol: "contacts.full_name",     desc: "Default: Representative" },
       { key: "contact_title",    label: "Contact Job Title",       dbCol: "contacts.title",         desc: "Default: Decision Maker" },
@@ -1468,7 +1584,6 @@ const SUPABASE_TARGET_SECTIONS: {
     tableName: "activities",
     tableBadge: "Supabase DB: activities",
     title: "3. Outreach Activity & Log Details",
-    iconEmoji: "📣",
     fields: [
       { key: "handle",           label: "Social Handle / DM Link", dbCol: "activities.handle",      desc: "Instagram handle or phone" },
       { key: "channel",          label: "Outreach Channel",        dbCol: "activities.channel",     desc: "Default: Selected channel" },
@@ -1890,7 +2005,7 @@ function LogModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () =
 
               {/* Info Notice */}
               <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5">
-                <Sparkles className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <FileText className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                 <p className="text-xs text-amber-900 font-medium leading-relaxed">
                   <strong className="font-extrabold">Supabase Backend Pairing:</strong> Each dropdown maps your CSV columns directly to Supabase database tables (<code className="bg-amber-100 px-1 rounded text-[11px] font-mono font-bold">companies</code>, <code className="bg-amber-100 px-1 rounded text-[11px] font-mono font-bold">contacts</code>, and <code className="bg-amber-100 px-1 rounded text-[11px] font-mono font-bold">activities</code>). None are mandatory.
                 </p>
@@ -1903,7 +2018,6 @@ function LogModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () =
                     <div key={section.tableName} className="bg-slate-50 border border-slate-200 p-4 rounded-2xl space-y-3">
                       <div className="flex items-center justify-between border-b border-slate-200/80 pb-2.5">
                         <div className="flex items-center gap-2">
-                          <span className="text-base">{section.iconEmoji}</span>
                           <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">{section.title}</h3>
                         </div>
                         <span className="bg-slate-900 text-teal-300 font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-xs">
@@ -1946,7 +2060,7 @@ function LogModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () =
                                 )}
                               >
                                 <option value="">-- Do Not Import / Skip --</option>
-                                <option value="__custom__">✍️ Type Manual Fixed Value...</option>
+                                <option value="__custom__">Type Manual Fixed Value...</option>
                                 {csvHeaders.map(h => {
                                   const sampleVal = csvRows[0]?.[h] ? ` (e.g. "${csvRows[0][h].slice(0, 18)}")` : '';
                                   return (
@@ -1996,7 +2110,7 @@ function LogModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () =
                                 <span className="text-[9px] text-slate-400 font-medium">{field.desc}</span>
                                 {isCustom ? (
                                   <span className="text-[9px] font-black text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                    ✍️ Manual Fixed Value
+                                    Manual Fixed Value
                                   </span>
                                 ) : isMapped ? (
                                   <span className="text-[9px] font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -2126,7 +2240,7 @@ function LogModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () =
           {entryMode !== "csv" && (
             <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-2">
               <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-violet-500" />
+                <Globe className="h-4 w-4 text-violet-500" />
                 <label className="text-xs font-bold text-slate-700">AI Observation Scraper (Optional)</label>
               </div>
               <div className="flex gap-2">

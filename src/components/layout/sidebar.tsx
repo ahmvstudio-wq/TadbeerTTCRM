@@ -7,15 +7,13 @@ import {
   LayoutDashboard,
   Users,
   Zap,
+  Send,
   Phone,
   Clock,
   Calendar,
   TrendingUp,
   Settings,
   Building2,
-  Globe2,
-  Bot,
-  Sparkles,
   ChevronRight
 } from "lucide-react";
 
@@ -23,10 +21,7 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Prospects", href: "/prospects", icon: Users },
   { name: "Daily Cadence", href: "/daily-cadence", icon: Zap },
-  { name: "AI Assistant", href: "/ai-employee", icon: Bot, isAi: true },
-  { name: "LinkedIn", href: "/linkedin", icon: Globe2 },
-  { name: "Calls", href: "/calls", icon: Phone },
-  { name: "Follow-ups", href: "/follow-ups", icon: Clock },
+  { name: "Outreach", href: "/outreach", icon: Send },
   { name: "Meetings", href: "/meetings", icon: Calendar },
   { name: "Pipeline", href: "/pipeline", icon: TrendingUp },
 ];
@@ -66,11 +61,6 @@ export function Sidebar() {
                 <item.icon className={cn("h-4 w-4", isActive ? "text-white" : "text-neutral-400")} />
                 <span>{item.name}</span>
               </div>
-              {item.isAi && !isActive && (
-                <span className="flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-[#0f343c] text-white border border-[#16434d]">
-                  AI
-                </span>
-              )}
             </Link>
           );
         })}
@@ -127,11 +117,6 @@ export function MobileSidebar({ open, onClose }: { open: boolean; onClose: () =>
                   <item.icon className={cn("h-4 w-4", isActive ? "text-white" : "text-neutral-400")} />
                   <span>{item.name}</span>
                 </div>
-                {item.isAi && !isActive && (
-                  <span className="flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-[#0f343c] text-white border border-[#16434d]">
-                    AI
-                  </span>
-                )}
               </Link>
             );
           })}

@@ -2,6 +2,22 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth-guard'
+import { revalidatePath } from 'next/cache'
+
+function revalidateAllCRMPages() {
+  try {
+    revalidatePath('/outreach')
+    revalidatePath('/daily-cadence')
+    revalidatePath('/dashboard')
+    revalidatePath('/prospects')
+    revalidatePath('/pipeline')
+    revalidatePath('/meetings')
+    revalidatePath('/calls')
+    revalidatePath('/follow-ups')
+  } catch (e) {
+    // ignore in non-request contexts
+  }
+}
 
 export async function getOpportunities(filter?: { stage?: string }) {
   try {
@@ -97,6 +113,7 @@ export async function createOpportunity(data: {
       console.error('Failed to log activity:', activityError)
     }
 
+    revalidateAllCRMPages()
     return { data: opportunity, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -174,6 +191,7 @@ export async function updateOpportunityStage(id: string, stage: string) {
       console.error('Failed to log activity:', activityError)
     }
 
+    revalidateAllCRMPages()
     return { data: updated, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }

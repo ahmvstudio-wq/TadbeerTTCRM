@@ -71,6 +71,9 @@ export function LeadTasksManager({
     setDescription("");
     setCreating(false);
     if (onRefresh) onRefresh();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { companyId, type: taskType } }));
+    }
   };
 
   const handleComplete = async (id: string) => {
@@ -78,6 +81,9 @@ export function LeadTasksManager({
     await completeFollowUp(id, "Completed directly from Lead Workspace");
     setCompletingId(null);
     if (onRefresh) onRefresh();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { companyId, followUpId: id } }));
+    }
   };
 
   return (

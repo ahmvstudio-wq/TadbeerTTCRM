@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import {
-  Sparkles,
   Building,
   Target,
   Lightbulb,
@@ -86,7 +85,7 @@ export function LeadResearchCard({
       <div className="flex items-center justify-between border-b border-slate-100 pb-4 flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-2xl bg-teal-50 text-teal-800 border border-teal-200 flex items-center justify-center font-black shadow-2xs">
-            <Sparkles className="h-5 w-5 text-teal-700" />
+            <Compass className="h-5 w-5 text-teal-700" />
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -240,7 +239,7 @@ export function LeadResearchCard({
           {/* Research Block 1: Pre-Researched Observation */}
           <div className="bg-amber-50/70 rounded-2xl p-4 border border-amber-200/90 space-y-1.5">
             <span className="text-[10px] font-black text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-amber-700" /> Pre-Researched Observation
+              <FileText className="h-3.5 w-3.5 text-amber-700" /> Pre-Researched Observation
             </span>
             <p className="text-xs text-amber-950 font-bold leading-relaxed">
               &ldquo;{cleanObs}&rdquo;

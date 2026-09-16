@@ -2,11 +2,27 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { requireAuth } from '@/lib/auth-guard'
+import { revalidatePath } from 'next/cache'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
+
+function revalidateAllCRMPages() {
+  try {
+    revalidatePath('/outreach')
+    revalidatePath('/daily-cadence')
+    revalidatePath('/dashboard')
+    revalidatePath('/prospects')
+    revalidatePath('/pipeline')
+    revalidatePath('/meetings')
+    revalidatePath('/calls')
+    revalidatePath('/follow-ups')
+  } catch {
+    // safe fallback in case called outside request context
+  }
+}
 
 import {
   type OutreachChannel,
@@ -93,6 +109,7 @@ export async function logOutreach(data: {
       .single()
 
     if (actErr) return { data: null, error: actErr.message }
+    revalidateAllCRMPages()
     return { data: { activityId: activity.id, companyId }, error: null }
   } catch (err) {
     return { data: null, error: (err as Error).message }
@@ -135,6 +152,7 @@ export async function bulkLogOutreach(data: {
 
     const { error } = await supabase.from('activities').insert(records)
     if (error) return { error: error.message }
+    revalidateAllCRMPages()
     return { error: null }
   } catch (err) {
     return { data: null, error: (err as Error).message }
@@ -190,12 +208,13 @@ export async function updateOutreachEntry(activityId: string, update: {
       }
     }
 
-    // If we have a companyId but no actualActivityId, check if this company already has an activity
+    // If we have a companyId but no actualActivityId, check if this company already has an outreach activity
     if (companyId && !actualActivityId) {
       const { data: act } = await supabase
         .from('activities')
         .select('id, company_id, description, created_at')
         .eq('company_id', companyId)
+        .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent'])
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
@@ -206,7 +225,14 @@ export async function updateOutreachEntry(activityId: string, update: {
       }
     }
 
-    const current = existingActivity?.description ? JSON.parse(existingActivity.description) : {}
+    let current: any = {}
+    if (existingActivity?.description) {
+      try {
+        current = JSON.parse(existingActivity.description)
+      } catch {
+        current = {}
+      }
+    }
     const updated = { ...current, ...update, updated_at: new Date().toISOString() }
     const channel: OutreachChannel = updated.channel || 'cold_call'
     const status: OutreachStatus = updated.status || 'sent'
@@ -219,6 +245,8 @@ export async function updateOutreachEntry(activityId: string, update: {
 
     if (update.outreach_date) {
       dbPayload.created_at = new Date(update.outreach_date + 'T12:00:00.000Z').toISOString()
+    } else if (update.status === 'follow_up_sent' || update.status === 'called') {
+      dbPayload.created_at = new Date().toISOString()
     }
 
     if (actualActivityId) {
@@ -258,16 +286,19 @@ export async function updateOutreachEntry(activityId: string, update: {
       let coStatus = 'contacted'
       let pipelineStage = 'Contacted'
 
-      if (status === 'meeting_booked') {
+      if (status === 'meeting_booked' || status === 'proposal_requested') {
         coStatus = 'meeting_booked'
         pipelineStage = 'Meeting Booked'
       } else if (['ready_for_call', 'coffee_invited'].includes(status)) {
         coStatus = 'in_call_queue'
         pipelineStage = 'Call Ready'
+      } else if (status === 'called') {
+        coStatus = 'contacted'
+        pipelineStage = 'Contacted'
       } else if (['warm_up', 'reply_received', 'replied_interested', 'replied_objection', 'opening_identified'].includes(status) || (update.prospect_reply && update.prospect_reply.trim().length > 0)) {
         coStatus = 'contacted'
         pipelineStage = 'Replied'
-      } else if (['gate_opener_sent', 'sent', 'called', 'follow_up_sent'].includes(status)) {
+      } else if (['gate_opener_sent', 'sent', 'follow_up_sent', 'agency_existing'].includes(status)) {
         coStatus = 'contacted'
         pipelineStage = 'Contacted'
       } else if (status === 'no_reply') {
@@ -276,6 +307,9 @@ export async function updateOutreachEntry(activityId: string, update: {
       } else if (status === 'gate_opener_staged') {
         coStatus = 'prospect'
         pipelineStage = 'New'
+      } else if (status === 'not_now_snoozed') {
+        coStatus = 'lost'
+        pipelineStage = 'Lost'
       }
 
       coUpdate.status = coStatus
@@ -289,8 +323,17 @@ export async function updateOutreachEntry(activityId: string, update: {
       if (coUpdateErr) {
         console.error("Company stage update error in updateOutreachEntry:", coUpdateErr.message)
       }
+
+      // If follow-up was sent or completed, mark any pending follow_ups rows as completed
+      if (status === 'follow_up_sent' || status === 'called' || status === 'meeting_booked') {
+        await supabase.from('follow_ups').update({
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        }).eq('company_id', companyId).eq('status', 'pending')
+      }
     }
 
+    revalidateAllCRMPages()
     return { data: { activityId: actualActivityId, companyId }, error: null }
   } catch (err) {
     return { error: (err as Error).message }
@@ -305,6 +348,106 @@ export async function updateOutreachStatus(activityId: string, update: {
   notes?: string
 }) {
   return updateOutreachEntry(activityId, update)
+}
+
+// ─── Mark Lead Followed Up (Universal Sync) ──────────────────────────────────
+export async function markLeadFollowedUp(activityOrCompanyId: string, companyIdHint?: string, notes?: string) {
+  try {
+    await requireAuth()
+    const now = new Date().toISOString()
+
+    let companyId = companyIdHint || null
+    let actualActivityId: string | null = null
+    let existingActivity: any = null
+
+    if (activityOrCompanyId.startsWith('staged-')) {
+      companyId = activityOrCompanyId.replace(/^staged-/, '').trim()
+    } else {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activityOrCompanyId)
+      if (isUuid) {
+        const { data: act } = await supabase
+          .from('activities')
+          .select('id, company_id, description, created_at')
+          .eq('id', activityOrCompanyId)
+          .maybeSingle()
+
+        if (act) {
+          actualActivityId = act.id
+          companyId = act.company_id
+          existingActivity = act
+        } else {
+          const { data: co } = await supabase
+            .from('companies')
+            .select('id')
+            .eq('id', activityOrCompanyId)
+            .maybeSingle()
+          if (co) companyId = co.id
+        }
+      }
+    }
+
+    if (!companyId && companyIdHint) {
+      companyId = companyIdHint
+    }
+
+    let currentPayload: any = {}
+    if (existingActivity?.description) {
+      try { currentPayload = JSON.parse(existingActivity.description) } catch {}
+    }
+
+    const channel: OutreachChannel = currentPayload.channel || 'cold_call'
+    const updatedPayload = {
+      ...currentPayload,
+      status: 'follow_up_sent',
+      notes: notes || currentPayload.notes || 'Follow-up touch completed',
+      updated_at: now
+    }
+
+    // 1. Insert a fresh follow_up_sent activity record so cadence logs it on today's date
+    const { data: newAct, error: actErr } = await supabase
+      .from('activities')
+      .insert({
+        company_id: companyId,
+        activity_type: getValidActivityType(channel),
+        title: (CHANNEL_CONFIG[channel]?.label || 'Outreach') + ' — Follow-up Sent',
+        description: JSON.stringify(updatedPayload),
+        created_at: now
+      })
+      .select('id')
+      .single()
+
+    if (actErr) {
+      console.error("Error inserting follow-up activity:", actErr.message)
+    }
+
+    // 2. Also update previous activity description so it reflects the latest status
+    if (actualActivityId) {
+      await supabase.from('activities').update({
+        description: JSON.stringify(updatedPayload)
+      }).eq('id', actualActivityId)
+    }
+
+    // 3. Update company in companies table
+    if (companyId) {
+      await supabase.from('companies').update({
+        status: 'contacted',
+        pipeline_stage: 'Contacted',
+        updated_at: now
+      }).eq('id', companyId)
+
+      // 4. Mark pending follow-up in follow_ups table as completed
+      await supabase.from('follow_ups').update({
+        status: 'completed',
+        completed_at: now,
+        notes: notes || 'Follow-up completed'
+      }).eq('company_id', companyId).eq('status', 'pending')
+    }
+
+    revalidateAllCRMPages()
+    return { data: { companyId, activityId: newAct?.id || actualActivityId }, error: null }
+  } catch (err) {
+    return { error: (err as Error).message }
+  }
 }
 
 // ─── Get all outreach leads ───────────────────────────────────────────────────
@@ -433,12 +576,16 @@ export async function getAllLeadsForPipeline(
       const coSrc = (co.lead_source || '').toLowerCase()
       if (coSrc.includes('instagram') || rJson.target_channel === 'instagram_dm') {
         channel = 'instagram_dm'
-      } else if (coSrc.includes('linkedin') || rJson.target_channel === 'linkedin') {
+      } else if ((coSrc.includes('linkedin') || rJson.target_channel === 'linkedin') && liUrl) {
         channel = 'linkedin'
       } else if (coSrc.includes('whatsapp') || rJson.target_channel === 'whatsapp') {
         channel = 'whatsapp'
       } else if (rJson.target_channel && ['whatsapp', 'instagram_dm', 'linkedin', 'email', 'cold_call'].includes(rJson.target_channel)) {
-        channel = rJson.target_channel
+        if (rJson.target_channel === 'linkedin' && !liUrl) {
+          channel = igHandle ? 'instagram_dm' : hasPhone ? 'whatsapp' : 'cold_call'
+        } else {
+          channel = rJson.target_channel
+        }
       } else if (igHandle) {
         channel = 'instagram_dm'
       } else if (hasPhone) {
@@ -462,13 +609,33 @@ export async function getAllLeadsForPipeline(
       const stagedSeq = rJson.staged_sequence || undefined
       const openerMessage = co.draft_message || stagedSeq?.touch_1?.message || 'Warm inquiry regarding operations'
 
-      const derivedStatus: OutreachStatus = co.status === 'opportunity' 
-        ? 'meeting_booked' 
-        : (co.status === 'lead' || co.pipeline_stage === 'Replied'
-          ? 'warm_up' 
-          : (co.status === 'contacted' || co.pipeline_stage === 'Contacted'
-            ? 'gate_opener_sent' 
-            : 'gate_opener_staged'))
+      let derivedStatus: OutreachStatus = 'gate_opener_staged'
+      const rawStatus = (co.status || '').toLowerCase().trim()
+      const rawStage = (co.pipeline_stage || '').toLowerCase().trim()
+
+      if (rawStatus === 'meeting_booked' || rawStage === 'meeting booked' || rawStatus === 'opportunity') {
+        derivedStatus = 'meeting_booked'
+      } else if (rawStatus === 'in_call_queue' || rawStage === 'call ready' || rawStatus === 'ready_for_call' || rawStatus === 'coffee_invited') {
+        derivedStatus = 'ready_for_call'
+      } else if (rawStatus === 'called') {
+        derivedStatus = 'called'
+      } else if (rawStage === 'replied' || rawStatus === 'reply_received' || rawStatus === 'warm_up' || rawStatus === 'lead') {
+        derivedStatus = 'warm_up'
+      } else if (rawStatus === 'interested' || rawStatus === 'replied_interested' || rawStatus === 'opening_identified') {
+        derivedStatus = 'opening_identified'
+      } else if (rawStatus === 'objection' || rawStatus === 'replied_objection') {
+        derivedStatus = 'opening_identified'
+      } else if (rawStatus === 'proposal' || rawStage === 'proposal' || rawStatus === 'proposal_requested') {
+        derivedStatus = 'proposal_requested'
+      } else if (rawStatus === 'contacted' || rawStage === 'contacted' || rawStatus === 'gate_opener_sent' || rawStatus === 'sent') {
+        derivedStatus = 'gate_opener_sent'
+      } else if (rawStatus === 'no_reply') {
+        derivedStatus = 'no_reply'
+      } else if (rawStatus === 'lost' || rawStatus === 'dormant' || rawStatus === 'not_now_snoozed') {
+        derivedStatus = 'not_now_snoozed'
+      } else {
+        derivedStatus = 'gate_opener_staged'
+      }
 
       leadMap.set(co.id, {
         id: `staged-${co.id}`,
@@ -486,7 +653,7 @@ export async function getAllLeadsForPipeline(
         handle,
         template_used: 'gate_opener',
         status: derivedStatus,
-        stage: derivedStatus,
+        stage: derivedStatus as any,
         touch_count: 0,
         specific_observation: specificObs,
         prospect_reply: '',
@@ -499,18 +666,41 @@ export async function getAllLeadsForPipeline(
       })
     })
 
-    // Next, overlay actual logged activities so live status, replies, and sent timestamps are 100% accurate
+    const companyById = new Map<string, any>((allCompanies || []).map((c: any) => [c.id, c]))
+    const seenCompanyActivities = new Set<string>()
+
+    // Next, overlay actual logged activities so live status, replies, and sent timestamps are 100% accurate.
+    // activities are ordered by created_at DESC (newest first), so the FIRST activity encountered for a company
+    // is its most recent state! Older activities must NOT overwrite the newest activity.
     ;(activities || []).forEach((act: any) => {
       let payload: any = {}
       try { payload = act.description ? JSON.parse(act.description) : {} } catch {}
 
-      const co = act.companies || {}
+      const compId = act.company_id
+      const co = (compId ? companyById.get(compId) : null) || act.companies || {}
+      const existingLead = compId ? leadMap.get(compId) : undefined
+
+      // Always count touches across all logged activities
+      if (existingLead) {
+        existingLead.touch_count = (existingLead.touch_count || 0) + 1
+      }
+
+      // If we have already applied the most recent activity for this company, do not overwrite with an older one!
+      if (compId && seenCompanyActivities.has(compId)) {
+        return
+      }
+      if (compId) {
+        seenCompanyActivities.add(compId)
+      }
+
       const actTitle = (act.title || '').toLowerCase()
+      const hasValidLi = isValidLinkedInUrl(co.linkedin_url) || isValidLinkedInUrl(existingLead?.linkedin_url) || isValidLinkedInUrl(payload.profile_url) || isValidLinkedInUrl(payload.handle)
       const channel: OutreachChannel = payload.channel || (
         act.activity_type === 'ig_dm' || actTitle.includes('instagram') ? 'instagram_dm' :
         act.activity_type === 'whatsapp_sent' || actTitle.includes('whatsapp') ? 'whatsapp' :
         act.activity_type === 'email_sent' || actTitle.includes('email') ? 'email' :
-        actTitle.includes('linkedin') ? 'linkedin' :
+        (actTitle.includes('linkedin') && hasValidLi) ? 'linkedin' :
+        (co.phone || existingLead?.phone) ? 'whatsapp' :
         'cold_call'
       )
       let status: OutreachStatus = payload.status || 'gate_opener_sent'
@@ -518,16 +708,24 @@ export async function getAllLeadsForPipeline(
       if (status === 'reply_received') status = 'warm_up'
       if (status === 'replied_interested' || status === 'replied_objection') status = 'opening_identified'
 
+      const coStatus = (co.status || '').toLowerCase().trim()
+      const pStage = (co.pipeline_stage || '').toLowerCase().trim()
+
       // Synchronize with companies table stage if advanced
-      if (co.pipeline_stage === 'Call Ready' || co.status === 'in_call_queue') {
-        if (status !== 'meeting_booked') status = 'ready_for_call'
-      } else if (co.pipeline_stage === 'Meeting Booked' || co.status === 'meeting_booked' || co.status === 'opportunity') {
+      if (pStage === 'meeting booked' || coStatus === 'meeting_booked' || coStatus === 'opportunity' || coStatus === 'won') {
         status = 'meeting_booked'
-      } else if (co.pipeline_stage === 'Replied' && status === 'gate_opener_sent') {
-        status = 'warm_up'
+      } else if (pStage === 'call ready' || coStatus === 'in_call_queue') {
+        if (status !== 'meeting_booked' && status !== 'called') status = 'ready_for_call'
+      } else if (status === 'called' || coStatus === 'called') {
+        status = 'called'
+      } else if (status === 'follow_up_sent') {
+        status = 'follow_up_sent'
+      } else if (pStage === 'replied' || ['warm_up', 'reply_received', 'replied_interested', 'opening_identified'].includes(coStatus)) {
+        if (status === 'gate_opener_sent' || status === 'gate_opener_staged') status = 'warm_up'
+      } else if (coStatus === 'lost' || pStage === 'lost') {
+        status = 'not_now_snoozed'
       }
 
-      const existingLead = leadMap.get(act.company_id)
       const specificObs = payload.pain_point || existingLead?.specific_observation || ''
 
       const phone = co.phone || existingLead?.phone || (payload.handle && /^[\d\+\-\s\(\)]+$/.test(payload.handle) ? payload.handle : null)
@@ -554,7 +752,7 @@ export async function getAllLeadsForPipeline(
         template_used: (payload.template_used || 'gate_opener') as OutreachTemplate,
         status,
         stage: status as any,
-        touch_count: (existingLead?.touch_count || 0) + 1,
+        touch_count: existingLead?.touch_count || 1,
         specific_observation: specificObs,
         prospect_reply: replySnippet,
         pain_point: payload.pain_point || '',
@@ -607,24 +805,37 @@ export async function getAllLeadsForPipeline(
         let payload: any = {}
         try { payload = act.description ? JSON.parse(act.description) : {} } catch {}
 
-        const co = act.companies || {}
+        const co = act.companies || (act.company_id ? companyById.get(act.company_id) : null) || {}
+        const baseLead = act.company_id ? leadMap.get(act.company_id) : undefined
+
         const actTitle = (act.title || '').toLowerCase()
-        const channel: OutreachChannel = payload.channel || (
+        const channel: OutreachChannel = payload.channel || baseLead?.channel || (
           act.activity_type === 'ig_dm' || actTitle.includes('instagram') ? 'instagram_dm' :
           act.activity_type === 'whatsapp_sent' || actTitle.includes('whatsapp') ? 'whatsapp' :
           act.activity_type === 'email_sent' || actTitle.includes('email') ? 'email' :
           actTitle.includes('linkedin') ? 'linkedin' :
           'cold_call'
         )
+
         let status: OutreachStatus = payload.status || 'gate_opener_sent'
         if (status === 'sent') status = 'gate_opener_sent'
         if (status === 'reply_received') status = 'warm_up'
         if (status === 'replied_interested' || status === 'replied_objection') status = 'opening_identified'
-        if (co.pipeline_stage === 'Replied' && status === 'gate_opener_sent') {
-          status = 'warm_up'
-        }
 
-        const baseLead = act.company_id ? leadMap.get(act.company_id) : undefined
+        const coStatus = (co.status || '').toLowerCase().trim()
+        const pStage = (co.pipeline_stage || '').toLowerCase().trim()
+
+        if (pStage === 'meeting booked' || coStatus === 'meeting_booked' || baseLead?.status === 'meeting_booked') {
+          status = 'meeting_booked'
+        } else if (pStage === 'call ready' || coStatus === 'in_call_queue' || baseLead?.status === 'ready_for_call') {
+          status = 'ready_for_call'
+        } else if (baseLead?.status === 'called' || coStatus === 'called') {
+          status = 'called'
+        } else if (baseLead?.status === 'follow_up_sent') {
+          status = 'follow_up_sent'
+        } else if (baseLead?.status && baseLead.status !== 'gate_opener_staged') {
+          status = baseLead.status
+        }
 
         const rawPhone = co.phone || baseLead?.phone || (payload.handle && /^[\d\+\-\s\(\)]+$/.test(payload.handle) ? payload.handle : null)
         const igHandle = baseLead?.instagram_handle || (channel === 'instagram_dm' ? (payload.handle || co.notes?.match(/@[\w.]+/)?.[0]) : null)
@@ -878,6 +1089,7 @@ export async function markChannelTouchSent(data: {
       updated_at: createdAt,
     }).eq('id', data.company_id)
 
+    revalidateAllCRMPages()
     return { data: { activityId: act.id, companyId: data.company_id }, error: null }
   } catch (err) {
     return { data: null, error: (err as Error).message }
@@ -887,6 +1099,7 @@ export async function markChannelTouchSent(data: {
 export async function deleteOutreachLog(activityId: string) {
   try {
     const { error } = await supabase.from('activities').delete().eq('id', activityId)
+    revalidateAllCRMPages()
     return { error: error?.message || null }
   } catch (err) {
     return { error: (err as Error).message }

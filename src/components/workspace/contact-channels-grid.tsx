@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { Company, Contact } from "@/lib/types/database";
 import { addCompanyActivity, updateCompany, upsertCompanyContact } from "@/lib/actions/companies";
-import { formatWhatsAppNumber, formatPhoneNumberForDisplay, getCleanDraftMessage, getCleanObservation } from "@/lib/utils";
+import { formatWhatsAppNumber, formatPhoneNumberForDisplay, getCleanDraftMessage, getCleanObservation, isValidLinkedInUrl } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -123,12 +123,13 @@ export function ContactChannelsGrid({
   const [formEmail, setFormEmail] = useState(primaryContact?.email || company.email || "");
   const [formWebsite, setFormWebsite] = useState(company.website && !company.website.includes("instagram.com") ? company.website : "");
   const [formInstagram, setFormInstagram] = useState(extractInstagramUrl(company) || "");
-  const [formLinkedin, setFormLinkedin] = useState(primaryContact?.linkedin_url || company.linkedin_url || "");
+  const rawLinkedin = primaryContact?.linkedin_url || company.linkedin_url;
+  const [formLinkedin, setFormLinkedin] = useState<string>(isValidLinkedInUrl(rawLinkedin) ? (rawLinkedin || "") : "");
 
   // Channel extractors
   const phone = primaryContact?.phone || company.phone;
   const whatsapp = primaryContact?.whatsapp || primaryContact?.phone || company.phone;
-  const linkedin = primaryContact?.linkedin_url || company.linkedin_url;
+  const linkedin = isValidLinkedInUrl(rawLinkedin) ? rawLinkedin : null;
   
   // Extract Instagram distinctly (never confuse with corporate website)
   const instagram = extractInstagramUrl(company);
@@ -171,12 +172,15 @@ export function ContactChannelsGrid({
         phone: formPhone,
         whatsapp: formWhatsapp,
         email: formEmail,
-        linkedin_url: formLinkedin,
+        linkedin_url: formLinkedin || undefined,
         is_primary: true
       });
 
       setShowEditModal(false);
       if (onRefresh) onRefresh();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("lead-updated", { detail: { companyId: company.id } }));
+      }
     } catch (err) {
       console.error("Failed to update contact info:", err);
     } finally {
@@ -191,8 +195,8 @@ export function ContactChannelsGrid({
       available: !!phone,
       value: phone ? formatPhoneNumberForDisplay(phone) : null,
       icon: Phone,
-      color: "bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700",
-      missingColor: "bg-slate-50 text-slate-400 border-slate-200",
+      color: "bg-emerald-700 text-white border-emerald-800 hover:bg-emerald-800",
+      missingColor: "bg-slate-100 text-slate-600 border-slate-200",
       actionLabel: "Call Now",
       action: () => {
         if (phone) {
@@ -207,8 +211,8 @@ export function ContactChannelsGrid({
       available: !!whatsapp,
       value: whatsapp ? formatPhoneNumberForDisplay(whatsapp) : null,
       icon: MessageCircle,
-      color: "bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700",
-      missingColor: "bg-slate-50 text-slate-400 border-slate-200",
+      color: "bg-emerald-700 text-white border-emerald-800 hover:bg-emerald-800",
+      missingColor: "bg-slate-100 text-slate-600 border-slate-200",
       actionLabel: "Open Chat",
       action: () => {
         if (waUrl) {
@@ -223,8 +227,8 @@ export function ContactChannelsGrid({
       available: !!instagram,
       value: (company as any).research_json?.instagram_handle || (instagram ? '@' + instagram.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/\/$/, '') : null),
       icon: Camera,
-      color: "bg-pink-600 text-white border-pink-700 hover:bg-pink-700",
-      missingColor: "bg-slate-50 text-slate-400 border-slate-200",
+      color: "bg-pink-700 text-white border-pink-800 hover:bg-pink-800",
+      missingColor: "bg-slate-100 text-slate-600 border-slate-200",
       actionLabel: "Open IG",
       action: () => {
         if (instagram) {
@@ -240,8 +244,8 @@ export function ContactChannelsGrid({
       available: !!linkedin,
       value: linkedin ? (linkedin.length > 28 ? linkedin.slice(0, 26) + "..." : linkedin) : null,
       icon: Globe2,
-      color: "bg-blue-600 text-white border-blue-700 hover:bg-blue-700",
-      missingColor: "bg-slate-50 text-slate-400 border-slate-200",
+      color: "bg-blue-700 text-white border-blue-800 hover:bg-blue-800",
+      missingColor: "bg-slate-100 text-slate-600 border-slate-200",
       actionLabel: "Open Profile",
       action: () => {
         if (linkedin) {
@@ -257,8 +261,8 @@ export function ContactChannelsGrid({
       available: !!email,
       value: email,
       icon: Mail,
-      color: "bg-black text-white border-black hover:bg-neutral-800",
-      missingColor: "bg-neutral-50 text-neutral-400 border-neutral-200",
+      color: "bg-slate-900 text-white border-slate-950 hover:bg-slate-800",
+      missingColor: "bg-slate-100 text-slate-600 border-slate-200",
       actionLabel: "Send Email",
       action: () => {
         if (email) {
@@ -272,8 +276,8 @@ export function ContactChannelsGrid({
       available: !!corporateWebsite,
       value: corporateWebsite ? (corporateWebsite.length > 25 ? corporateWebsite.slice(0, 23) + "..." : corporateWebsite) : null,
       icon: Globe,
-      color: "bg-black text-white border-black hover:bg-neutral-800",
-      missingColor: "bg-neutral-50 text-neutral-400 border-neutral-200",
+      color: "bg-slate-900 text-white border-slate-950 hover:bg-slate-800",
+      missingColor: "bg-slate-100 text-slate-600 border-slate-200",
       actionLabel: "Visit Site",
       action: () => {
         if (cleanWebsite) {
@@ -293,27 +297,30 @@ export function ContactChannelsGrid({
     );
     setLoggingChannel(null);
     if (onRefresh) onRefresh();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { companyId: company.id } }));
+    }
   };
 
   const availableCount = channels.filter(c => c.available).length;
 
   return (
-    <div className="bg-white rounded-xl border border-neutral-200 p-4 shadow-xs space-y-3 font-sans">
+    <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs space-y-3 font-sans">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-mono font-black text-black uppercase tracking-wider">
+          <span className="text-xs font-mono font-black text-slate-900 uppercase tracking-wider">
             Verified Contact Channels
           </span>
-          <span className="px-2 py-0.5 text-[10px] font-mono font-bold rounded bg-[#0f343c] text-white border border-[#16434d]">
+          <span className="px-2 py-0.5 text-[10px] font-mono font-bold rounded bg-teal-950 text-teal-200 border border-teal-500/50">
             {availableCount} / {channels.length} ACTIVE
           </span>
         </div>
 
         <button
           onClick={() => setShowEditModal(true)}
-          className="text-xs text-black font-mono font-bold hover:bg-neutral-100 bg-white px-2.5 py-1 rounded-lg border border-neutral-200 flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs"
+          className="text-xs text-slate-800 font-mono font-bold hover:bg-slate-100 bg-white px-2.5 py-1 rounded-lg border border-slate-300 flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs"
         >
-          <Pencil className="h-3 w-3 text-black" /> Edit Channels
+          <Pencil className="h-3 w-3 text-slate-700" /> Edit Channels
         </button>
       </div>
 
@@ -326,7 +333,7 @@ export function ContactChannelsGrid({
               key={ch.id}
               className={`p-2.5 rounded-lg border flex flex-col justify-between transition-all ${
                 ch.available
-                  ? "bg-neutral-50/80 border-neutral-200 hover:border-[#0f343c]"
+                  ? "bg-teal-50/40 border-teal-200/80 hover:border-teal-600 shadow-2xs"
                   : ch.missingColor
               }`}
             >
@@ -334,17 +341,17 @@ export function ContactChannelsGrid({
                 <div className="flex items-center gap-1.5 min-w-0">
                   <Icon
                     className={`h-3.5 w-3.5 shrink-0 ${
-                      ch.available ? "text-[#0f343c]" : "text-neutral-400"
+                      ch.available ? "text-teal-700" : "text-slate-400"
                     }`}
                   />
-                  <span className="text-[11px] font-bold truncate text-black font-sans">
+                  <span className="text-[11px] font-bold truncate text-slate-900 font-sans">
                     {ch.name}
                   </span>
                 </div>
                 {ch.available ? (
-                  <CheckCircle2 className="h-3 w-3 text-[#0f343c] shrink-0" />
+                  <CheckCircle2 className="h-3 w-3 text-teal-700 shrink-0" />
                 ) : (
-                  <span className="text-[8px] font-mono font-bold text-neutral-400 uppercase shrink-0">
+                  <span className="text-[9px] font-mono font-black text-slate-500 uppercase shrink-0">
                     MISSING
                   </span>
                 )}
@@ -352,22 +359,22 @@ export function ContactChannelsGrid({
 
               <div className="my-1 text-xs">
                 {ch.available ? (
-                  <span className="text-black font-bold truncate block font-mono text-[11px]">
+                  <span className="text-slate-900 font-bold truncate block font-mono text-[11px]">
                     {ch.value}
                   </span>
                 ) : (
-                  <span className="text-neutral-400 italic text-[10px] block">
+                  <span className="text-slate-500 italic text-[10px] block">
                     Not provided
                   </span>
                 )}
               </div>
 
-              <div className="mt-2 pt-2 border-t border-neutral-100 font-mono">
+              <div className="mt-2 pt-2 border-t border-slate-200/80 font-mono">
                 {ch.available ? (
                   <button
                     onClick={ch.action}
                     disabled={loggingChannel === ch.id}
-                    className="w-full py-1 px-1.5 bg-[#0f343c] hover:bg-[#091f24] text-white border border-[#16434d] text-[10px] font-bold rounded shadow-2xs flex items-center justify-center gap-1 transition-all cursor-pointer"
+                    className="w-full py-1 px-1.5 bg-teal-900 hover:bg-teal-950 text-white border border-teal-800 text-[10px] font-black rounded shadow-2xs flex items-center justify-center gap-1 transition-all cursor-pointer"
                   >
                     {loggingChannel === ch.id ? (
                       <Loader2 className="h-3 w-3 animate-spin text-white" />

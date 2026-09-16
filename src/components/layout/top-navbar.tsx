@@ -33,9 +33,6 @@ const navigation = [
   { name: "Prospects", href: "/prospects", icon: Users },
   { name: "Daily Cadence", href: "/daily-cadence", icon: Zap },
   { name: "Outreach", href: "/outreach", icon: Send },
-  { name: "LinkedIn", href: "/linkedin", icon: Globe2 },
-  { name: "Calls", href: "/calls", icon: Phone },
-  { name: "Follow-ups", href: "/follow-ups", icon: Clock },
   { name: "Meetings", href: "/meetings", icon: Calendar },
   { name: "Pipeline", href: "/pipeline", icon: TrendingUp },
 ];

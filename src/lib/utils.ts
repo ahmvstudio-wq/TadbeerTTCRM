@@ -140,13 +140,8 @@ export function isValidLinkedInUrl(url?: string | null): boolean {
   const trimmed = url.trim().toLowerCase();
   if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined' || trimmed === '#' || trimmed === 'n/a' || trimmed === 'not available') return false;
   if (trimmed.length < 22 || trimmed.includes(' ')) return false;
-  if (!trimmed.includes('linkedin.com/')) return false;
-  return (
-    (trimmed.includes('linkedin.com/in/') || trimmed.includes('linkedin.com/company/') || trimmed.includes('linkedin.com/school/')) &&
-    !trimmed.endsWith('linkedin.com/in/') &&
-    !trimmed.endsWith('linkedin.com/company/') &&
-    !trimmed.endsWith('linkedin.com/school/')
-  );
+  if (!trimmed.includes('linkedin.com/in/')) return false;
+  return !trimmed.endsWith('linkedin.com/in/') && !trimmed.endsWith('linkedin.com/in');
 }
 
 export interface ParsedLeadNotes {

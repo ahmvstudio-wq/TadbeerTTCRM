@@ -15,7 +15,6 @@ import {
   Check,
   AlertTriangle,
   BookOpen,
-  Sparkles,
   Filter,
   Share2,
   BarChart3,
@@ -55,13 +54,14 @@ const CHANNELS: OutreachChannel[] = [
 ];
 
 const STATUSES: OutreachStatus[] = [
-  "gate_opener_sent", "warm_up", "opening_identified", "ready_for_call", "called", "meeting_booked", "no_reply"
+  "gate_opener_sent", "warm_up", "opening_identified", "ready_for_call", "called", "meeting_booked", "follow_up_sent", "no_reply"
 ];
 
 function normalizeStatus(s: string): string {
   if (s === "sent") return "gate_opener_sent";
   if (s === "reply_received") return "warm_up";
   if (s === "replied_interested" || s === "replied_objection") return "opening_identified";
+  if (s === "follow_up_sent") return "follow_up_sent";
   return s;
 }
 
@@ -157,6 +157,17 @@ export default function DailyCadencePage() {
   useEffect(() => {
     fetchDateLeads();
   }, [fetchDateLeads]);
+
+  useEffect(() => {
+    const handleLeadUpdated = () => {
+      fetchDateLeads();
+      fetchMonthCounts();
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("lead-updated", handleLeadUpdated);
+      return () => window.removeEventListener("lead-updated", handleLeadUpdated);
+    }
+  }, [fetchDateLeads, fetchMonthCounts]);
 
   // Month Navigation
   const prevMonth = () => {
@@ -449,7 +460,7 @@ export default function DailyCadencePage() {
                 <Input
                   value={cadenceSearch}
                   onChange={e => setCadenceSearch(e.target.value)}
-                  placeholder="🔍 Search today's queue (name, company, @handle, notes)..."
+                  placeholder="Search today's queue (name, company, @handle, notes)..."
                   className="h-9 text-xs bg-white border-neutral-200 rounded-xl pr-8 focus:bg-white transition-colors"
                 />
                 {cadenceSearch && (
@@ -484,7 +495,7 @@ export default function DailyCadencePage() {
                         onClick={() => changeSelectedDate(latestDate)}
                         className="bg-[#0f343c] hover:bg-[#091f24] text-[#e8d5a7] text-xs font-bold px-4 py-2 rounded-xl shadow-xs cursor-pointer border border-[#16434d]"
                       >
-                        ⚡ View Latest Session ({latestDate} · {dailyCounts[latestDate]} messages) →
+                        View Latest Session ({latestDate} · {dailyCounts[latestDate]} messages) →
                       </Button>
                     </div>
                   );
@@ -584,6 +595,11 @@ function CalendarLeadCard({
       pain_point: pain,
       call_opening_line: opening
     });
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", {
+        detail: { companyId: lead.company_id || lead.id, status: newStatus }
+      }));
+    }
     await onUpdate();
     setSaving(false);
   };
@@ -601,6 +617,11 @@ function CalendarLeadCard({
       pain_point: pain,
       call_opening_line: opening
     });
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", {
+        detail: { companyId: lead.company_id || lead.id, status }
+      }));
+    }
     await onUpdate();
     setSaving(false);
     setEditing(false);
@@ -609,6 +630,11 @@ function CalendarLeadCard({
   const handleDelete = async () => {
     if (!confirm(`Delete outreach log entry for "${lead.company_name}"?`)) return;
     await deleteOutreachLog(lead.id);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", {
+        detail: { companyId: lead.company_id || lead.id }
+      }));
+    }
     await onUpdate();
   };
 
@@ -921,25 +947,25 @@ function CalendarLeadCard({
               onClick={() => setTemplateModalOpen(true)}
               className="flex items-center gap-1.5 bg-neutral-100 hover:bg-neutral-200 text-black text-xs font-black px-3 py-1.5 rounded-xl transition-all cursor-pointer border border-neutral-200"
             >
-              <Sparkles className="h-3.5 w-3.5 text-amber-600" />
+              <MessageSquare className="h-3.5 w-3.5 text-neutral-700" />
               Templates
             </button>
 
             <button
               type="button"
-              onClick={() => openLead(lead.company_id)}
+              onClick={() => openLead(lead.company_id || lead.id)}
               className="flex items-center gap-1.5 bg-[#0f343c] hover:bg-[#16434d] text-[#e8d5a7] text-xs font-black px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-xs border border-[#16434d]"
             >
-              <Sparkles className="h-3.5 w-3.5" />
+              <ExternalLink className="h-3.5 w-3.5" />
               Lead Workspace
             </button>
 
             <button
               type="button"
               onClick={() => handleStatusChange('meeting_booked')}
-              className="flex items-center gap-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-black px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+              className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-black px-3 py-1.5 rounded-xl transition-all cursor-pointer"
             >
-              📅 Booked
+              <CalendarIcon className="h-3.5 w-3.5" /> Booked
             </button>
 
             <button
@@ -974,7 +1000,7 @@ function CalendarLeadCard({
                 onClick={() => setEditing(true)}
                 className="text-xs font-bold text-neutral-600 hover:text-black px-2.5 py-1.5 ml-auto cursor-pointer"
               >
-                ✏️ Edit
+                Edit
               </button>
             )}
 

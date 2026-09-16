@@ -1,12 +1,13 @@
 'use client'
 
 import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react'
+import { redirect } from 'next/navigation'
 import {
   UserCheck, Clock, MessageSquare, UserPlus,
   ChevronDown, ChevronRight, Eye, Filter,
   Users, TrendingUp, CheckCircle2, Send, AlertCircle, RefreshCw,
   Plus, Trash2, Loader2, Save, X, Calendar, FileText, Check, Award, Flame,
-  Share2, ArrowRight, Tag, MapPin, Building2, Sparkles, AlertTriangle,
+  Share2, ArrowRight, Tag, MapPin, Building2, AlertTriangle,
   Zap, Layers, Target, HelpCircle, CheckSquare, MessageCircle, Search
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -176,9 +177,9 @@ function TierBadge({ tier }: { tier?: string }) {
   let label = 'Tier 2: Good Fit';
 
   if (currentTier.includes('Tier 1')) {
-    color = '#7C3AED'; bg = '#F5F3FF'; label = '👑 Tier 1: Strategic Account';
+    color = '#7C3AED'; bg = '#F5F3FF'; label = 'Tier 1: Strategic Account';
   } else if (currentTier.includes('Tier 3')) {
-    color = '#059669'; bg = '#ECFDF5'; label = '🌱 Tier 3: Network Relationship';
+    color = '#059669'; bg = '#ECFDF5'; label = 'Tier 3: Network Relationship';
   }
 
   return (
@@ -276,9 +277,9 @@ function AddProspectModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
             <div>
               <label style={{ fontSize: '11px', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '4px' }}>Account Classification Tier</label>
               <select style={inp} value={form.tier} onChange={e => setForm({ ...form, tier: e.target.value as any })}>
-                <option value="Tier 1">👑 Tier 1: High-Value Strategic Account</option>
-                <option value="Tier 2">☀️ Tier 2: Good-Fit Prospect</option>
-                <option value="Tier 3">🌱 Tier 3: Network Relationship</option>
+                <option value="Tier 1">Tier 1: High-Value Strategic Account</option>
+                <option value="Tier 2">Tier 2: Good-Fit Prospect</option>
+                <option value="Tier 3">Tier 3: Network Relationship</option>
               </select>
             </div>
             <div>
@@ -456,9 +457,9 @@ function ProspectCard({
               borderRadius: '8px', padding: '3px 8px', cursor: 'pointer'
             }}
           >
-            <option value="Tier 1">👑 Tier 1: Strategic Account</option>
-            <option value="Tier 2">☀️ Tier 2: Good Fit</option>
-            <option value="Tier 3">🌱 Tier 3: Network</option>
+            <option value="Tier 1">Tier 1: Strategic Account</option>
+            <option value="Tier 2">Tier 2: Good Fit</option>
+            <option value="Tier 3">Tier 3: Network</option>
           </select>
 
           {profile.in_pipeline ? (
@@ -529,7 +530,7 @@ function ProspectCard({
           </button>
         </div>
 
-        {/* 🎯 Tadbeer Angle & Strategy Box */}
+        {/* Tadbeer Angle & Strategy Box */}
         <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '10px 12px', marginTop: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 800, color: '#0A66C2', marginBottom: '4px' }}>
             <Target size={13} />
@@ -540,7 +541,7 @@ function ProspectCard({
           </p>
         </div>
 
-        {/* ⚡ Recommended Action Box for Current Stage */}
+        {/* Recommended Action Box for Current Stage */}
         <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '12px', padding: '10px 12px', marginTop: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 800, color: '#1E40AF', marginBottom: '2px' }}>
             <Zap size={13} style={{ fill: '#1E40AF' }} />
@@ -730,6 +731,7 @@ function ProspectCard({
 
 // ── Main LinkedIn CRM Page ───────────────────────────────────────────────────
 export default function LinkedInPage() {
+  redirect('/outreach')
   const [prospects, setProspects] = useState<LinkedInProspect[]>([])
   const [loading, setLoading] = useState(true)
   const [activeStageFilter, setActiveStageFilter] = useState<string>('all')

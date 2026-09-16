@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Menu, Search, Bell, LogOut, Sparkles } from "lucide-react";
+import { Menu, Search, Bell, LogOut } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { MobileSidebar } from "@/components/layout/sidebar";
 import { createClient } from "@/lib/supabase/client";
