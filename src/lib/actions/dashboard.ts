@@ -16,14 +16,16 @@ export async function getDashboardStats() {
       callsResult,
       meetingsResult,
       followUpsResult,
-      opportunitiesResult
+      opportunitiesResult,
+      auditsResult
     ] = await Promise.all([
       supabase.from('companies').select('id, status, pipeline_stage, lead_source, est_deal_value, phone'),
       supabase.from('contacts').select('id'),
       supabase.from('calls').select('id, outcome'),
       supabase.from('meetings').select('id, status, meeting_date'),
       supabase.from('follow_ups').select('id, status, due_date'),
-      supabase.from('opportunities').select('id, estimated_value, probability, stage')
+      supabase.from('opportunities').select('id, estimated_value, probability, stage'),
+      supabase.from('activities').select('id, metadata').eq('activity_type', 'note').contains('metadata', { is_audit: true })
     ])
 
     if (companiesResult.error) {
@@ -40,6 +42,8 @@ export async function getDashboardStats() {
     const meetings = meetingsResult.data || []
     const followUps = followUpsResult.data || []
     const opportunities = opportunitiesResult.data || []
+    const audits = auditsResult?.data || []
+    const pendingAudits = audits.filter((a: any) => a.metadata?.status !== 'completed').length
 
     const stats = {
       total_companies: companies.length,
@@ -56,6 +60,7 @@ export async function getDashboardStats() {
       overdue_follow_ups: followUps.filter(f =>
         f.status === 'pending' && f.due_date < todayStr
       ).length,
+      pending_audits: pendingAudits,
       pipeline: {
         total_value: 0,
         weighted_value: 0,

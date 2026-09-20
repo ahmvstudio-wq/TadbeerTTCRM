@@ -14,7 +14,8 @@ import {
   TrendingUp,
   Settings,
   Building2,
-  ChevronRight
+  ChevronRight,
+  FileCheck
 } from "lucide-react";
 
 const navigation = [
@@ -22,6 +23,7 @@ const navigation = [
   { name: "Prospects", href: "/prospects", icon: Users },
   { name: "Daily Cadence", href: "/daily-cadence", icon: Zap },
   { name: "Outreach", href: "/outreach", icon: Send },
+  { name: "Audits", href: "/audits", icon: FileCheck },
   { name: "Meetings", href: "/meetings", icon: Calendar },
   { name: "Pipeline", href: "/pipeline", icon: TrendingUp },
 ];

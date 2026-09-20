@@ -20,6 +20,7 @@ import {
   ChevronRight,
   FileText,
   Send,
+  FileCheck,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
@@ -31,6 +32,7 @@ const mainNav = [
 ]
 
 const extraNav = [
+  { name: "Audits", href: "/audits", icon: FileCheck },
   { name: "Meetings", href: "/meetings", icon: Calendar },
   { name: "Pipeline", href: "/pipeline", icon: TrendingUp },
   { name: "Settings", href: "/settings", icon: Settings },

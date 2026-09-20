@@ -24,7 +24,8 @@ import {
   Search,
   Building,
   User,
-  Loader2
+  Loader2,
+  FileCheck
 } from "lucide-react";
 import Image from "next/image";
 
@@ -33,6 +34,7 @@ const navigation = [
   { name: "Prospects", href: "/prospects", icon: Users },
   { name: "Daily Cadence", href: "/daily-cadence", icon: Zap },
   { name: "Outreach", href: "/outreach", icon: Send },
+  { name: "Audits", href: "/audits", icon: FileCheck },
   { name: "Meetings", href: "/meetings", icon: Calendar },
   { name: "Pipeline", href: "/pipeline", icon: TrendingUp },
 ];

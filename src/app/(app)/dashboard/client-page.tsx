@@ -8,7 +8,8 @@ import {
   Building2, ChevronDown, ChevronRight, Zap, Flame, DollarSign,
   Activity, ArrowRight, MessageCircle, Mail, ExternalLink, CheckCircle2,
   BarChart3, PieChart, RefreshCw, ShieldAlert, ArrowUpRight, Plus, Filter,
-  Target, Layers, Compass, Award, Percent, CheckSquare, LineChart, Briefcase, Search, Loader2
+  Target, Layers, Compass, Award, Percent, CheckSquare, LineChart, Briefcase, Search, Loader2,
+  FileCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -469,8 +470,8 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
 
       </div>
 
-      {/* ── 4 CORE HIGH-DENSITY COMPACT KPI CARDS ──────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 font-mono">
+      {/* ── 5 CORE HIGH-DENSITY COMPACT KPI CARDS ──────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 font-mono">
         
         {/* KPI 1: Total Prospects */}
         <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-4 sm:p-5 border border-black/[0.06] shadow-glass hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] transition-all flex flex-col justify-between space-y-2">
@@ -523,7 +524,38 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
           </div>
         </div>
 
-        {/* KPI 4: Estimated Pipeline Value */}
+        {/* KPI 4: Pending Audits */}
+        <Link
+          href="/audits?status=pending"
+          className="bg-white/80 backdrop-blur-xl rounded-2xl p-4 sm:p-5 border border-black/[0.06] shadow-glass hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:border-black/20 transition-all flex flex-col justify-between space-y-2 cursor-pointer group"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-normal uppercase tracking-wider text-[#6b7280] flex items-center gap-1.5 truncate font-body group-hover:text-black">
+              <FileCheck className="h-3.5 w-3.5 text-black shrink-0" /> Pending Audits
+            </span>
+            <span className={cn(
+              "text-[9px] font-medium px-2 py-0.5 rounded border font-mono",
+              ((stats?.pending_audits ?? 0) > 0)
+                ? "text-amber-800 bg-amber-50 border-amber-200"
+                : "text-neutral-600 bg-neutral-100 border-neutral-200"
+            )}>
+              {(stats?.pending_audits ?? 0) > 0 ? "ACTION" : "CLEAR"}
+            </span>
+          </div>
+          <div className="my-1 flex items-baseline justify-between">
+            <h3 className="text-3xl font-light text-black tracking-tight font-display">
+              {stats?.pending_audits ?? 0}
+            </h3>
+          </div>
+          <div className="pt-2 border-t border-black/[0.04] flex items-center justify-between text-[10px] text-[#8a8d95] font-light font-body">
+            <span>Pending Audits</span>
+            <span className="text-black font-mono flex items-center gap-0.5 group-hover:underline">
+              Open <ArrowRight className="h-2.5 w-2.5" />
+            </span>
+          </div>
+        </Link>
+
+        {/* KPI 5: Estimated Pipeline Value */}
         <div className="bg-[#0c0d0f] rounded-2xl p-4 sm:p-5 border border-black/40 text-white shadow-glass flex flex-col justify-between space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-normal uppercase tracking-wider text-neutral-300 flex items-center gap-1.5 truncate font-body">
