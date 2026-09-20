@@ -110,8 +110,8 @@ export function UnifiedLeadWorkspace({
 
   const [saving, setSaving] = useState(false);
 
-  const fetchLeadData = async () => {
-    setLoading(true);
+  const fetchLeadData = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const cleanId = String(companyId || '').replace(/^staged-/, '').trim();
       const res = await getCompany(cleanId);
@@ -145,21 +145,22 @@ export function UnifiedLeadWorkspace({
     } catch (err) {
       console.error("Failed to load lead details:", err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     if (companyId) {
-      fetchLeadData();
+      fetchLeadData(false);
     } else {
       setLoading(false);
     }
     const handleLeadUpdated = (e: any) => {
-      const updatedId = e.detail?.companyId;
+      if (e?.detail?.source === "workspace_status") return;
+      const updatedId = e?.detail?.companyId;
       const cleanId = String(companyId || '').replace(/^staged-/, '').trim();
       if (!updatedId || updatedId === cleanId) {
-        fetchLeadData();
+        fetchLeadData(true);
       }
     };
     window.addEventListener("lead-updated", handleLeadUpdated);
@@ -181,19 +182,20 @@ export function UnifiedLeadWorkspace({
 
   const handleStatusChange = async (newStatus: string) => {
     setCompany(prev => prev ? { ...prev, status: newStatus } : null);
-    await updateCompanyStatus(company.id, newStatus);
-    await fetchLeadData();
     if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { companyId: company.id, status: newStatus } }));
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { source: "workspace_status", companyId: company.id, status: newStatus } }));
     }
+    await updateCompanyStatus(company.id, newStatus);
+    fetchLeadData(true);
   };
 
   const handleAssign = async (repId: string | null) => {
-    await assignCompanyLead(company.id, repId);
-    await fetchLeadData();
+    setCompany(prev => prev ? { ...prev, assigned_to: repId || null } : null);
     if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { companyId: company.id } }));
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { source: "workspace_status", companyId: company.id } }));
     }
+    await assignCompanyLead(company.id, repId);
+    fetchLeadData(true);
   };
 
   const handleSaveOverview = async () => {

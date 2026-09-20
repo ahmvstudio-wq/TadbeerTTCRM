@@ -125,8 +125,8 @@ export default function ProspectsPage() {
   const [draggedProspectId, setDraggedProspectId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
 
-  const fetchProspects = useCallback(async (searchVal?: string, statusVal?: string, isRetry = false) => {
-    setLoading(true);
+  const fetchProspects = useCallback(async (searchVal?: string, statusVal?: string, isRetry = false, silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const result = await getCompanies({ search: searchVal || undefined, status: statusVal || undefined });
@@ -139,24 +139,41 @@ export default function ProspectsPage() {
         setProspects([]);
       } else {
         setProspects(result.data || []);
-        setSelectedIds([]);
       }
     } catch (err) {
       if (!isRetry && err instanceof TypeError) {
-        setTimeout(() => fetchProspects(searchVal, statusVal, true), 1500);
+        setTimeout(() => fetchProspects(searchVal, statusVal, true, silent), 1500);
         return;
       }
       setError("Connection error. Please check the server is running and click Retry.");
       setProspects([]);
     }
-    finally { setLoading(false); }
+    finally { 
+      if (!silent) setLoading(false); 
+    }
   }, []);
 
-  useEffect(() => { fetchProspects(); }, [fetchProspects]);
-  useEffect(() => { const t = setTimeout(() => fetchProspects(search, statusFilter), 300); return () => clearTimeout(t); }, [search, statusFilter, fetchProspects]);
+  useEffect(() => { fetchProspects(undefined, undefined, false, false); }, [fetchProspects]);
+  useEffect(() => { const t = setTimeout(() => fetchProspects(search, statusFilter, false, false), 300); return () => clearTimeout(t); }, [search, statusFilter, fetchProspects]);
   useEffect(() => {
-    const handleLeadUpdated = () => {
-      fetchProspects(search, statusFilter);
+    const handleLeadUpdated = (e: any) => {
+      const detail = e?.detail;
+      if (detail?.source === "prospects_page") return;
+
+      if (detail?.companyId && (detail.status || detail.leadType || detail.lead_type)) {
+        const nextStatus = detail.status;
+        const nextType = detail.leadType || detail.lead_type;
+        setProspects(prev => prev.map(p => {
+          if (p.id !== detail.companyId) return p;
+          return {
+            ...p,
+            ...(nextStatus ? { status: nextStatus } : {}),
+            ...(nextType ? { lead_type: nextType } : {}),
+          };
+        }));
+      }
+
+      fetchProspects(search, statusFilter, false, true);
     };
     window.addEventListener("lead-updated", handleLeadUpdated);
     return () => window.removeEventListener("lead-updated", handleLeadUpdated);
@@ -191,23 +208,28 @@ export default function ProspectsPage() {
   };
 
   const handleStatusChange = async (id: string, newStatus: string) => {
+    setProspects(prev => prev.map(p => p.id === id ? { ...p, status: newStatus } : p));
+    addToast("success", `Status updated to ${COMPANY_STATUSES[newStatus as CompanyStatus]?.label || newStatus}`);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { source: "prospects_page", companyId: id, status: newStatus } }));
+    }
     const res = await updateCompanyStatus(id, newStatus);
-    if (res.error) addToast("error", res.error);
-    else {
-      addToast("success", `Status updated to ${COMPANY_STATUSES[newStatus as CompanyStatus]?.label}`);
-      setProspects(prev => prev.map(p => p.id === id ? { ...p, status: newStatus } : p));
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("lead-updated", { detail: { companyId: id, status: newStatus } }));
-      }
+    if (res.error) {
+      addToast("error", res.error);
+      fetchProspects(search, statusFilter, false, true);
     }
   };
 
   const handleSendToCadence = async (id: string, name: string) => {
-    const res = await addToCallQueue(id);
-    addToast("success", `"${name}" added to Daily Cadence Call Queue!`);
     setProspects(prev => prev.map(p => p.id === id ? { ...p, status: 'in_call_queue' } : p));
+    addToast("success", `"${name}" added to Daily Cadence Call Queue!`);
     if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { companyId: id, status: 'in_call_queue' } }));
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { source: "prospects_page", companyId: id, status: 'in_call_queue' } }));
+    }
+    const res = await addToCallQueue(id);
+    if (res.error) {
+      addToast("error", res.error);
+      fetchProspects(search, statusFilter, false, true);
     }
   };
 
@@ -215,21 +237,22 @@ export default function ProspectsPage() {
     if (selectedIds.length === 0) return;
     const res = await addBatchToCallQueue(selectedIds);
     addToast("success", `Queued ${res.count || selectedIds.length} prospects to Daily Cadence Call Queue!`);
-    fetchProspects(search, statusFilter);
+    fetchProspects(search, statusFilter, false, true);
     if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { status: 'in_call_queue' } }));
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { source: "prospects_page", status: 'in_call_queue' } }));
     }
   };
 
   const handleLeadTypeChange = async (id: string, newType: string) => {
+    setProspects(prev => prev.map(p => p.id === id ? { ...p, lead_type: newType } : p));
+    addToast("success", `Categorized as ${newType}`);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { source: "prospects_page", companyId: id, leadType: newType } }));
+    }
     const res = await updateCompanyLeadType(id, newType);
-    if (res.error) addToast("error", res.error);
-    else {
-      addToast("success", `Categorized as ${newType}`);
-      setProspects(prev => prev.map(p => p.id === id ? { ...p, lead_type: newType } : p));
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("lead-updated", { detail: { companyId: id, leadType: newType } }));
-      }
+    if (res.error) {
+      addToast("error", res.error);
+      fetchProspects(search, statusFilter, false, true);
     }
   };
 

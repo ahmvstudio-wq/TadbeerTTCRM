@@ -139,15 +139,15 @@ export default function DailyCadencePage() {
   }, [dailyCounts]);
 
   // Fetch leads for selected date (always fetch all channels to ensure complete operational metrics and share report fidelity)
-  const fetchDateLeads = useCallback(async () => {
-    setLoading(true);
+  const fetchDateLeads = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     const res = await getAllLeadsForPipeline(selectedDate, undefined);
     if (res.error && (res.error.includes("Unauthorized") || res.error.includes("session"))) {
       window.location.href = "/login";
       return;
     }
     setLeads((res.data as OutreachLead[]) || []);
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, [selectedDate]);
 
   useEffect(() => {
@@ -155,12 +155,13 @@ export default function DailyCadencePage() {
   }, [fetchMonthCounts]);
 
   useEffect(() => {
-    fetchDateLeads();
+    fetchDateLeads(false);
   }, [fetchDateLeads]);
 
   useEffect(() => {
-    const handleLeadUpdated = () => {
-      fetchDateLeads();
+    const handleLeadUpdated = (e: any) => {
+      if (e?.detail?.source === "daily_cadence") return;
+      fetchDateLeads(true);
       fetchMonthCounts();
     };
     if (typeof window !== "undefined") {
@@ -516,7 +517,7 @@ export default function DailyCadencePage() {
                     lead={lead}
                     expanded={expandedCard === lead.id}
                     onToggle={() => setExpandedCard(expandedCard === lead.id ? null : lead.id)}
-                    onUpdate={fetchDateLeads}
+                    onUpdate={() => fetchDateLeads(true)}
                   />
                 ))}
               </div>
@@ -597,7 +598,7 @@ function CalendarLeadCard({
     });
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("lead-updated", {
-        detail: { companyId: lead.company_id || lead.id, status: newStatus }
+        detail: { source: "daily_cadence", companyId: lead.company_id || lead.id, status: newStatus }
       }));
     }
     await onUpdate();

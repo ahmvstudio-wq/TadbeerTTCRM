@@ -240,12 +240,12 @@ export async function bulkImportCompanies(
       const contactsToInsert: any[] = []
       insertedCompanies.forEach((insertedComp, idx) => {
         const info = contactInfoMap[idx] || {}
-        const finalContactName = info.personName || `${insertedComp.company_name} Representative`
+        const finalContactName = info.personName || info.companyName || 'Business Contact'
 
         contactsToInsert.push({
           company_id: insertedComp.id,
           full_name: finalContactName,
-          title: info.personTitle || 'Decision Maker',
+          title: info.personTitle || (info.personName ? 'Decision Maker' : 'Owner / Manager'),
           email: info.contactEmail || null,
           phone: info.contactPhone || null,
           whatsapp: info.whatsapp || info.contactPhone || null,

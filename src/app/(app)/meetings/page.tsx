@@ -31,8 +31,8 @@ export default function MeetingsPage() {
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [newMeeting, setNewMeeting] = useState({ title: "", company_id: "", contact_name: "", date: "", duration: 30, location: "", description: "" });
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = async (silent = false) => {
+    if (!silent) setLoading(true);
     const [mRes, cRes] = await Promise.all([getMeetings("all"), getCompanies()]);
     if ((mRes.error && mRes.error.includes("Unauthorized")) || (cRes.error && cRes.error.includes("Unauthorized"))) {
       window.location.href = "/login";
@@ -40,13 +40,14 @@ export default function MeetingsPage() {
     }
     if (mRes.data) setMeetings(mRes.data);
     if (cRes.data) setCompanies(cRes.data);
-    setLoading(false);
+    if (!silent) setLoading(false);
   };
 
   useEffect(() => { 
-    fetchData(); 
-    const handleLeadUpdated = () => {
-      fetchData();
+    fetchData(false); 
+    const handleLeadUpdated = (e: any) => {
+      if (e?.detail?.source === "meetings_page") return;
+      fetchData(true);
     };
     window.addEventListener("lead-updated", handleLeadUpdated);
     return () => window.removeEventListener("lead-updated", handleLeadUpdated);

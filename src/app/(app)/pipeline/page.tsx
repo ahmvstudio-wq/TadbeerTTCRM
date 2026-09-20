@@ -126,18 +126,19 @@ export default function PipelinePage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = async (silent = false) => {
+    if (!silent) setLoading(true);
     const [oRes, cRes] = await Promise.all([getOpportunities(), getCompanies()]);
     if (oRes.data) setOpportunities(oRes.data);
     if (cRes.data) setCompanies(cRes.data);
-    setLoading(false);
+    if (!silent) setLoading(false);
   };
 
   useEffect(() => {
-    fetchData();
-    const handleLeadUpdated = () => {
-      fetchData();
+    fetchData(false);
+    const handleLeadUpdated = (e: any) => {
+      if (e?.detail?.source === "pipeline_page") return;
+      fetchData(true);
     };
     window.addEventListener("lead-updated", handleLeadUpdated);
     return () => window.removeEventListener("lead-updated", handleLeadUpdated);
@@ -210,7 +211,7 @@ export default function PipelinePage() {
       message: `Stage updated to ${STAGE_CONFIGS[stage]?.label || stage}`,
     });
     if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { opportunityId: id, stage } }));
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { source: "pipeline_page", opportunityId: id, stage } }));
     }
   };
 
