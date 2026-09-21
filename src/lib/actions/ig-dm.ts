@@ -1250,6 +1250,7 @@ export async function importCSVOutreach(data: {
           linkedin_url: sampleRow?.linkedin_url?.trim() || null,
           status: 'contacted',
           pipeline_stage: 'Contacted',
+          lead_status: 'Contacted',
           notes: sampleRow?.notes?.trim() || 'Imported via CSV',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
