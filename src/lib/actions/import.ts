@@ -50,6 +50,19 @@ function formatHandleToName(handle: string): string {
   return clean.replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
+function getValidLeadStatus(status?: string): string {
+  if (!status) return 'New'
+  const s = status.toLowerCase().trim()
+  if (s.includes('meet') || s.includes('book')) return 'Meeting Booked'
+  if (s.includes('prop') || s.includes('deal')) return 'Proposal Sent'
+  if (s.includes('qual')) return 'Qualified'
+  if (s.includes('won')) return 'Won'
+  if (s.includes('lost')) return 'Lost'
+  if (s.includes('arch')) return 'Archived'
+  if (s.includes('contact') || s.includes('queue') || s.includes('call') || s.includes('staged') || s.includes('sent') || s.includes('warm')) return 'Contacted'
+  return 'New'
+}
+
 export async function bulkImportCompanies(
   data: Record<string, string>[],
   targetChannel?: OutreachChannel | 'all',
@@ -194,7 +207,7 @@ export async function bulkImportCompanies(
           industry: normalizedSector || row.industry || 'general',
           status: coStatus,
           pipeline_stage: pStage,
-          lead_status: coStatus === 'contacted' ? 'Opener Staged' : 'New',
+          lead_status: getValidLeadStatus(coStatus),
           lead_source: mappedLeadSource,
           research_json: { target_channel: prefChannel },
           notes: JSON.stringify({
