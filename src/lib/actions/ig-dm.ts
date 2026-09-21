@@ -35,6 +35,7 @@ import { isValidLinkedInUrl } from '@/lib/utils'
 function getValidActivityType(channel: string): string {
   if (channel === 'email') return 'email_sent';
   if (channel === 'whatsapp') return 'whatsapp_sent';
+  if (channel === 'instagram_dm' || channel === 'linkedin') return 'outreach_sent';
   return 'call_made';
 }
 
