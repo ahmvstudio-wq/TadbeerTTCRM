@@ -928,11 +928,14 @@ export default function OutreachPipelinePage() {
       <CsvImport
         open={isFreshImportOpen}
         onClose={() => setIsFreshImportOpen(false)}
-        title="Import Fresh Uncontacted Leads (Bulk CSV)"
+        title="Import Fresh Leads (Bulk CSV)"
         onImport={async (data, channel) => {
-          await bulkImportCompanies(data, channel);
+          await bulkImportCompanies(data, channel, 'contacted');
           setIsFreshImportOpen(false);
-          fetchLeads(false);
+          await fetchLeads(false);
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("lead-updated"));
+          }
         }}
       />
 

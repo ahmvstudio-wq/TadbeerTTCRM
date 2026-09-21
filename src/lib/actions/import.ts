@@ -3,24 +3,46 @@
 import { getSupabaseAdminClient } from '@/lib/supabase/config'
 import { generateForNewProspects, normalizeCategory, buildDeterministicSequence } from '@/lib/ai/outreach-generator'
 import { requireAuth } from '@/lib/auth-guard'
-import { type OutreachChannel, type SectorCategory } from '@/lib/types/outreach'
+import { CHANNEL_CONFIG, type OutreachChannel, type SectorCategory } from '@/lib/types/outreach'
 import { isValidLinkedInUrl } from '@/lib/utils'
+
+import { revalidatePath } from 'next/cache'
 
 const supabase = getSupabaseAdminClient()
 
-function normalizeCompanyStatus(rawStatus?: string): string {
-  if (!rawStatus) return 'prospect'
+function revalidateAllCRMPages() {
+  try {
+    revalidatePath('/outreach')
+    revalidatePath('/daily-cadence')
+    revalidatePath('/dashboard')
+    revalidatePath('/companies')
+    revalidatePath('/prospects')
+    revalidatePath('/ig-dm')
+  } catch (e) {
+    // Non-fatal if called outside request context
+  }
+}
+
+function getValidActivityType(channel: string): string {
+  if (channel === 'email') return 'email_sent'
+  if (channel === 'whatsapp') return 'whatsapp_sent'
+  if (channel === 'instagram_dm' || channel === 'linkedin') return 'outreach_sent'
+  return 'call_made'
+}
+
+function normalizeCompanyStatus(rawStatus?: string, fallback: string = 'contacted'): string {
+  if (!rawStatus) return fallback
   const s = rawStatus.toLowerCase().trim()
   if (['prospect', 'contacted', 'in_call_queue', 'meeting_booked', 'opportunity', 'won', 'lost'].includes(s)) {
     return s
   }
-  if (s.includes('sent') || s.includes('contact') || s.includes('warm') || s.includes('opening')) return 'contacted'
+  if (s.includes('sent') || s.includes('contact') || s.includes('warm') || s.includes('opening') || s.includes('staged')) return 'contacted'
   if (s.includes('call')) return 'in_call_queue'
   if (s.includes('meeting') || s.includes('booked') || s.includes('coffee')) return 'meeting_booked'
   if (s.includes('opp') || s.includes('deal') || s.includes('proposal')) return 'opportunity'
   if (s.includes('won')) return 'won'
   if (s.includes('lost')) return 'lost'
-  return 'prospect'
+  return fallback
 }
 
 function formatHandleToName(handle: string): string {
@@ -30,7 +52,8 @@ function formatHandleToName(handle: string): string {
 
 export async function bulkImportCompanies(
   data: Record<string, string>[],
-  targetChannel?: OutreachChannel | 'all'
+  targetChannel?: OutreachChannel | 'all',
+  initialPipelineStatus: 'contacted' | 'prospect' = 'contacted'
 ) {
   try {
     await requireAuth()
@@ -163,12 +186,15 @@ export async function bulkImportCompanies(
         else if (prefChannel === 'instagram_dm') mappedLeadSource = 'Instagram';
         else if (prefChannel === 'linkedin') mappedLeadSource = 'LinkedIn';
 
+        const coStatus = normalizeCompanyStatus(row.status || row.stage, initialPipelineStatus)
+        const pStage = coStatus === 'contacted' ? 'Contacted' : (coStatus === 'in_call_queue' ? 'Call Ready' : 'New')
+
         const companyObj: Record<string, any> = {
           company_name: companyName.trim(),
           industry: normalizedSector || row.industry || 'general',
-          status: normalizeCompanyStatus(row.status || row.stage),
-          pipeline_stage: 'New',
-          lead_status: 'New',
+          status: coStatus,
+          pipeline_stage: pStage,
+          lead_status: coStatus === 'contacted' ? 'Opener Staged' : 'New',
           lead_source: mappedLeadSource,
           research_json: { target_channel: prefChannel },
           notes: JSON.stringify({
@@ -214,8 +240,10 @@ export async function bulkImportCompanies(
           contactPhone,
           whatsapp,
           contactLinkedin,
+          cleanIg,
           companyName: companyName.trim(),
           preStagedSeq,
+          observation: observation || preStagedSeq.touch_1.specific_observation,
           channel: prefChannel,
         })
       }
@@ -264,6 +292,46 @@ export async function bulkImportCompanies(
         }
       }
 
+      // Batch Insert Activities for Outreach visibility
+      if (initialPipelineStatus === 'contacted') {
+        const activitiesToInsert = insertedCompanies.map((insertedComp, idx) => {
+          const info = contactInfoMap[idx] || {}
+          const seq = info.preStagedSeq
+          const ch: OutreachChannel = info.channel || 'cold_call'
+          const handle = ch === 'instagram_dm' ? (info.cleanIg || '') : ch === 'linkedin' ? (info.contactLinkedin || '') : (info.whatsapp || info.contactPhone || '')
+          
+          const payload = {
+            channel: ch,
+            handle: handle || info.companyName || '',
+            template_used: 'growth_offer',
+            status: 'gate_opener_staged',
+            prospect_reply: '',
+            pain_point: '',
+            call_opening_line: seq?.cold_call_script?.opener || '',
+            notes: seq?.touch_1?.message || info.observation || 'Imported via CSV',
+          }
+
+          return {
+            company_id: insertedComp.id,
+            activity_type: getValidActivityType(ch),
+            title: (CHANNEL_CONFIG[ch]?.label || 'Outreach') + ' — Opener Staged',
+            description: JSON.stringify(payload),
+            created_at: now,
+          }
+        })
+
+        if (activitiesToInsert.length > 0) {
+          try {
+            const { error: actErr } = await supabase.from('activities').insert(activitiesToInsert)
+            if (actErr) {
+              console.warn("Activities insert warning in bulkImportCompanies:", actErr.message)
+            }
+          } catch (aErr) {
+            console.warn("Activities insert error:", aErr)
+          }
+        }
+      }
+
       // Automatically register initial staging touch in outreach_touches
       const touchesToInsert = insertedCompanies.map((insertedComp, idx) => {
         const info = contactInfoMap[idx] || {}
@@ -295,6 +363,7 @@ export async function bulkImportCompanies(
       imported += insertedCompanies.length
     }
 
+    revalidateAllCRMPages()
     return { imported, failed, total: data.length }
   } catch (error) {
     return { imported: 0, failed: data.length, total: data.length, error: error instanceof Error ? error.message : 'Import failed' }
