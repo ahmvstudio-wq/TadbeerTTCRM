@@ -1,14 +1,12 @@
 'use server'
 
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdminClient } from '@/lib/supabase/config'
 import { generateForNewProspects, normalizeCategory, buildDeterministicSequence } from '@/lib/ai/outreach-generator'
 import { requireAuth } from '@/lib/auth-guard'
 import { type OutreachChannel, type SectorCategory } from '@/lib/types/outreach'
 import { isValidLinkedInUrl } from '@/lib/utils'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const supabase = createClient(supabaseUrl, supabaseKey)
+const supabase = getSupabaseAdminClient()
 
 function normalizeCompanyStatus(rawStatus?: string): string {
   if (!rawStatus) return 'prospect'

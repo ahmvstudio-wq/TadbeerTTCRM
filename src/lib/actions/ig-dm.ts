@@ -1,13 +1,10 @@
 'use server'
 
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdminClient } from '@/lib/supabase/config'
 import { requireAuth } from '@/lib/auth-guard'
 import { revalidatePath } from 'next/cache'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+const supabase = getSupabaseAdminClient()
 
 function revalidateAllCRMPages() {
   try {
@@ -554,7 +551,7 @@ export async function getAllLeadsForPipeline(
     const { data: activities, error: actErr } = await supabase
       .from('activities')
       .select('*, companies(id, company_name, industry, phone, notes, research_json, category, draft_message, status, pipeline_stage)')
-      .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent'])
+      .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent', 'status_changed'])
       .order('created_at', { ascending: false })
       .range(0, 4999)
 
@@ -830,107 +827,55 @@ export async function getAllLeadsForPipeline(
       weekAgo.setDate(weekAgo.getDate() - 7)
       weekAgo.setHours(0, 0, 0, 0)
 
-      const matchedActs = (activities || []).filter(act => {
-        if (!act.created_at) return false
+      const matchedCompanyIds = new Set<string>()
+
+      // 1. Matches from logged activities on target date/week
+      ;(activities || []).forEach((act: any) => {
+        if (!act.created_at) return
         let payload: any = {}
         try { payload = act.description ? JSON.parse(act.description) : {} } catch {}
 
+        const createdDate = act.created_at.split('T')[0]
+        const explicitDate = payload.outreach_date ? payload.outreach_date.split('T')[0] : null
+        const updatedDate = payload.updated_at ? payload.updated_at.split('T')[0] : null
+
+        let isMatch = false
         if (targetDateStr) {
-          const createdDate = act.created_at.split('T')[0]
-          const explicitDate = payload.outreach_date ? payload.outreach_date.split('T')[0] : null
-          const updatedDate = payload.updated_at ? payload.updated_at.split('T')[0] : null
-          return createdDate === targetDateStr || explicitDate === targetDateStr || updatedDate === targetDateStr
+          isMatch = createdDate === targetDateStr || explicitDate === targetDateStr || updatedDate === targetDateStr
+        } else if (isWeek) {
+          isMatch = new Date(act.created_at).getTime() >= weekAgo.getTime()
         }
-        if (isWeek) {
-          return new Date(act.created_at).getTime() >= weekAgo.getTime()
+
+        if (isMatch) {
+          const compId = act.company_id || act.id
+          const co = (act.company_id ? companyById.get(act.company_id) : null) || act.companies || {}
+          if (co.lead_type === 'Dormant' || co.status === 'dormant' || co.status === 'lost') return
+          matchedCompanyIds.add(compId)
         }
-        return true
       })
 
-      combined = matchedActs.map(act => {
-        let payload: any = {}
-        try { payload = act.description ? JSON.parse(act.description) : {} } catch {}
-
-        const co = act.companies || (act.company_id ? companyById.get(act.company_id) : null) || {}
-        const baseLead = act.company_id ? leadMap.get(act.company_id) : undefined
-
-        const actTitle = (act.title || '').toLowerCase()
-        const channel: OutreachChannel = payload.channel || baseLead?.channel || (
-          act.activity_type === 'ig_dm' || actTitle.includes('instagram') ? 'instagram_dm' :
-          act.activity_type === 'whatsapp_sent' || actTitle.includes('whatsapp') ? 'whatsapp' :
-          act.activity_type === 'email_sent' || actTitle.includes('email') ? 'email' :
-          actTitle.includes('linkedin') ? 'linkedin' :
-          'cold_call'
-        )
-
-        let status: OutreachStatus = payload.status || 'gate_opener_sent'
-        if (status === 'sent') status = 'gate_opener_sent'
-        if (status === 'reply_received') status = 'warm_up'
-        if (status === 'replied_interested' || status === 'replied_objection') status = 'opening_identified'
-
-        const coStatus = (co.status || '').toLowerCase().trim()
-        const pStage = (co.pipeline_stage || '').toLowerCase().trim()
-
-        if (pStage === 'meeting booked' || coStatus === 'meeting_booked' || baseLead?.status === 'meeting_booked') {
-          status = 'meeting_booked'
-        } else if (pStage === 'call ready' || coStatus === 'in_call_queue' || baseLead?.status === 'ready_for_call') {
-          status = 'ready_for_call'
-        } else if (baseLead?.status === 'called' || coStatus === 'called') {
-          status = 'called'
-        } else if (baseLead?.status === 'follow_up_sent') {
-          status = 'follow_up_sent'
-        } else if (baseLead?.status && baseLead.status !== 'gate_opener_staged') {
-          status = baseLead.status
+      // 2. Matches from companies created or contacted on target date/week
+      activeOutreachCompanies.forEach((co: any) => {
+        const coCreated = co.created_at ? co.created_at.split('T')[0] : null
+        const coDateAdded = co.date_added ? co.date_added.split('T')[0] : null
+        let isMatch = false
+        if (targetDateStr) {
+          isMatch = coCreated === targetDateStr || coDateAdded === targetDateStr
+        } else if (isWeek) {
+          isMatch = co.created_at ? new Date(co.created_at).getTime() >= weekAgo.getTime() : false
         }
-
-        const rawPhone = co.phone || baseLead?.phone || (payload.handle && /^[\d\+\-\s\(\)]+$/.test(payload.handle) ? payload.handle : null)
-        const igHandle = baseLead?.instagram_handle || (channel === 'instagram_dm' ? (payload.handle || co.notes?.match(/@[\w.]+/)?.[0]) : null)
-        const liUrl = baseLead?.linkedin_url || (channel === 'linkedin' ? (payload.profile_url || co.linkedin_url) : null)
-        const email = baseLead?.email || co.email || null
-
-        const replySnippet = payload.prospect_reply || payload.reply || (co.pipeline_stage === 'Replied' ? (co.draft_message || 'Replied to outreach') : '') || baseLead?.prospect_reply || ''
-
-        return {
-          id: act.id,
-          company_id: act.company_id,
-          company_name: co.company_name || baseLead?.company_name || 'Unknown',
-          contact_name: baseLead?.contact_name || payload.contact_name || 'Decision Maker',
-          contact_title: baseLead?.contact_title || 'Owner',
-          industry: co.industry || baseLead?.industry || 'General',
-          sector: baseLead?.sector || 'general',
-          phone: rawPhone,
-          instagram_handle: igHandle,
-          linkedin_url: liUrl,
-          email: email,
-          channel,
-          handle: payload.handle || baseLead?.handle || '',
-          template_used: (payload.template_used || 'gate_opener') as OutreachTemplate,
-          status,
-          stage: status as any,
-          touch_count: 1,
-          specific_observation: payload.pain_point || baseLead?.specific_observation || '',
-          prospect_reply: replySnippet,
-          pain_point: payload.pain_point || '',
-          call_opening_line: payload.call_opening_line || baseLead?.call_opening_line || '',
-          notes: payload.notes || payload.message || payload.sent_message || act.notes || baseLead?.notes || '',
-          staged_sequence: baseLead?.staged_sequence,
-          sent_at: act.created_at,
-          updated_at: payload.updated_at || act.created_at,
-        } as OutreachLead
+        if (isMatch) {
+          matchedCompanyIds.add(co.id)
+        }
       })
 
-      // Also include any actively contacted companies from leadMap (excluding uncontacted staged prospects) that match targetDateStr and are not already in combined
-      if (targetDateStr) {
-        const existingCompanyIds = new Set(combined.map(l => l.company_id).filter(Boolean))
-        leadMap.forEach((lead, compId) => {
-          if (!existingCompanyIds.has(compId) && lead.status !== 'gate_opener_staged') {
-            const sentDate = lead.sent_at ? lead.sent_at.split('T')[0] : null
-            if (sentDate === targetDateStr) {
-              combined.push(lead)
-            }
-          }
-        })
-      }
+      // 3. Assemble rich lead records from leadMap
+      matchedCompanyIds.forEach(compId => {
+        const lead = leadMap.get(compId)
+        if (lead) {
+          combined.push(lead)
+        }
+      })
     }
 
     if (channelFilter) {
@@ -1157,44 +1102,67 @@ export async function deleteOutreachLog(activityId: string) {
 
 export async function getOutreachCountsForMonth(year: number, month: number) {
   try {
-    const startDate = new Date(year, month - 1, 1, 0, 0, 0).toISOString()
-    const endDate = new Date(year, month, 0, 23, 59, 59).toISOString()
+    const formattedMonth = month < 10 ? `0${month}` : `${month}`
+    const startDayStr = `${year}-${formattedMonth}-01`
+    const lastDayOfMonth = new Date(year, month, 0).getDate()
+    const endDayStr = `${year}-${formattedMonth}-${lastDayOfMonth < 10 ? `0${lastDayOfMonth}` : lastDayOfMonth}`
 
-    const { data, error } = await supabase
-      .from('activities')
-      .select('created_at, company_id')
-      .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent'])
-      .gte('created_at', startDate)
-      .lte('created_at', endDate)
+    const startDate = `${startDayStr}T00:00:00.000Z`
+    const endDate = `${endDayStr}T23:59:59.999Z`
 
-    if (error) return { data: {}, error: error.message }
+    const [actRes, coRes] = await Promise.all([
+      supabase
+        .from('activities')
+        .select('created_at, company_id, description, activity_type')
+        .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent', 'status_changed'])
+        .gte('created_at', startDate)
+        .lte('created_at', endDate)
+        .range(0, 4999),
+      supabase
+        .from('companies')
+        .select('id, created_at, date_added, status, pipeline_stage, lead_type')
+        .range(0, 4999)
+    ])
 
-    const counts: Record<string, number> = {}
-    const companyIdsWithAct = new Set<string>()
+    if (actRes.error) return { data: {}, error: actRes.error.message }
 
-    ;(data || []).forEach((act: any) => {
-      if (act.created_at) {
-        const day = act.created_at.split('T')[0]
-        counts[day] = (counts[day] || 0) + 1
-        if (act.company_id) {
-          companyIdsWithAct.add(act.company_id)
-        }
+    const companyById = new Map<string, any>((coRes.data || []).map((c: any) => [c.id, c]))
+    const dateToCompanySet: Record<string, Set<string>> = {}
+
+    ;(actRes.data || []).forEach((act: any) => {
+      if (!act.created_at) return
+      const compId = act.company_id || act.id
+      const co = companyById.get(compId)
+      if (co && (co.lead_type === 'Dormant' || co.status === 'dormant' || co.status === 'lost')) return
+
+      let payload: any = {}
+      try { payload = act.description ? JSON.parse(act.description) : {} } catch {}
+
+      const day = payload.outreach_date ? payload.outreach_date.split('T')[0] : act.created_at.split('T')[0]
+      if (day && day >= startDayStr && day <= endDayStr) {
+        if (!dateToCompanySet[day]) dateToCompanySet[day] = new Set()
+        dateToCompanySet[day].add(compId)
       }
     })
 
-    // Also include companies with outreach status that don't have an activity row yet
-    const { data: cos } = await supabase
-      .from('companies')
-      .select('id, created_at, status, pipeline_stage')
-      .not('status', 'in', '("prospect","won","lost")')
-      .gte('created_at', startDate)
-      .lte('created_at', endDate)
+    ;(coRes.data || []).forEach((co: any) => {
+      if (co.lead_type === 'Dormant' || co.status === 'dormant' || co.status === 'lost') return
+      const s = (co.status || '').toLowerCase().trim()
+      const p = (co.pipeline_stage || '').toLowerCase().trim()
+      if (s === 'prospect' && (p === 'new' || p === 'raw' || p === 'prospect')) return
 
-    ;(cos || []).forEach((co: any) => {
-      if (co.created_at && !companyIdsWithAct.has(co.id)) {
-        const day = co.created_at.split('T')[0]
-        counts[day] = (counts[day] || 0) + 1
+      const createdDay = co.created_at ? co.created_at.split('T')[0] : null
+      const addedDay = co.date_added ? co.date_added.split('T')[0] : null
+      const day = createdDay || addedDay
+      if (day && day >= startDayStr && day <= endDayStr) {
+        if (!dateToCompanySet[day]) dateToCompanySet[day] = new Set()
+        dateToCompanySet[day].add(co.id)
       }
+    })
+
+    const counts: Record<string, number> = {}
+    Object.keys(dateToCompanySet).forEach(d => {
+      counts[d] = dateToCompanySet[d].size
     })
 
     return { data: counts, error: null }

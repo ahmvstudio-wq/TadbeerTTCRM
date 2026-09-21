@@ -1,11 +1,8 @@
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdminClient } from '@/lib/supabase/config'
 import { NextResponse, type NextRequest } from 'next/server'
 import { getRecommendedCaseStudies, getRecommendedClientLogos } from '@/lib/credibility-library'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+const supabase = getSupabaseAdminClient()
 
 // ── Internal-only seed route — protected by a server secret ──────────────────
 // The middleware already enforces session auth on all /api routes.
