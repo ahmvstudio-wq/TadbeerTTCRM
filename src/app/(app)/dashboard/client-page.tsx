@@ -196,7 +196,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
   }, [outreachLeads]);
 
   const totalProspects = stats?.total_companies ?? companies.length;
-  const inOutreachCount = stats?.in_outreach ?? companies.filter(c => c.status === 'contacted' || c.status === 'in_call_queue' || c.status === 'meeting_booked' || c.pipeline_stage === 'Contacted' || c.pipeline_stage === 'Replied').length;
+  const inOutreachCount = outreachLeads.length > 0 ? outreachLeads.length : (stats?.in_outreach ?? 0);
   const activePipeline = inOutreachCount;
   
   const pipelineValue = useMemo(() => {
@@ -277,7 +277,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
       return stats.stage_funnel;
     }
     const total = Math.max(1, totalProspects);
-    const contacted = companies.filter(c => c.status === "contacted" || c.pipeline_stage === "Contacted" || c.pipeline_stage === "Replied" || c.pipeline_stage === "Call Ready" || c.status === "in_call_queue" || c.status === "meeting_booked" || c.status === "opportunity").length;
+    const contacted = inOutreachCount;
     const ready = companies.filter(c => c.pipeline_stage === "Call Ready" || c.status === "in_call_queue").length;
     const booked = meetingsBooked;
 
@@ -287,7 +287,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
       { label: "3. Call Ready", count: ready, pct: Math.round((ready / total) * 100), color: "bg-[#174E59]", textColor: "text-[#174E59]" },
       { label: "4. Meetings Booked", count: booked, pct: Math.round((booked / total) * 100), color: "bg-[#257584]", textColor: "text-[#257584]" },
     ];
-  }, [companies, totalProspects, meetingsBooked, stats]);
+  }, [companies, totalProspects, meetingsBooked, inOutreachCount, stats]);
 
   return (
     <div className="min-h-screen bg-transparent p-3 sm:p-6 lg:p-8 space-y-5 font-sans max-w-7xl mx-auto">

@@ -2,6 +2,7 @@
 
 import { requireAuth } from '@/lib/auth-guard'
 import { getSupabaseAdminClient } from '@/lib/supabase/config'
+import { getAllLeadsForPipeline } from '@/lib/actions/ig-dm'
 
 const supabase = getSupabaseAdminClient()
 
@@ -17,7 +18,8 @@ export async function getDashboardStats() {
       meetingsResult,
       followUpsResult,
       opportunitiesResult,
-      auditsResult
+      auditsResult,
+      outreachPipelineResult
     ] = await Promise.all([
       supabase.from('companies').select('id, status, pipeline_stage, lead_source, est_deal_value, phone, lead_type').range(0, 4999),
       supabase.from('contacts').select('id').range(0, 4999),
@@ -25,7 +27,8 @@ export async function getDashboardStats() {
       supabase.from('meetings').select('id, status, meeting_date').range(0, 4999),
       supabase.from('follow_ups').select('id, status, due_date').range(0, 4999),
       supabase.from('opportunities').select('id, estimated_value, probability, stage').range(0, 4999),
-      supabase.from('activities').select('id, metadata').eq('activity_type', 'note').contains('metadata', { is_audit: true }).range(0, 4999)
+      supabase.from('activities').select('id, metadata').eq('activity_type', 'note').contains('metadata', { is_audit: true }).range(0, 4999),
+      getAllLeadsForPipeline('all')
     ])
 
     if (companiesResult.error) {
@@ -132,12 +135,15 @@ export async function getDashboardStats() {
       total: companies.length
     }
 
-    stats.in_outreach = inOutreachCount
+    const outreachLeads = (outreachPipelineResult?.data as any[]) || []
+    const totalOutreachLeads = outreachLeads.length > 0 ? outreachLeads.length : inOutreachCount
+
+    stats.in_outreach = totalOutreachLeads
     stats.conversion_rate = totalCo > 0 ? Math.round((bookedCount / totalCo) * 1000) / 10 : 0
 
     stats.stage_funnel = [
       { label: "1. Total Database", count: companies.length, pct: 100, color: "bg-slate-900", textColor: "text-slate-900" },
-      { label: "2. Contacted", count: contactedCount, pct: Math.round((contactedCount / totalCo) * 100), color: "bg-[#0f343c]", textColor: "text-slate-800" },
+      { label: "2. Contacted", count: totalOutreachLeads, pct: Math.round((totalOutreachLeads / totalCo) * 100), color: "bg-[#0f343c]", textColor: "text-slate-800" },
       { label: "3. Call Ready", count: callReadyCount, pct: Math.round((callReadyCount / totalCo) * 100), color: "bg-[#174E59]", textColor: "text-[#174E59]" },
       { label: "4. Meetings Booked", count: bookedCount, pct: Math.round((bookedCount / totalCo) * 100), color: "bg-[#257584]", textColor: "text-[#257584]" },
     ]
