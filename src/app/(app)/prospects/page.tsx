@@ -20,7 +20,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { ToastContainer, addToast } from "@/components/ui/toast";
 import { AddProspectModal } from "@/components/prospects/add-prospect-modal";
 import { COMPANY_STATUSES, type CompanyStatus } from "@/lib/constants";
-import { getCompanies, updateCompanyStatus, updateCompanyLeadType, addCompanyActivity, triggerDraftGeneration, triggerBatchDraftGeneration } from "@/lib/actions/companies";
+import { getCompanies, updateCompanyStatus, updateCompanyLeadType, addCompanyActivity, triggerDraftGeneration, triggerBatchDraftGeneration, reactivateCompany } from "@/lib/actions/companies";
 import { addToCallQueue, addBatchToCallQueue } from "@/lib/actions/calls";
 import { deleteCompany } from "@/lib/actions/delete";
 import { bulkImportCompanies } from "@/lib/actions/import";
@@ -28,6 +28,7 @@ import { exportToCsv } from "@/lib/export-csv";
 import { useUnifiedLead } from "@/context/unified-lead-context";
 import { extractInstagramUrl as sharedExtractInstagramUrl } from "@/components/workspace/contact-channels-grid";
 import { getCleanIndustry } from "@/lib/utils";
+import { Moon, Archive, RotateCcw } from "lucide-react";
 
 // Inline LinkedIn Icon
 function LinkedInIcon({ size = 12 }: { size?: number }) {
@@ -47,10 +48,11 @@ const statusColor: Record<CompanyStatus, { bg: string; text: string; border: str
   opportunity: { bg: "bg-teal-50", text: "text-teal-700", border: "border-teal-200", dot: "bg-teal-500" },
   won: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200", dot: "bg-emerald-500" },
   lost: { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200", dot: "bg-rose-500" },
+  dormant: { bg: "bg-neutral-100", text: "text-neutral-600", border: "border-neutral-300", dot: "bg-neutral-400" },
 };
 
 const statusOrder: CompanyStatus[] = [
-  "prospect", "contacted", "in_call_queue", "meeting_booked", "opportunity", "won", "lost"
+  "prospect", "contacted", "in_call_queue", "meeting_booked", "opportunity", "won", "lost", "dormant"
 ];
 
 // Lead Temperature Badges
@@ -61,6 +63,7 @@ const LEAD_TYPES = [
   { key: 'VIP', label: 'VIP Account', bg: 'bg-purple-50 text-purple-700 border-purple-200' },
   { key: 'Inbound', label: 'Inbound Lead', bg: 'bg-teal-50 text-teal-700 border-teal-200' },
   { key: 'Referral', label: 'Referral', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  { key: 'Dormant', label: 'Dormant Lead', bg: 'bg-neutral-100 text-neutral-600 border-neutral-300' },
 ];
 
 const avatarGradients = [
@@ -101,6 +104,7 @@ export default function ProspectsPage() {
   const [dateFilter, setDateFilter] = useState("all");
   const [channelFilter, setChannelFilter] = useState("all");
   const [leadSegment, setLeadSegment] = useState<"all" | "new" | "database">("all");
+  const [showDormant, setShowDormant] = useState(false);
   const [prospects, setProspects] = useState<any[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -270,6 +274,19 @@ export default function ProspectsPage() {
     }
   };
 
+  const handleReactivate = async (id: string, name: string) => {
+    const res = await reactivateCompany(id);
+    if (res.error) {
+      addToast("error", res.error);
+    } else {
+      addToast("success", `Reactivated "${name}" back to Active Prospects!`);
+      fetchProspects(search, statusFilter, false, true);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("lead-updated", { detail: { companyId: id, status: 'prospect', reactivated: true } }));
+      }
+    }
+  };
+
   const extractInstagramUrl = useCallback((input: any): string => {
     return sharedExtractInstagramUrl(input);
   }, []);
@@ -425,20 +442,29 @@ export default function ProspectsPage() {
     return { type: 'crm', label: 'Direct CRM', bg: 'bg-slate-50 text-slate-700 border-slate-200' };
   };
 
+  const isDormantLead = useCallback((p: any): boolean => {
+    return p.lead_type === 'Dormant' || p.lead_folder === 'Dormant' || p.category === 'dormant' || p.status === 'dormant';
+  }, []);
+
+  const dormantLeads = useMemo(() => prospects.filter(isDormantLead), [prospects, isDormantLead]);
+  const activeProspects = useMemo(() => prospects.filter(p => !isDormantLead(p)), [prospects, isDormantLead]);
+
   // Channel Category counts derived automatically from DB prospects
   const channelCategoryCounts = useMemo(() => {
+    const targetList = showDormant ? dormantLeads : activeProspects;
     const counts = {
-      all: prospects.length,
+      all: targetList.length,
       whatsapp: 0,
       instagram: 0,
       linkedin: 0,
       phone: 0,
       email: 0,
       insights: 0,
-      csv: 0
+      csv: 0,
+      dormant: dormantLeads.length
     };
 
-    prospects.forEach(p => {
+    targetList.forEach(p => {
       const hasWa = hasValidWhatsApp(p) || p.lead_source?.toLowerCase().includes('whatsapp');
       const hasIg = Boolean(extractInstagramUrl(p)) || p.lead_source?.toLowerCase().includes('instagram');
       const hasLi = isValidLinkedInUrl(p.contacts?.[0]?.linkedin_url) || isValidLinkedInUrl(p.linkedin_url) || getLeadSource(p).type === 'linkedin';
@@ -457,7 +483,7 @@ export default function ProspectsPage() {
     });
 
     return counts;
-  }, [prospects, hasValidWhatsApp, hasValidPhone, hasValidEmail]);
+  }, [showDormant, dormantLeads, activeProspects, hasValidWhatsApp, hasValidPhone, hasValidEmail]);
 
   // Date Filter Matcher
   const isDateMatch = (created_at: string, filter: string): boolean => {
@@ -487,7 +513,8 @@ export default function ProspectsPage() {
 
   // Filter & Sort Logic
   const filteredProspects = useMemo(() => {
-    return prospects.filter(p => {
+    const baseList = showDormant ? dormantLeads : activeProspects;
+    return baseList.filter(p => {
       if (leadTypeFilter && (p.lead_type || 'Cold') !== leadTypeFilter) return false;
       if (sourceFilter === 'insights' && getLeadSource(p).type !== 'insights') return false;
       if (sourceFilter === 'linkedin' && getLeadSource(p).type !== 'linkedin') return false;
@@ -522,7 +549,7 @@ export default function ProspectsPage() {
       if (leadSegment === 'database' && p.lead_source === 'new_lead') return false;
       return true;
     });
-  }, [prospects, leadTypeFilter, sourceFilter, dateFilter, leadSegment, channelFilter, hasValidWhatsApp, hasValidPhone, hasValidEmail]);
+  }, [showDormant, dormantLeads, activeProspects, leadTypeFilter, sourceFilter, dateFilter, leadSegment, channelFilter, hasValidWhatsApp, hasValidPhone, hasValidEmail]);
 
   const sortedProspects = useMemo(() => {
     return [...filteredProspects].sort((a, b) => {
@@ -631,11 +658,12 @@ export default function ProspectsPage() {
     ]);
     addToast("success", `Exported ${dataToExport.length} prospects to CSV with Instagram & WhatsApp links`);
   };
-  const totalCount = prospects.length;
-  const insightsCount = prospects.filter(p => getLeadSource(p).type === 'insights').length;
-  const linkedinCount = prospects.filter(p => getLeadSource(p).type === 'linkedin').length;
-  const todayCount = prospects.filter(p => isDateMatch(p.created_at, 'today')).length;
-  const hotCount = prospects.filter(p => p.lead_type === 'Hot' || p.status === 'opportunity').length;
+  const totalCount = showDormant ? dormantLeads.length : activeProspects.length;
+  const targetProspects = showDormant ? dormantLeads : activeProspects;
+  const insightsCount = targetProspects.filter(p => getLeadSource(p).type === 'insights').length;
+  const linkedinCount = targetProspects.filter(p => getLeadSource(p).type === 'linkedin').length;
+  const todayCount = targetProspects.filter(p => isDateMatch(p.created_at, 'today')).length;
+  const hotCount = targetProspects.filter(p => p.lead_type === 'Hot' || p.status === 'opportunity').length;
 
   const openDrawer = (prospect: any) => {
     openLead(prospect.id);
@@ -653,14 +681,32 @@ export default function ProspectsPage() {
               <Zap className="h-3 w-3 text-black" />
               <span>LEADS DIRECTORY</span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-light tracking-tight text-black font-display">Prospects & Leads</h1>
+            <h1 className="text-xl sm:text-2xl font-light tracking-tight text-black font-display">
+              {showDormant ? "Dormant Leads Archive" : "Prospects & Leads"}
+            </h1>
             <p className="text-[#6b7280] text-xs mt-0.5 max-w-2xl font-light font-body">
-              View, search, and reach out to all your leads.
+              {showDormant
+                ? `Viewing ${dormantLeads.length} dormant leads. These leads are archived and hidden from active outreach, daily cadence, and follow-ups.`
+                : "View, search, and reach out to all your active leads."}
             </p>
           </div>
 
           {/* Quick Header Actions */}
           <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant={showDormant ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowDormant(!showDormant)}
+              className={cn(
+                "text-xs font-mono font-bold h-8 rounded-lg px-3 transition-all cursor-pointer flex items-center gap-1.5 shadow-xs",
+                showDormant
+                  ? "bg-amber-600 hover:bg-amber-700 text-white border-amber-700"
+                  : "bg-white hover:bg-neutral-100 text-neutral-800 border-neutral-300 hover:border-neutral-400"
+              )}
+            >
+              <Moon className="h-3.5 w-3.5" />
+              {showDormant ? "← Active Leads" : `Dormant Leads (${dormantLeads.length})`}
+            </Button>
             <Button
               size="sm"
               onClick={() => setAddModalOpen(true)}
@@ -1043,6 +1089,33 @@ export default function ProspectsPage() {
         </div>
       )}
 
+      {/* Dormant Leads Banner if active */}
+      {showDormant && (
+        <div className="p-4 rounded-2xl bg-amber-50/90 border border-amber-200/80 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-800 shrink-0">
+              <Moon className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-amber-950 font-display">
+                Viewing Dormant Leads Archive ({dormantLeads.length} leads)
+              </p>
+              <p className="text-[11px] text-amber-800 font-light font-body mt-0.5">
+                These leads are archived and hidden from all active pipeline stages, daily cadence, and outreach touches.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowDormant(false)}
+            className="bg-white hover:bg-neutral-50 text-neutral-900 text-xs font-mono font-bold border-amber-300 h-8 px-3 rounded-xl shadow-2xs self-start sm:self-auto"
+          >
+            ← Return to Active Prospects
+          </Button>
+        </div>
+      )}
+
       {/* ── Main Display Body ─────────────────────────────────────────────── */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-24 bg-white rounded-3xl border border-slate-200 shadow-sm">
@@ -1201,14 +1274,26 @@ export default function ProspectsPage() {
                       {/* Quick Contact & Action Buttons */}
                       <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
-                          {/* Send to Cadence */}
-                          <Button
-                            size="sm"
-                            onClick={() => handleSendToCadence(prospect.id, primaryName)}
-                            className="bg-neutral-100 text-black hover:bg-black hover:text-white border border-neutral-200 text-xs font-bold font-mono h-7 px-2 rounded transition-colors"
-                          >
-                            + Cadence
-                          </Button>
+                          {/* Reactivate if Dormant */}
+                          {isDormantLead(prospect) ? (
+                            <Button
+                              size="sm"
+                              onClick={() => handleReactivate(prospect.id, primaryName)}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-[11px] font-bold h-7 px-2 rounded transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                              title="Reactivate to active prospects"
+                            >
+                              <RotateCcw className="h-3 w-3" /> Reactivate
+                            </Button>
+                          ) : (
+                            /* Send to Cadence */
+                            <Button
+                              size="sm"
+                              onClick={() => handleSendToCadence(prospect.id, primaryName)}
+                              className="bg-neutral-100 text-black hover:bg-black hover:text-white border border-neutral-200 text-xs font-bold font-mono h-7 px-2 rounded transition-colors"
+                            >
+                              + Cadence
+                            </Button>
+                          )}
 
                           {/* WhatsApp Link */}
                           {waUrl && (

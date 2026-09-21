@@ -6,6 +6,7 @@ export const COMPANY_STATUSES = {
   opportunity: { label: "Opportunity", color: "bg-teal-100 text-teal-700" },
   won: { label: "Won", color: "bg-emerald-100 text-emerald-700" },
   lost: { label: "Lost", color: "bg-red-100 text-red-700" },
+  dormant: { label: "Dormant", color: "bg-neutral-100 text-neutral-600" },
 } as const;
 
 export type CompanyStatus = keyof typeof COMPANY_STATUSES;

@@ -203,16 +203,16 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
     });
   }, [outreachLeads]);
 
-  const totalProspects = initialData.stats?.total_companies ?? companies.length;
-  const inOutreachCount = initialData.stats?.in_outreach ?? companies.filter(c => c.status === 'contacted' || c.status === 'in_call_queue' || c.status === 'meeting_booked' || c.pipeline_stage === 'Contacted' || c.pipeline_stage === 'Replied').length;
+  const totalProspects = stats?.total_companies ?? companies.length;
+  const inOutreachCount = stats?.in_outreach ?? companies.filter(c => c.status === 'contacted' || c.status === 'in_call_queue' || c.status === 'meeting_booked' || c.pipeline_stage === 'Contacted' || c.pipeline_stage === 'Replied').length;
   const activePipeline = inOutreachCount;
   
   const pipelineValue = useMemo(() => {
     return opportunitiesList.reduce((acc, o) => acc + (o.estimated_value || 0), 0);
   }, [opportunitiesList]);
 
-  const meetingsBooked = initialData.stats?.upcoming_meetings ?? meetingsList.length;
-  const conversionRate = initialData.stats?.conversion_rate ?? (totalProspects > 0 ? Math.round((meetingsBooked / totalProspects) * 1000) / 10 : 0);
+  const meetingsBooked = stats?.upcoming_meetings ?? meetingsList.length;
+  const conversionRate = stats?.conversion_rate ?? (totalProspects > 0 ? Math.round((meetingsBooked / totalProspects) * 1000) / 10 : 0);
 
   // Real Monthly Lead Activity (Calculated directly from companies database)
   const monthlyBars = useMemo(() => {
@@ -248,8 +248,8 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
 
   // Real Channel Distribution Data (Strict Database Saved Truth)
   const channelBreakdown = useMemo(() => {
-    if (initialData.stats?.channel_breakdown && companies.length === initialData.stats.total_companies) {
-      return initialData.stats.channel_breakdown;
+    if (stats?.channel_breakdown && companies.length === stats.total_companies) {
+      return stats.channel_breakdown;
     }
     let li = 0;
     let ig = 0;
@@ -277,12 +277,12 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
       direct: { count: direct, pct: Math.round((direct / total) * 100) },
       total: companies.length
     };
-  }, [companies, initialData.stats]);
+  }, [companies, stats]);
 
   // Real Pipeline Stage Funnel Breakdown (Strict Database Saved Truth)
   const stageFunnel = useMemo(() => {
-    if (initialData.stats?.stage_funnel && companies.length === initialData.stats.total_companies) {
-      return initialData.stats.stage_funnel;
+    if (stats?.stage_funnel && companies.length === stats.total_companies) {
+      return stats.stage_funnel;
     }
     const total = Math.max(1, totalProspects);
     const contacted = companies.filter(c => c.status === "contacted" || c.pipeline_stage === "Contacted" || c.pipeline_stage === "Replied" || c.pipeline_stage === "Call Ready" || c.status === "in_call_queue" || c.status === "meeting_booked" || c.status === "opportunity").length;
@@ -295,7 +295,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
       { label: "3. Call Ready", count: ready, pct: Math.round((ready / total) * 100), color: "bg-[#174E59]", textColor: "text-[#174E59]" },
       { label: "4. Meetings Booked", count: booked, pct: Math.round((booked / total) * 100), color: "bg-[#257584]", textColor: "text-[#257584]" },
     ];
-  }, [companies, totalProspects, meetingsBooked, initialData.stats]);
+  }, [companies, totalProspects, meetingsBooked, stats]);
 
   return (
     <div className="min-h-screen bg-transparent p-3 sm:p-6 lg:p-8 space-y-5 font-sans max-w-7xl mx-auto">

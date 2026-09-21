@@ -45,15 +45,19 @@ export async function getDashboardStats() {
     const audits = auditsResult?.data || []
     const pendingAudits = audits.filter((a: any) => a.metadata?.status !== 'completed').length
 
+    // Count ALL scheduled meetings (not just future-dated ones) so the KPI reflects true booked count
+    const allScheduledMeetings = meetings.filter(m => m.status === 'scheduled').length
+    // Count meetings that ever progressed (scheduled + completed) for funnel accuracy
+    const totalBookedEver = meetings.filter(m => m.status === 'scheduled' || m.status === 'completed').length
+
     const stats = {
       total_companies: companies.length,
       companies_by_status: {} as Record<string, number>,
       total_contacts: contacts.length,
       total_calls: calls.length,
       calls_by_outcome: {} as Record<string, number>,
-      upcoming_meetings: meetings.filter(m =>
-        m.status === 'scheduled' && m.meeting_date >= todayStr
-      ).length,
+      upcoming_meetings: allScheduledMeetings,
+      total_meetings_booked: totalBookedEver,
       pending_follow_ups: followUps.filter(f =>
         f.status === 'pending' && f.due_date >= todayStr
       ).length,
@@ -114,7 +118,7 @@ export async function getDashboardStats() {
     })
 
     const totalCo = Math.max(1, companies.length)
-    const bookedCount = meetings.filter(m => m.status === 'scheduled').length
+    const bookedCount = totalBookedEver
 
     stats.channel_breakdown = {
       linkedin: { count: liCount, pct: Math.round((liCount / totalCo) * 100) },
@@ -139,7 +143,7 @@ export async function getDashboardStats() {
     })
 
     opportunities.forEach(o => {
-      if (o.stage !== 'lost') {
+      if (o.stage !== 'lost' && o.stage !== 'won') {
         stats.pipeline.open_opportunities++
         stats.pipeline.total_value += o.estimated_value || 0
         stats.pipeline.weighted_value += (o.estimated_value || 0) * ((o.probability || 0) / 100)

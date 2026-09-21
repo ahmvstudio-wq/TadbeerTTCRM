@@ -891,6 +891,9 @@ export async function getAllLeadsForPipeline(
       combined = combined.filter(l => l.channel === channelFilter)
     }
 
+    // Exclude dormant / snoozed leads from active outreach pipelines
+    combined = combined.filter(l => l.status !== 'not_now_snoozed' && l.stage !== 'not_now_snoozed')
+
     return { data: combined, error: null }
   } catch (err) {
     return { data: null, error: (err as Error).message }

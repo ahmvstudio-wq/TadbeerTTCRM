@@ -379,9 +379,47 @@ export async function updateCompanyStatus(id: string, status: string) {
 export async function updateCompanyLeadType(id: string, lead_type: string) {
   try {
     await requireAuth()
+    const updatePayload: any = { lead_type, updated_at: new Date().toISOString() }
+    if (lead_type === 'Dormant') {
+      updatePayload.lead_folder = 'Dormant'
+      updatePayload.category = 'dormant'
+      updatePayload.status = 'lost'
+      updatePayload.pipeline_stage = 'Lost'
+    } else {
+      updatePayload.lead_folder = 'Active'
+      if (updatePayload.status === 'lost') {
+        updatePayload.status = 'prospect'
+        updatePayload.pipeline_stage = 'New'
+      }
+    }
     const { data: company, error } = await supabase
       .from('companies')
-      .update({ lead_type, updated_at: new Date().toISOString() })
+      .update(updatePayload)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) return { data: null, error: error.message }
+    revalidateAllCRMPages()
+    return { data: company, error: null }
+  } catch (error) {
+    return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
+  }
+}
+
+export async function reactivateCompany(id: string) {
+  try {
+    await requireAuth()
+    const { data: company, error } = await supabase
+      .from('companies')
+      .update({
+        status: 'prospect',
+        pipeline_stage: 'New',
+        lead_type: 'Cold',
+        lead_folder: 'Active',
+        category: null,
+        updated_at: new Date().toISOString()
+      })
       .eq('id', id)
       .select()
       .single()

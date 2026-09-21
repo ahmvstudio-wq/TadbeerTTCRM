@@ -2,9 +2,21 @@
 
 import { requireAuth } from '@/lib/auth-guard'
 import { getSupabaseAdminClient } from '@/lib/supabase/config'
+import { revalidatePath } from 'next/cache'
 
 const supabase = getSupabaseAdminClient()
 
+function revalidateAllCRMPages() {
+  try {
+    revalidatePath('/outreach')
+    revalidatePath('/daily-cadence')
+    revalidatePath('/dashboard')
+    revalidatePath('/prospects')
+    revalidatePath('/pipeline')
+  } catch (e) {
+    // ignore in non-request contexts
+  }
+}
 
 // ─── Outreach Touches ───────────────────────────────────────────────
 export async function saveTouch(data: {
@@ -27,6 +39,7 @@ export async function saveTouch(data: {
       .single()
 
     if (error) return { data: null, error: error.message }
+    revalidateAllCRMPages()
     return { data: touch, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'Failed to save touch' }
@@ -51,6 +64,7 @@ export async function updateTouch(id: string, data: { response?: string }) {
     await requireAuth()
     const { error } = await supabase.from('outreach_touches').update({ response: data.response }).eq('id', id)
     if (error) return { error: error.message }
+    revalidateAllCRMPages()
     return { error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'Failed to update touch' }
@@ -62,6 +76,7 @@ export async function deleteTouch(id: string) {
     await requireAuth()
     const { error } = await supabase.from('outreach_touches').delete().eq('id', id)
     if (error) return { error: error.message }
+    revalidateAllCRMPages()
     return { error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'Failed to delete touch' }
