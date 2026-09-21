@@ -322,7 +322,7 @@ export function CsvImport({
         }
       }
 
-      onImport(mappedData, selectedChannel);
+      await onImport(mappedData, selectedChannel);
       resetAndClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Import failed");

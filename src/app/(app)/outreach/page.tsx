@@ -191,14 +191,11 @@ export default function OutreachPipelinePage() {
     return true;
   });
 
-  // Priority sort: Contacted / In Outreach leads first so active relationships appear on Page 1
+  // Priority sort: Most recent outreach touch or newly imported leads first on Page 1
   const sortedFilteredLeads = useMemo(() => {
     return [...filteredLeads].sort((a, b) => {
-      const aTouched = a.status !== "gate_opener_staged" ? 1 : 0;
-      const bTouched = b.status !== "gate_opener_staged" ? 1 : 0;
-      if (aTouched !== bTouched) return bTouched - aTouched;
-      const aTime = a.sent_at ? new Date(a.sent_at).getTime() : 0;
-      const bTime = b.sent_at ? new Date(b.sent_at).getTime() : 0;
+      const aTime = a.updated_at || a.sent_at ? new Date(a.updated_at || a.sent_at).getTime() : 0;
+      const bTime = b.updated_at || b.sent_at ? new Date(b.updated_at || b.sent_at).getTime() : 0;
       return bTime - aTime;
     });
   }, [filteredLeads]);
@@ -930,7 +927,10 @@ export default function OutreachPipelinePage() {
         onClose={() => setIsFreshImportOpen(false)}
         title="Import Fresh Leads (Bulk CSV)"
         onImport={async (data, channel) => {
-          await bulkImportCompanies(data, channel, 'contacted');
+          const res = await bulkImportCompanies(data, channel, 'contacted');
+          if (res && res.error) {
+            throw new Error(res.error);
+          }
           setIsFreshImportOpen(false);
           await fetchLeads(false);
           if (typeof window !== "undefined") {
