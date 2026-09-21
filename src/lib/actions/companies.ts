@@ -53,6 +53,8 @@ export async function getCompanies(filters?: CompanyFilters) {
       const limit = Math.min(Math.max(1, filters.limit), 500)
       const offset = Math.max(0, filters.offset || 0)
       query = query.range(offset, offset + limit - 1)
+    } else {
+      query = query.range(0, 4999)
     }
 
     if (filters?.search) {

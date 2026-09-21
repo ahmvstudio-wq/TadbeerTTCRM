@@ -190,17 +190,9 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
     });
   }, [companies]);
 
-  // Outreach Follow-ups Remaining (Reached Out 2-3+ Days Ago with No Reply)
+  // Outreach Follow-ups Remaining (Explicitly designated follow-ups only)
   const outreachFollowupsRemaining = useMemo(() => {
-    const now = Date.now();
-    return outreachLeads.filter(l => {
-      const isPendingReply = l.status === "sent" || l.status === "no_reply" || l.status === "gate_opener_sent";
-      if (!isPendingReply) return false;
-      const sentTime = l.sent_at ? new Date(l.sent_at).getTime() : 0;
-      if (!sentTime || isNaN(sentTime)) return false;
-      const diffDays = Math.max(0, (now - sentTime) / (1000 * 60 * 60 * 24));
-      return diffDays >= 2;
-    });
+    return outreachLeads.filter(l => (l.status === "follow_up_due" || l.needs_followup === true) && !["not_now_snoozed", "lost", "dormant"].includes(l.status));
   }, [outreachLeads]);
 
   const totalProspects = stats?.total_companies ?? companies.length;

@@ -19,13 +19,13 @@ export async function getDashboardStats() {
       opportunitiesResult,
       auditsResult
     ] = await Promise.all([
-      supabase.from('companies').select('id, status, pipeline_stage, lead_source, est_deal_value, phone'),
-      supabase.from('contacts').select('id'),
-      supabase.from('calls').select('id, outcome'),
-      supabase.from('meetings').select('id, status, meeting_date'),
-      supabase.from('follow_ups').select('id, status, due_date'),
-      supabase.from('opportunities').select('id, estimated_value, probability, stage'),
-      supabase.from('activities').select('id, metadata').eq('activity_type', 'note').contains('metadata', { is_audit: true })
+      supabase.from('companies').select('id, status, pipeline_stage, lead_source, est_deal_value, phone, lead_type').range(0, 4999),
+      supabase.from('contacts').select('id').range(0, 4999),
+      supabase.from('calls').select('id, outcome').range(0, 4999),
+      supabase.from('meetings').select('id, status, meeting_date').range(0, 4999),
+      supabase.from('follow_ups').select('id, status, due_date').range(0, 4999),
+      supabase.from('opportunities').select('id, estimated_value, probability, stage').range(0, 4999),
+      supabase.from('activities').select('id, metadata').eq('activity_type', 'note').contains('metadata', { is_audit: true }).range(0, 4999)
     ])
 
     if (companiesResult.error) {
@@ -36,7 +36,9 @@ export async function getDashboardStats() {
     today.setHours(0, 0, 0, 0)
     const todayStr = today.toISOString()
 
-    const companies = companiesResult.data || []
+    const allCompanies = companiesResult.data || []
+    // Filter active companies for dashboard outreach & metrics
+    const companies = allCompanies.filter((c: any) => c.lead_type !== 'Dormant' && c.status !== 'dormant')
     const contacts = contactsResult.data || []
     const calls = callsResult.data || []
     const meetings = meetingsResult.data || []
@@ -52,6 +54,8 @@ export async function getDashboardStats() {
 
     const stats = {
       total_companies: companies.length,
+      total_database_all: allCompanies.length,
+      dormant_companies: allCompanies.length - companies.length,
       companies_by_status: {} as Record<string, number>,
       total_contacts: contacts.length,
       total_calls: calls.length,
