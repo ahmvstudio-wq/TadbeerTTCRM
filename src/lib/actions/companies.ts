@@ -4,6 +4,13 @@ import { generateOutreachMessage } from '@/lib/ai/outreach-generator'
 import { requireAuth } from '@/lib/auth-guard'
 import { getSupabaseAdminClient } from '@/lib/supabase/config'
 import { isValidLinkedInUrl } from '@/lib/utils'
+import {
+  mapToDbCompanyStatus,
+  mapToDbPipelineStage,
+  mapToDbLeadStatus,
+  mapToOutreachStatus,
+  getUnifiedStatus
+} from '@/lib/constants/statuses'
 import { revalidatePath } from 'next/cache'
 
 const supabase = getSupabaseAdminClient()
@@ -46,7 +53,13 @@ export async function getCompanies(filters?: CompanyFilters) {
       .order('created_at', { ascending: false })
 
     if (filters?.status) {
-      query = query.eq('status', filters.status)
+      const dbStatus = mapToDbCompanyStatus(filters.status)
+      const pStage = mapToDbPipelineStage(filters.status)
+      if (pStage && pStage !== 'New' && pStage !== 'Contacted') {
+        query = query.or(`status.eq.${filters.status},pipeline_stage.ilike.%${pStage}%`)
+      } else {
+        query = query.or(`status.eq.${filters.status},status.eq.${dbStatus}`)
+      }
     }
 
     if (filters?.limit) {
@@ -239,85 +252,37 @@ export async function updateCompany(id: string, data: { company_name?: string; i
   }
 }
 
-export async function updateCompanyStatus(id: string, status: string) {
+export interface UpdateCompanyStatusOptions {
+  followUpDays?: number | null;
+  followUpDate?: string | null;
+  followUpNote?: string | null;
+  followUpChannel?: string | null;
+}
+
+export async function updateCompanyStatus(
+  id: string,
+  status: string,
+  options?: UpdateCompanyStatusOptions
+) {
   try {
     await requireAuth()
 
-    // Map status to valid database status and pipeline_stage
-    // Allowed values for companies.status CHECK constraint:
-    // ('prospect', 'contacted', 'in_call_queue', 'meeting_booked', 'opportunity', 'won', 'lost')
-    let dbStatus = 'prospect'
-    let pipelineStage = 'New'
-    let actStatus = 'gate_opener_staged'
-
-    const s = (status || '').toLowerCase().trim()
-
-    if (s === 'prospect' || s === 'gate_opener_staged' || s === 'new') {
-      dbStatus = 'prospect'
-      pipelineStage = 'New'
-      actStatus = 'gate_opener_staged'
-    } else if (s === 'no_reply') {
-      dbStatus = 'contacted'
-      pipelineStage = 'Contacted'
-      actStatus = 'no_reply'
-    } else if (s === 'contacted' || s === 'gate_opener_sent' || s === 'sent' || s === 'follow_up_sent') {
-      dbStatus = 'contacted'
-      pipelineStage = 'Contacted'
-      actStatus = s === 'follow_up_sent' ? 'follow_up_sent' : 'gate_opener_sent'
-    } else if (['reply_received', 'warm_up', 'replied'].includes(s)) {
-      dbStatus = 'contacted'
-      pipelineStage = 'Replied'
-      actStatus = 'warm_up'
-    } else if (['interested', 'replied_interested', 'opening_identified'].includes(s)) {
-      dbStatus = 'contacted'
-      pipelineStage = 'Replied'
-      actStatus = 'opening_identified'
-    } else if (['objection', 'replied_objection'].includes(s)) {
-      dbStatus = 'contacted'
-      pipelineStage = 'Replied'
-      actStatus = 'opening_identified'
-    } else if (s === 'followup_required') {
-      dbStatus = 'contacted'
-      pipelineStage = 'Replied'
-      actStatus = 'warm_up'
-    } else if (['in_call_queue', 'ready_for_call', 'call_ready', 'coffee_invited'].includes(s)) {
-      dbStatus = 'in_call_queue'
-      pipelineStage = 'Call Ready'
-      actStatus = s === 'coffee_invited' ? 'coffee_invited' : 'ready_for_call'
-    } else if (s === 'called') {
-      dbStatus = 'contacted'
-      pipelineStage = 'Contacted'
-      actStatus = 'called'
-    } else if (['meeting_booked', 'proposal', 'proposal_requested'].includes(s)) {
-      dbStatus = 'meeting_booked'
-      pipelineStage = 'Meeting Booked'
-      actStatus = s === 'proposal_requested' ? 'proposal_requested' : 'meeting_booked'
-    } else if (s === 'opportunity') {
-      dbStatus = 'opportunity'
-      pipelineStage = 'Opportunity'
-      actStatus = 'meeting_booked'
-    } else if (s === 'won') {
-      dbStatus = 'won'
-      pipelineStage = 'Won'
-      actStatus = 'meeting_booked'
-    } else if (['lost', 'dormant', 'not_now_snoozed'].includes(s)) {
-      dbStatus = 'lost'
-      pipelineStage = 'Lost'
-      actStatus = 'not_now_snoozed'
-    } else {
-      dbStatus = 'contacted'
-      pipelineStage = 'Contacted'
-      actStatus = 'gate_opener_sent'
-    }
+    const cleanId = String(id || '').replace(/^staged-/, '').trim()
+    const dbStatus = mapToDbCompanyStatus(status)
+    const pipelineStage = mapToDbPipelineStage(status)
+    const dbLeadStatus = mapToDbLeadStatus(status)
+    const actStatus = mapToOutreachStatus(status)
+    const unified = getUnifiedStatus(status)
 
     const { data: company, error: updateError } = await supabase
       .from('companies')
       .update({
         status: dbStatus,
         pipeline_stage: pipelineStage,
+        lead_status: dbLeadStatus,
         updated_at: new Date().toISOString()
       })
-      .eq('id', id)
+      .eq('id', cleanId)
       .select()
       .single()
 
@@ -327,7 +292,7 @@ export async function updateCompanyStatus(id: string, status: string) {
     const { data: acts } = await supabase
       .from('activities')
       .select('id, description, activity_type')
-      .eq('company_id', id)
+      .eq('company_id', cleanId)
       .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent'])
       .order('created_at', { ascending: false })
       .limit(1)
@@ -340,11 +305,11 @@ export async function updateCompanyStatus(id: string, status: string) {
       await supabase.from('activities').update({ description: JSON.stringify(newP) }).eq('id', act.id)
     } else {
       await supabase.from('activities').insert({
-        company_id: id,
+        company_id: cleanId,
         activity_type: 'call_made',
         title: `Outreach Status — ${actStatus}`,
         description: JSON.stringify({
-          channel: 'cold_call',
+          channel: options?.followUpChannel || 'cold_call',
           status: actStatus,
           updated_at: new Date().toISOString()
         }),
@@ -352,30 +317,97 @@ export async function updateCompanyStatus(id: string, status: string) {
       })
     }
 
+    // Schedule follow-up if requested
+    let scheduledDueDate: string | null = null
+    if (options?.followUpDate) {
+      scheduledDueDate = options.followUpDate
+    } else if (typeof options?.followUpDays === 'number' && options.followUpDays > 0) {
+      const d = new Date()
+      d.setDate(d.getDate() + options.followUpDays)
+      scheduledDueDate = d.toISOString().split('T')[0]
+    }
+
+    if (scheduledDueDate) {
+      const followUpSubject = options?.followUpNote || `Follow up with ${company.company_name} (${unified.label})`
+      await supabase.from('follow_ups').insert({
+        company_id: cleanId,
+        due_date: scheduledDueDate,
+        subject: followUpSubject,
+        description: `Scheduled during status update to ${unified.label}`,
+        channel: options?.followUpChannel || 'call',
+        status: 'pending',
+        created_at: new Date().toISOString()
+      })
+
+      // Log follow-up scheduled activity
+      await supabase.from('activities').insert({
+        company_id: cleanId,
+        activity_type: 'note',
+        title: `Follow-up Scheduled — Due ${scheduledDueDate}`,
+        description: JSON.stringify({
+          status: unified.id,
+          status_label: unified.label,
+          due_date: scheduledDueDate,
+          subject: followUpSubject,
+          channel: options?.followUpChannel || 'call',
+          created_at: new Date().toISOString()
+        }),
+        created_at: new Date().toISOString()
+      })
+    }
+
+    // If marked as called, follow_up_sent, or meeting_booked, close existing pending follow-ups
+    if (['called', 'follow_up_sent', 'meeting_booked'].includes(actStatus)) {
+      await supabase
+        .from('follow_ups')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        })
+        .eq('company_id', cleanId)
+        .eq('status', 'pending')
+    }
+
+    // Audit status change
     await supabase.from('activities').insert({
-      company_id: id,
+      company_id: cleanId,
       activity_type: 'status_changed',
-      title: 'Company status updated',
-      description: `Status changed to "${pipelineStage}" (${dbStatus})`,
-      metadata: { new_status: dbStatus, pipeline_stage: pipelineStage, outreach_status: actStatus },
+      title: `Status: ${unified.label}`,
+      description: scheduledDueDate 
+        ? `Status updated to "${unified.label}" • Follow-up scheduled for ${scheduledDueDate}`
+        : `Status updated to "${unified.label}" (${pipelineStage})`,
+      metadata: { 
+        new_status: dbStatus, 
+        pipeline_stage: pipelineStage, 
+        lead_status: dbLeadStatus,
+        outreach_status: actStatus,
+        scheduled_follow_up: scheduledDueDate 
+      },
       created_at: new Date().toISOString()
     })
 
-    try {
-      revalidatePath('/outreach')
-      revalidatePath('/daily-cadence')
-      revalidatePath('/dashboard')
-      revalidatePath('/prospects')
-      revalidatePath('/pipeline')
-      revalidatePath('/meetings')
-      revalidatePath('/calls')
-      revalidatePath('/follow-ups')
-    } catch {}
-
-    return { data: company, error: null }
+    revalidateAllCRMPages()
+    return { data: { company, scheduledDueDate }, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
   }
+}
+
+export async function updateLeadStatusAndScheduleFollowUp(params: {
+  companyId: string;
+  activityId?: string | null;
+  status: string;
+  followUpDays?: number | null;
+  followUpDate?: string | null;
+  followUpNote?: string | null;
+  followUpChannel?: string | null;
+}) {
+  return updateCompanyStatus(params.companyId, params.status, {
+    followUpDays: params.followUpDays,
+    followUpDate: params.followUpDate,
+    followUpNote: params.followUpNote,
+    followUpChannel: params.followUpChannel,
+  })
 }
 
 export async function updateCompanyLeadType(id: string, lead_type: string) {

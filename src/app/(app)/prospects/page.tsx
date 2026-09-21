@@ -20,6 +20,8 @@ import { Pagination } from "@/components/ui/pagination";
 import { ToastContainer, addToast } from "@/components/ui/toast";
 import { AddProspectModal } from "@/components/prospects/add-prospect-modal";
 import { COMPANY_STATUSES, type CompanyStatus } from "@/lib/constants";
+import { UnifiedStatusBadge } from "@/components/status/unified-status-badge";
+import { UNIFIED_STATUSES, getUnifiedStatus } from "@/lib/constants/statuses";
 import { getCompanies, updateCompanyStatus, updateCompanyLeadType, addCompanyActivity, triggerDraftGeneration, triggerBatchDraftGeneration, reactivateCompany } from "@/lib/actions/companies";
 import { addToCallQueue, addBatchToCallQueue } from "@/lib/actions/calls";
 import { deleteCompany } from "@/lib/actions/delete";
@@ -213,7 +215,7 @@ export default function ProspectsPage() {
 
   const handleStatusChange = async (id: string, newStatus: string) => {
     setProspects(prev => prev.map(p => p.id === id ? { ...p, status: newStatus } : p));
-    addToast("success", `Status updated to ${COMPANY_STATUSES[newStatus as CompanyStatus]?.label || newStatus}`);
+    addToast("success", `Status updated to ${getUnifiedStatus(newStatus).label}`);
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("lead-updated", { detail: { source: "prospects_page", companyId: id, status: newStatus } }));
     }
@@ -267,7 +269,7 @@ export default function ProspectsPage() {
       const res = await updateCompanyStatus(id, newStatus);
       if (!res.error) count++;
     }
-    addToast("success", `Updated ${count} prospects to ${COMPANY_STATUSES[newStatus as CompanyStatus]?.label}`);
+    addToast("success", `Updated ${count} prospects to ${getUnifiedStatus(newStatus).label}`);
     fetchProspects(search, statusFilter);
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("lead-updated", { detail: { status: newStatus } }));
@@ -1071,12 +1073,12 @@ export default function ProspectsPage() {
             </Button>
             <select
               onChange={(e) => { if (e.target.value) handleBatchStatusChange(e.target.value); }}
-              className="bg-slate-800 border border-slate-700 text-white text-xs font-semibold rounded-xl h-8 px-2 focus:outline-none"
+              className="bg-slate-800 border border-slate-700 text-white text-xs font-semibold rounded-xl h-8 px-2 focus:outline-none cursor-pointer"
               defaultValue=""
             >
               <option value="" disabled>Change Stage To...</option>
-              {statusOrder.map(s => (
-                <option key={s} value={s}>{COMPANY_STATUSES[s]?.label}</option>
+              {UNIFIED_STATUSES.map(s => (
+                <option key={s.id} value={s.id}>{s.label}</option>
               ))}
             </select>
             <Button size="sm" variant="ghost" onClick={handleExport} className="text-slate-300 hover:text-white text-xs h-8">
@@ -1253,22 +1255,16 @@ export default function ProspectsPage() {
 
                       {/* Pipeline Stage */}
                       <td className="py-3.5 px-4" onClick={(e) => e.stopPropagation()}>
-                        <select
-                          value={prospect.status}
-                          onChange={(e) => handleStatusChange(prospect.id, e.target.value)}
-                          className={cn(
-                            "text-[10px] font-mono font-bold rounded px-2 py-1 border transition-all cursor-pointer",
-                            statusColor[prospect.status as CompanyStatus]?.bg || "bg-neutral-100",
-                            statusColor[prospect.status as CompanyStatus]?.text || "text-neutral-700",
-                            statusColor[prospect.status as CompanyStatus]?.border || "border-neutral-200"
-                          )}
-                        >
-                          {statusOrder.map((s) => (
-                            <option key={s} value={s}>
-                              {COMPANY_STATUSES[s]?.label || s}
-                            </option>
-                          ))}
-                        </select>
+                        <UnifiedStatusBadge
+                          status={prospect.status}
+                          companyId={prospect.id}
+                          companyName={prospect.company_name}
+                          defaultChannel={waPhone ? 'whatsapp' : igUrl ? 'instagram_dm' : linkedinUrl ? 'linkedin' : 'call'}
+                          onStatusChanged={(newStatus) => {
+                            setProspects(prev => prev.map(p => p.id === prospect.id ? { ...p, status: newStatus } : p));
+                            fetchProspects(search, statusFilter, false, true);
+                          }}
+                        />
                       </td>
 
                       {/* Quick Contact & Action Buttons */}
@@ -1554,8 +1550,8 @@ export default function ProspectsPage() {
                         </span>
                       )}
 
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold border border-neutral-200 bg-neutral-100 text-black">
-                        {COMPANY_STATUSES[prospect.status as CompanyStatus]?.label || prospect.status}
+                      <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold border font-mono", getUnifiedStatus(prospect.status).badgeClass)}>
+                        {getUnifiedStatus(prospect.status).label}
                       </span>
                     </div>
 

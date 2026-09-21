@@ -31,6 +31,7 @@ import {
   TEMPLATE_LABELS
 } from "../types/outreach"
 import { isValidLinkedInUrl } from '@/lib/utils'
+import { mapToDbLeadStatus } from '@/lib/constants/statuses'
 
 function getValidActivityType(channel: string): string {
   if (channel === 'email') return 'email_sent';
@@ -335,6 +336,7 @@ export async function updateOutreachEntry(activityId: string, update: {
 
       coUpdate.status = coStatus
       coUpdate.pipeline_stage = pipelineStage
+      coUpdate.lead_status = mapToDbLeadStatus(status)
 
       if (update.prospect_reply && update.prospect_reply.trim().length > 0) {
         coUpdate.draft_message = update.prospect_reply.trim()
@@ -343,6 +345,44 @@ export async function updateOutreachEntry(activityId: string, update: {
       const { error: coUpdateErr } = await supabase.from('companies').update(coUpdate).eq('id', companyId)
       if (coUpdateErr) {
         console.error("Company stage update error in updateOutreachEntry:", coUpdateErr.message)
+      }
+
+      // Schedule follow-up if requested
+      let scheduledDueDate: string | null = null
+      const updAny = update as any
+      if (updAny.followUpDate) {
+        scheduledDueDate = updAny.followUpDate
+      } else if (typeof updAny.followUpDays === 'number' && updAny.followUpDays > 0) {
+        const d = new Date()
+        d.setDate(d.getDate() + updAny.followUpDays)
+        scheduledDueDate = d.toISOString().split('T')[0]
+      }
+
+      if (scheduledDueDate) {
+        const followUpSubject = updAny.followUpNote || `Follow up on ${status.replace(/_/g, ' ')}`
+        await supabase.from('follow_ups').insert({
+          company_id: companyId,
+          due_date: scheduledDueDate,
+          subject: followUpSubject,
+          description: `Scheduled during status update to ${status}`,
+          channel: updAny.followUpChannel || channel || 'call',
+          status: 'pending',
+          created_at: new Date().toISOString()
+        })
+
+        await supabase.from('activities').insert({
+          company_id: companyId,
+          activity_type: 'note',
+          title: `Follow-up Scheduled — Due ${scheduledDueDate}`,
+          description: JSON.stringify({
+            status,
+            due_date: scheduledDueDate,
+            subject: followUpSubject,
+            channel: updAny.followUpChannel || channel || 'call',
+            created_at: new Date().toISOString()
+          }),
+          created_at: new Date().toISOString()
+        })
       }
 
       // If follow-up was sent or completed, mark any pending follow_ups rows as completed
@@ -367,6 +407,10 @@ export async function updateOutreachStatus(activityId: string, update: {
   pain_point?: string
   call_opening_line?: string
   notes?: string
+  followUpDays?: number | null
+  followUpDate?: string | null
+  followUpNote?: string | null
+  followUpChannel?: string | null
 }) {
   return updateOutreachEntry(activityId, update)
 }

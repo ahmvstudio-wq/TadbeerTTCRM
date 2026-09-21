@@ -19,7 +19,9 @@ import {
   ExternalLink,
   ShieldAlert,
   Loader2,
-  MapPin
+  MapPin,
+  CalendarCheck,
+  ChevronDown
 } from "lucide-react";
 import { Company, Contact, Activity, FollowUp, Meeting, OutreachPreparation } from "@/lib/types/database";
 import { getCompany, updateCompany, updateCompanyStatus, assignCompanyLead, upsertCompanyContact } from "@/lib/actions/companies";
@@ -32,28 +34,8 @@ import { LeadAICopilot } from "./lead-ai-copilot";
 import { LeadMeetingDocs } from "./lead-meeting-docs";
 import { getCleanIndustry, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-
-export const UNIFIED_STATUSES = [
-  { id: "prospect", label: "Prospect (New)", color: "bg-slate-200 text-slate-900 border-slate-400" },
-  { id: "contacted", label: "Reached Out / Contacted", color: "bg-blue-100 text-blue-900 border-blue-400" },
-  { id: "no_reply", label: "No Reply (Follow-up Due)", color: "bg-rose-100 text-rose-900 border-rose-400" },
-  { id: "reply_received", label: "Reply Received", color: "bg-indigo-100 text-indigo-900 border-indigo-400" },
-  { id: "warm_up", label: "Warm-Up In Progress", color: "bg-indigo-100 text-indigo-900 border-indigo-400" },
-  { id: "interested", label: "Interested / Opportunity", color: "bg-emerald-100 text-emerald-900 border-emerald-400" },
-  { id: "opening_identified", label: "Opening Identified", color: "bg-amber-100 text-amber-900 border-amber-400" },
-  { id: "objection", label: "Objection Handled", color: "bg-rose-100 text-rose-900 border-rose-400" },
-  { id: "followup_required", label: "Follow-up Required", color: "bg-teal-100 text-teal-900 border-teal-400" },
-  { id: "ready_for_call", label: "Ready for Call (Call Queue)", color: "bg-teal-100 text-teal-900 border-teal-400 font-bold" },
-  { id: "in_call_queue", label: "In Call Queue", color: "bg-teal-100 text-teal-900 border-teal-400 font-bold" },
-  { id: "coffee_invited", label: "Coffee Invited", color: "bg-orange-100 text-orange-900 border-orange-400" },
-  { id: "called", label: "Called", color: "bg-violet-100 text-violet-900 border-violet-400" },
-  { id: "meeting_booked", label: "Meeting Booked", color: "bg-purple-100 text-purple-900 border-purple-400 font-bold" },
-  { id: "proposal", label: "Proposal Sent", color: "bg-violet-100 text-violet-900 border-violet-400" },
-  { id: "proposal_requested", label: "Proposal Requested", color: "bg-violet-100 text-violet-900 border-violet-400" },
-  { id: "won", label: "Won (Closed)", color: "bg-emerald-700 text-white border-emerald-800" },
-  { id: "lost", label: "Lost", color: "bg-slate-900 text-white border-slate-950" },
-  { id: "dormant", label: "Dormant (60d Snooze)", color: "bg-gray-200 text-gray-800 border-gray-400" }
-];
+import { UNIFIED_STATUSES, getUnifiedStatus } from "@/lib/constants/statuses";
+import { StatusFollowUpModal } from "@/components/status/status-follow-up-modal";
 
 export const TEAM_MEMBERS = [
   { id: "Ramij", name: "Ramij (Sales Lead)", role: "bd_rep" },
@@ -109,6 +91,7 @@ export function UnifiedLeadWorkspace({
   const [contactLinkedin, setContactLinkedin] = useState("");
 
   const [saving, setSaving] = useState(false);
+  const [followUpModalOpen, setFollowUpModalOpen] = useState(false);
 
   const fetchLeadData = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -238,20 +221,8 @@ export function UnifiedLeadWorkspace({
   const businessType = rJson.business_type || (company.industry && !company.industry.startsWith('@') && company.industry !== displayIndustry ? company.industry : null);
   const followers = rJson.followers;
 
-  const rawCoStatus = (company.status || '').toLowerCase();
-  const rawCoStage = (company.pipeline_stage || '').toLowerCase();
-  let currentActiveStatus = company.status;
-  if (UNIFIED_STATUSES.some(s => s.id === currentActiveStatus)) {
-    // exact match
-  } else if (rawCoStatus === 'in_call_queue' || rawCoStage === 'call ready') {
-    currentActiveStatus = 'ready_for_call';
-  } else if (rawCoStatus === 'meeting_booked' || rawCoStage === 'meeting booked') {
-    currentActiveStatus = 'meeting_booked';
-  } else if (rawCoStage === 'replied') {
-    currentActiveStatus = 'reply_received';
-  } else {
-    currentActiveStatus = 'prospect';
-  }
+  const currentActiveStatus = getUnifiedStatus(company.status).id;
+  const nextPendingFollowUp = followUps.find(f => f.status === 'pending');
 
   const meetingDocsCount = Array.isArray((company as any)?.research_json?.meeting_docs)
     ? (company as any).research_json.meeting_docs.length : 0;
@@ -358,16 +329,44 @@ export function UnifiedLeadWorkspace({
         )}
         <div className="flex items-center gap-2 text-xs text-neutral-500">
           <span className="text-neutral-400">Stage:</span>
-          <select
-            value={currentActiveStatus}
-            onChange={(e) => handleStatusChange(e.target.value)}
-            className="text-xs text-neutral-800 font-medium border border-neutral-200 rounded-md px-2 py-1 bg-white cursor-pointer focus:outline-none focus:ring-1 focus:ring-neutral-300"
+          <button
+            type="button"
+            onClick={() => setFollowUpModalOpen(true)}
+            className={cn(
+              "flex items-center gap-1.5 text-xs font-bold font-mono px-2.5 py-1 rounded-md border cursor-pointer hover:opacity-90 transition shadow-2xs",
+              getUnifiedStatus(currentActiveStatus).badgeClass
+            )}
+            title="Click to update status and schedule follow-up"
           >
-            {UNIFIED_STATUSES.map(s => (
-              <option key={s.id} value={s.id}>{s.label}</option>
-            ))}
-          </select>
+            <span className={cn("h-2 w-2 rounded-full shrink-0", getUnifiedStatus(currentActiveStatus).dotColor)} />
+            <span>{getUnifiedStatus(currentActiveStatus).label}</span>
+            <ChevronDown className="h-3 w-3 opacity-60 ml-0.5 shrink-0" />
+          </button>
         </div>
+
+        {/* Next Scheduled Follow-up or Schedule Trigger */}
+        {nextPendingFollowUp ? (
+          <div className="flex items-center gap-1.5 text-xs text-teal-900 bg-teal-50 border border-teal-200 rounded-md px-2.5 py-1 font-mono">
+            <CalendarCheck className="h-3.5 w-3.5 text-teal-600 shrink-0" />
+            <span className="font-semibold">Next Follow-Up: {new Date(nextPendingFollowUp.due_date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
+            <button
+              type="button"
+              onClick={() => setFollowUpModalOpen(true)}
+              className="text-[10px] text-teal-700 hover:text-teal-950 font-bold underline ml-1 cursor-pointer"
+            >
+              Edit
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setFollowUpModalOpen(true)}
+            className="flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 rounded-md px-2.5 py-1 transition cursor-pointer shadow-2xs"
+          >
+            <Calendar className="h-3 w-3 text-slate-400" />
+            <span>+ Schedule Follow-Up</span>
+          </button>
+        )}
         <div className="ml-auto flex items-center gap-3 text-[11px] text-neutral-400">
           <span>Updated {new Date(company.updated_at).toLocaleDateString()}</span>
           <span>·</span>
@@ -644,6 +643,19 @@ export function UnifiedLeadWorkspace({
           />
         )}
       </div>
+
+      {followUpModalOpen && (
+        <StatusFollowUpModal
+          isOpen={followUpModalOpen}
+          onClose={() => setFollowUpModalOpen(false)}
+          companyId={company.id}
+          companyName={company.company_name}
+          currentStatus={currentActiveStatus}
+          onSuccess={() => {
+            fetchLeadData(true);
+          }}
+        />
+      )}
     </div>
   );
 }

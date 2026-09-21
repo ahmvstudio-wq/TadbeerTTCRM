@@ -29,6 +29,8 @@ import { Pagination } from "@/components/ui/pagination";
 import { bulkImportCompanies } from "@/lib/actions/import";
 import { PLAYBOOK_TEMPLATES } from "@/lib/outreach-messages-library";
 import { useUnifiedLead } from "@/context/unified-lead-context";
+import { UnifiedStatusBadge } from "@/components/status/unified-status-badge";
+import { UNIFIED_STATUSES, getUnifiedStatus } from "@/lib/constants/statuses";
 
 // ─── Channel Icon Renderer ────────────────────────────────────────────────────
 function ChannelIcon({ channel, size = 14 }: { channel: OutreachChannel; size?: number }) {
@@ -582,28 +584,18 @@ export default function OutreachPipelinePage() {
                           </td>
 
                           {/* Status */}
-                          <td className="p-3">
-                            <select
-                              value={lead.status}
-                              onChange={async (e) => {
-                                const newStatus = e.target.value as OutreachStatus;
-                                setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: newStatus } : l));
-                                await updateOutreachStatus(lead.id, { status: newStatus });
-                                if (typeof window !== "undefined") {
-                                  window.dispatchEvent(new CustomEvent("lead-updated", {
-                                    detail: { companyId: lead.company_id || lead.id, status: newStatus }
-                                  }));
-                                }
+                          <td className="p-3" onClick={(e) => e.stopPropagation()}>
+                            <UnifiedStatusBadge
+                              status={lead.status}
+                              companyId={lead.company_id || lead.id.replace(/^staged-/, '')}
+                              companyName={lead.company_name}
+                              activityId={lead.id}
+                              defaultChannel={lead.channel}
+                              onStatusChanged={(newStatus) => {
+                                setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: newStatus as any } : l));
                                 handleSilentUpdate();
                               }}
-                              className={cn("text-[10px] font-black rounded-lg px-2.5 py-1 border-2 cursor-pointer font-mono shadow-2xs", STATUS_CHIP[lead.status])}
-                            >
-                              {STATUSES.map(s => (
-                                <option key={s} value={s} className="bg-white text-slate-900 font-bold">
-                                  {STATUS_CONFIG[s].label}
-                                </option>
-                              ))}
-                            </select>
+                            />
                           </td>
 
                           {/* Outreach Date */}
