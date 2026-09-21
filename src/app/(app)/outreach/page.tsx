@@ -254,7 +254,7 @@ export default function OutreachPipelinePage() {
   }, [activeLeadsList, currentPage, pageSize]);
 
   const handleMarkFollowedUp = async (lead: OutreachLead) => {
-    setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: "follow_up_sent", sent_at: new Date().toISOString() } : l));
+    setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: "follow_up_sent", stage: "follow_up_sent", sent_at: new Date().toISOString() } : l));
     try {
       await markLeadFollowedUp(lead.id, lead.company_id);
       if (typeof window !== "undefined") {
@@ -277,7 +277,7 @@ export default function OutreachPipelinePage() {
     else if (targetCol === "done") targetStatus = "called";
 
     const targetLead = leads.find(l => l.id === leadId);
-    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: targetStatus } : l));
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: targetStatus, stage: targetStatus as any } : l));
     try {
       await updateOutreachStatus(leadId, { status: targetStatus });
       if (typeof window !== "undefined") {
@@ -592,7 +592,7 @@ export default function OutreachPipelinePage() {
                               activityId={lead.id}
                               defaultChannel={lead.channel}
                               onStatusChanged={(newStatus) => {
-                                setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: newStatus as any } : l));
+                                setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: newStatus as any, stage: newStatus as any } : l));
                                 handleSilentUpdate();
                               }}
                             />

@@ -1256,12 +1256,20 @@ export default function ProspectsPage() {
                       {/* Pipeline Stage */}
                       <td className="py-3.5 px-4" onClick={(e) => e.stopPropagation()}>
                         <UnifiedStatusBadge
-                          status={prospect.status}
+                          status={(prospect as any).research_json?.unified_status || prospect.pipeline_stage || prospect.status}
                           companyId={prospect.id}
                           companyName={prospect.company_name}
                           defaultChannel={waPhone ? 'whatsapp' : igUrl ? 'instagram_dm' : linkedinUrl ? 'linkedin' : 'call'}
                           onStatusChanged={(newStatus) => {
-                            setProspects(prev => prev.map(p => p.id === prospect.id ? { ...p, status: newStatus } : p));
+                            setProspects(prev => prev.map(p => p.id === prospect.id ? {
+                              ...p,
+                              status: newStatus,
+                              pipeline_stage: getUnifiedStatus(newStatus).label,
+                              research_json: {
+                                ...((p as any).research_json || {}),
+                                unified_status: newStatus
+                              }
+                            } : p));
                             fetchProspects(search, statusFilter, false, true);
                           }}
                         />
@@ -1550,9 +1558,15 @@ export default function ProspectsPage() {
                         </span>
                       )}
 
-                      <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold border font-mono", getUnifiedStatus(prospect.status).badgeClass)}>
-                        {getUnifiedStatus(prospect.status).label}
-                      </span>
+                      {(() => {
+                        const pRaw = (prospect as any).research_json?.unified_status || prospect.pipeline_stage || prospect.status;
+                        const pConf = getUnifiedStatus(pRaw);
+                        return (
+                          <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold border font-mono", pConf.badgeClass)}>
+                            {pConf.label}
+                          </span>
+                        );
+                      })()}
                     </div>
 
                     <div className="flex items-center gap-3 mb-3">

@@ -34,7 +34,7 @@ import { LeadAICopilot } from "./lead-ai-copilot";
 import { LeadMeetingDocs } from "./lead-meeting-docs";
 import { getCleanIndustry, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { UNIFIED_STATUSES, getUnifiedStatus } from "@/lib/constants/statuses";
+import { UNIFIED_STATUSES, getUnifiedStatus, mapToDbCompanyStatus } from "@/lib/constants/statuses";
 import { StatusFollowUpModal } from "@/components/status/status-follow-up-modal";
 
 export const TEAM_MEMBERS = [
@@ -164,11 +164,20 @@ export function UnifiedLeadWorkspace({
   const isAssignedToOther = assignedRep && assignedRep !== currentUser;
 
   const handleStatusChange = async (newStatus: string) => {
-    setCompany(prev => prev ? { ...prev, status: newStatus } : null);
+    const unified = getUnifiedStatus(newStatus);
+    setCompany(prev => prev ? {
+      ...prev,
+      status: mapToDbCompanyStatus(unified.id),
+      pipeline_stage: unified.label,
+      research_json: {
+        ...((prev as any).research_json || {}),
+        unified_status: unified.id
+      }
+    } : null);
     if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { source: "workspace_status", companyId: company.id, status: newStatus } }));
+      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { source: "workspace_status", companyId: company.id, status: unified.id } }));
     }
-    await updateCompanyStatus(company.id, newStatus);
+    await updateCompanyStatus(company.id, unified.id);
     fetchLeadData(true);
   };
 
@@ -221,7 +230,8 @@ export function UnifiedLeadWorkspace({
   const businessType = rJson.business_type || (company.industry && !company.industry.startsWith('@') && company.industry !== displayIndustry ? company.industry : null);
   const followers = rJson.followers;
 
-  const currentActiveStatus = getUnifiedStatus(company.status).id;
+  const rawStatus = (company as any).research_json?.unified_status || company.pipeline_stage || company.status;
+  const currentActiveStatus = getUnifiedStatus(rawStatus).id;
   const nextPendingFollowUp = followUps.find(f => f.status === 'pending');
 
   const meetingDocsCount = Array.isArray((company as any)?.research_json?.meeting_docs)

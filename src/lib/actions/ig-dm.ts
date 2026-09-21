@@ -31,7 +31,13 @@ import {
   TEMPLATE_LABELS
 } from "../types/outreach"
 import { isValidLinkedInUrl } from '@/lib/utils'
-import { mapToDbLeadStatus } from '@/lib/constants/statuses'
+import {
+  mapToDbLeadStatus,
+  mapToDbCompanyStatus,
+  mapToDbPipelineStage,
+  mapToOutreachStatus,
+  getUnifiedStatus
+} from '@/lib/constants/statuses'
 
 function getValidActivityType(channel: string): string {
   if (channel === 'email') return 'email_sent';
@@ -305,38 +311,35 @@ export async function updateOutreachEntry(activityId: string, update: {
       }
       if (update.company_name) coUpdate.company_name = update.company_name
 
-      let coStatus = 'contacted'
-      let pipelineStage = 'Contacted'
+      const unified = getUnifiedStatus(status)
+      const coStatus = mapToDbCompanyStatus(unified.id)
+      const pipelineStage = mapToDbPipelineStage(unified.id)
+      const dbLeadStatus = mapToDbLeadStatus(unified.id)
 
-      if (status === 'meeting_booked' || status === 'proposal_requested') {
-        coStatus = 'meeting_booked'
-        pipelineStage = 'Meeting Booked'
-      } else if (['ready_for_call', 'coffee_invited'].includes(status)) {
-        coStatus = 'in_call_queue'
-        pipelineStage = 'Call Ready'
-      } else if (status === 'called') {
-        coStatus = 'contacted'
-        pipelineStage = 'Contacted'
-      } else if (['warm_up', 'reply_received', 'replied_interested', 'replied_objection', 'opening_identified'].includes(status) || (update.prospect_reply && update.prospect_reply.trim().length > 0)) {
-        coStatus = 'contacted'
-        pipelineStage = 'Replied'
-      } else if (['gate_opener_sent', 'sent', 'follow_up_sent', 'agency_existing'].includes(status)) {
-        coStatus = 'contacted'
-        pipelineStage = 'Contacted'
-      } else if (status === 'no_reply') {
-        coStatus = 'contacted'
-        pipelineStage = 'Contacted'
-      } else if (status === 'gate_opener_staged') {
-        coStatus = 'prospect'
-        pipelineStage = 'New'
-      } else if (status === 'not_now_snoozed') {
-        coStatus = 'lost'
-        pipelineStage = 'Lost'
+      const { data: existingCo } = await supabase
+        .from('companies')
+        .select('research_json')
+        .eq('id', companyId)
+        .maybeSingle()
+
+      let curR: any = {}
+      if (existingCo?.research_json) {
+        if (typeof existingCo.research_json === 'string') {
+          try { curR = JSON.parse(existingCo.research_json) } catch {}
+        } else if (typeof existingCo.research_json === 'object') {
+          curR = existingCo.research_json
+        }
+      }
+      const updatedR = {
+        ...curR,
+        unified_status: unified.id,
+        stage_updated_at: new Date().toISOString()
       }
 
       coUpdate.status = coStatus
       coUpdate.pipeline_stage = pipelineStage
-      coUpdate.lead_status = mapToDbLeadStatus(status)
+      coUpdate.lead_status = dbLeadStatus
+      coUpdate.research_json = updatedR
 
       if (update.prospect_reply && update.prospect_reply.trim().length > 0) {
         coUpdate.draft_message = update.prospect_reply.trim()
@@ -684,33 +687,8 @@ export async function getAllLeadsForPipeline(
       const stagedSeq = rJson.staged_sequence || undefined
       const openerMessage = co.draft_message || stagedSeq?.touch_1?.message || 'Warm inquiry regarding operations'
 
-      let derivedStatus: OutreachStatus = 'gate_opener_staged'
-      const rawStatus = (co.status || '').toLowerCase().trim()
-      const rawStage = (co.pipeline_stage || '').toLowerCase().trim()
-
-      if (rawStatus === 'meeting_booked' || rawStage === 'meeting booked' || rawStatus === 'opportunity') {
-        derivedStatus = 'meeting_booked'
-      } else if (rawStatus === 'in_call_queue' || rawStage === 'call ready' || rawStatus === 'ready_for_call' || rawStatus === 'coffee_invited') {
-        derivedStatus = 'ready_for_call'
-      } else if (rawStatus === 'called') {
-        derivedStatus = 'called'
-      } else if (rawStage === 'replied' || rawStatus === 'reply_received' || rawStatus === 'warm_up' || rawStatus === 'lead') {
-        derivedStatus = 'warm_up'
-      } else if (rawStatus === 'interested' || rawStatus === 'replied_interested' || rawStatus === 'opening_identified') {
-        derivedStatus = 'opening_identified'
-      } else if (rawStatus === 'objection' || rawStatus === 'replied_objection') {
-        derivedStatus = 'opening_identified'
-      } else if (rawStatus === 'proposal' || rawStage === 'proposal' || rawStatus === 'proposal_requested') {
-        derivedStatus = 'proposal_requested'
-      } else if (rawStatus === 'contacted' || rawStage === 'contacted' || rawStatus === 'gate_opener_sent' || rawStatus === 'sent') {
-        derivedStatus = 'gate_opener_sent'
-      } else if (rawStatus === 'no_reply') {
-        derivedStatus = 'no_reply'
-      } else if (rawStatus === 'lost' || rawStatus === 'dormant' || rawStatus === 'not_now_snoozed') {
-        derivedStatus = 'not_now_snoozed'
-      } else {
-        derivedStatus = 'gate_opener_staged'
-      }
+      const exactSource = rJson?.unified_status || co.pipeline_stage || co.status
+      const derivedStatus: OutreachStatus = (mapToOutreachStatus(exactSource) as OutreachStatus) || 'gate_opener_staged'
 
       leadMap.set(co.id, {
         id: `staged-${co.id}`,
@@ -783,34 +761,25 @@ export async function getAllLeadsForPipeline(
         (co.phone || existingLead?.phone) ? 'whatsapp' :
         'cold_call'
       )
-      let status: OutreachStatus = payload.status || 'gate_opener_sent'
-      if (status === 'sent') status = 'gate_opener_sent'
-      if (status === 'reply_received') status = 'warm_up'
-      if (status === 'replied_interested' || status === 'replied_objection') status = 'opening_identified'
-
-      const coStatus = (co.status || '').toLowerCase().trim()
-      const pStage = (co.pipeline_stage || '').toLowerCase().trim()
-
-      // Synchronize with companies table stage if advanced
-      if (pStage === 'meeting booked' || coStatus === 'meeting_booked' || coStatus === 'opportunity' || coStatus === 'won') {
-        status = 'meeting_booked'
-      } else if (pStage === 'call ready' || coStatus === 'in_call_queue') {
-        if (status !== 'meeting_booked' && status !== 'called') status = 'ready_for_call'
-      } else if (status === 'called' || coStatus === 'called') {
-        status = 'called'
-      } else if (status === 'follow_up_sent') {
-        status = 'follow_up_sent'
-      } else if (pStage === 'replied' || ['warm_up', 'reply_received', 'replied_interested', 'opening_identified'].includes(coStatus)) {
-        if (status === 'gate_opener_sent' || status === 'gate_opener_staged') status = 'warm_up'
-      } else if (coStatus === 'lost' || pStage === 'lost') {
-        status = 'not_now_snoozed'
-      }
-
       let rJson: any = {}
       try {
         if (co.research_json && typeof co.research_json === 'object') rJson = co.research_json
         else if (co.notes && (co.notes.startsWith('{') || co.notes.startsWith('['))) rJson = JSON.parse(co.notes)
       } catch {}
+
+      // Prefer payload.status from most recent activity, or company unified_status / pipeline_stage
+      const candidateStatus = payload.status || rJson?.unified_status || co.pipeline_stage || co.status
+      let status: OutreachStatus = (mapToOutreachStatus(candidateStatus) as OutreachStatus) || 'gate_opener_sent'
+
+      const coStatus = (co.status || '').toLowerCase().trim()
+      const pStage = (co.pipeline_stage || '').toLowerCase().trim()
+
+      // Synchronize terminal or special stages
+      if (pStage === 'meeting booked' || coStatus === 'meeting_booked' || coStatus === 'opportunity' || coStatus === 'won') {
+        status = 'meeting_booked'
+      } else if (coStatus === 'lost' || pStage === 'lost' || coStatus === 'dormant' || pStage === 'dormant') {
+        status = 'not_now_snoozed'
+      }
       const stagedSeq = existingLead?.staged_sequence || rJson?.staged_sequence || undefined
 
       const specificObs = payload.pain_point || existingLead?.specific_observation || rJson?.specific_observation || ''

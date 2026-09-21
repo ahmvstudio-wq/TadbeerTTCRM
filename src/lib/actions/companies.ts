@@ -274,12 +274,34 @@ export async function updateCompanyStatus(
     const actStatus = mapToOutreachStatus(status)
     const unified = getUnifiedStatus(status)
 
+    // Preserve and update research_json with granular unified_status
+    const { data: existingCo } = await supabase
+      .from('companies')
+      .select('research_json')
+      .eq('id', cleanId)
+      .maybeSingle()
+
+    let curR: any = {}
+    if (existingCo?.research_json) {
+      if (typeof existingCo.research_json === 'string') {
+        try { curR = JSON.parse(existingCo.research_json) } catch {}
+      } else if (typeof existingCo.research_json === 'object') {
+        curR = existingCo.research_json
+      }
+    }
+    const updatedR = {
+      ...curR,
+      unified_status: unified.id,
+      stage_updated_at: new Date().toISOString()
+    }
+
     const { data: company, error: updateError } = await supabase
       .from('companies')
       .update({
         status: dbStatus,
         pipeline_stage: pipelineStage,
         lead_status: dbLeadStatus,
+        research_json: updatedR,
         updated_at: new Date().toISOString()
       })
       .eq('id', cleanId)

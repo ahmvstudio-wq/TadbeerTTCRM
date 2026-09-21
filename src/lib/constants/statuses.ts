@@ -239,21 +239,54 @@ export const UNIFIED_STATUS_MAP = new Map<string, UnifiedStatusConfig>(
   UNIFIED_STATUSES.map(s => [s.id, s])
 );
 
-// Alias mapping for backwards compatibility
+// Alias mapping for backwards compatibility and human labels
 export const STATUS_ALIAS_MAP: Record<string, string> = {
   gate_opener_staged: "prospect",
   new: "prospect",
+  "prospect (new)": "prospect",
   gate_opener_sent: "contacted",
   sent: "contacted",
+  "contacted (opener sent)": "contacted",
+  "no reply": "no_reply",
+  "no reply (follow-up due)": "no_reply",
+  "follow-up sent": "follow_up_sent",
+  "follow up sent": "follow_up_sent",
   replied: "reply_received",
+  "reply received": "reply_received",
+  "warm-up in progress": "warm_up",
+  "warm up in progress": "warm_up",
+  "warm-up": "warm_up",
+  "warm up": "warm_up",
+  "opening identified": "opening_identified",
   replied_interested: "opening_identified",
   interested: "opening_identified",
+  "objection raised": "objection",
+  "objection raised / handled": "objection",
   replied_objection: "objection",
+  "existing agency": "agency_existing",
+  "existing agency (evaluating)": "agency_existing",
+  has_agency: "agency_existing",
   in_call_queue: "ready_for_call",
   call_ready: "ready_for_call",
-  not_now_snoozed: "dormant",
+  "ready for call": "ready_for_call",
+  "ready for call (call queue)": "ready_for_call",
+  called: "called",
+  "called (in cadence)": "called",
+  "coffee invited": "coffee_invited",
+  "meeting booked": "meeting_booked",
+  "meeting scheduled": "meeting_booked",
+  opportunity: "opportunity",
+  "qualified opportunity": "opportunity",
+  "proposal requested": "proposal_requested",
   proposal_sent: "proposal",
+  "proposal sent": "proposal",
+  "won (deal closed)": "won",
+  won: "won",
+  lost: "lost",
+  "dormant (60d snooze)": "dormant",
+  not_now_snoozed: "dormant",
   snoozed: "dormant",
+  dormant: "dormant",
 };
 
 /**
@@ -347,24 +380,33 @@ export function mapToDbPipelineStage(rawStatus?: string | null): string {
     case "prospect":
       return "New";
     case "contacted":
-    case "no_reply":
-    case "follow_up_sent":
-    case "called":
       return "Contacted";
+    case "no_reply":
+      return "No Reply";
+    case "follow_up_sent":
+      return "Follow-Up Sent";
     case "reply_received":
+      return "Reply Received";
     case "warm_up":
+      return "Warm-Up In Progress";
     case "opening_identified":
+      return "Opening Identified";
     case "objection":
+      return "Objection Raised";
     case "agency_existing":
-      return "Replied";
+      return "Existing Agency";
     case "ready_for_call":
-    case "coffee_invited":
       return "Call Ready";
+    case "called":
+      return "Called";
+    case "coffee_invited":
+      return "Coffee Invited";
     case "meeting_booked":
       return "Meeting Booked";
     case "opportunity":
       return "Opportunity";
     case "proposal_requested":
+      return "Proposal Requested";
     case "proposal":
       return "Proposal Sent";
     case "won":
@@ -372,7 +414,7 @@ export function mapToDbPipelineStage(rawStatus?: string | null): string {
     case "lost":
       return "Lost";
     case "dormant":
-      return "Lost";
+      return "Dormant";
     default:
       return "Contacted";
   }
