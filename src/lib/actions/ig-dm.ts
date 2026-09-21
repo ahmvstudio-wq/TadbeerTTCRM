@@ -70,7 +70,8 @@ export async function logOutreach(data: {
           company_name: data.company_name.trim(),
           industry: data.industry.trim() || 'General',
           phone: data.phone || null,
-          status: 'prospect',
+          status: 'contacted',
+          pipeline_stage: 'Contacted',
           notes: CHANNEL_CONFIG[data.channel].handleLabel + ': ' + data.handle,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -79,6 +80,15 @@ export async function logOutreach(data: {
         .single()
       if (coErr) return { data: null, error: coErr.message }
       companyId = newCo.id
+    } else {
+      await supabase
+        .from('companies')
+        .update({
+          status: 'contacted',
+          pipeline_stage: 'Contacted',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', companyId)
     }
 
     const createdAt = data.outreach_date
@@ -152,6 +162,19 @@ export async function bulkLogOutreach(data: {
 
     const { error } = await supabase.from('activities').insert(records)
     if (error) return { error: error.message }
+
+    const compIds = data.companies.map(c => c.id).filter(Boolean)
+    if (compIds.length > 0) {
+      await supabase
+        .from('companies')
+        .update({
+          status: 'contacted',
+          pipeline_stage: 'Contacted',
+          updated_at: createdAt,
+        })
+        .in('id', compIds)
+    }
+
     revalidateAllCRMPages()
     return { error: null }
   } catch (err) {
@@ -556,8 +579,9 @@ export async function getAllLeadsForPipeline(
     // Only map companies that have active outreach status (not raw uncontacted directory prospects)
     const activeOutreachCompanies = (allCompanies || []).filter((co: any) => {
       if (co.lead_type === 'Dormant' || co.status === 'dormant' || co.status === 'lost') return false
-      // Only include if company has progressed past raw 'prospect' or has a ready-to-send draft
-      return co.status !== 'prospect' || co.draft_status === 'ready_to_send'
+      const s = (co.status || '').toLowerCase().trim()
+      const p = (co.pipeline_stage || '').toLowerCase().trim()
+      return s !== 'prospect' && s !== 'new' && p !== 'new' && p !== 'raw' && p !== 'prospect'
     });
 
     activeOutreachCompanies.forEach((co: any) => {
@@ -686,6 +710,12 @@ export async function getAllLeadsForPipeline(
 
       const compId = act.company_id
       const co = (compId ? companyById.get(compId) : null) || act.companies || {}
+      
+      // Never show dormant or deleted companies in active outreach pipeline
+      if (co.lead_type === 'Dormant' || co.status === 'dormant' || co.status === 'lost') {
+        return
+      }
+
       const existingLead = compId ? leadMap.get(compId) : undefined
 
       // Always count touches across all logged activities
@@ -734,12 +764,20 @@ export async function getAllLeadsForPipeline(
         status = 'not_now_snoozed'
       }
 
-      const specificObs = payload.pain_point || existingLead?.specific_observation || ''
+      let rJson: any = {}
+      try {
+        if (co.research_json && typeof co.research_json === 'object') rJson = co.research_json
+        else if (co.notes && (co.notes.startsWith('{') || co.notes.startsWith('['))) rJson = JSON.parse(co.notes)
+      } catch {}
+      const stagedSeq = existingLead?.staged_sequence || rJson?.staged_sequence || undefined
 
-      const phone = co.phone || existingLead?.phone || (payload.handle && /^[\d\+\-\s\(\)]+$/.test(payload.handle) ? payload.handle : null)
+      const specificObs = payload.pain_point || existingLead?.specific_observation || rJson?.specific_observation || ''
+      const contact = co.contacts?.[0] || {}
+
+      const phone = co.phone || contact.phone || existingLead?.phone || (payload.handle && /^[\d\+\-\s\(\)]+$/.test(payload.handle) ? payload.handle : null)
       const igHandle = existingLead?.instagram_handle || (channel === 'instagram_dm' ? (payload.handle || co.notes?.match(/@[\w.]+/)?.[0]) : null)
       const liUrl = existingLead?.linkedin_url || (channel === 'linkedin' ? (payload.profile_url || co.linkedin_url) : null)
-      const email = existingLead?.email || co.email || null
+      const email = existingLead?.email || co.email || contact.email || null
 
       const replySnippet = payload.prospect_reply || payload.reply || (co.pipeline_stage === 'Replied' || co.pipeline_stage === 'Call Ready' ? (co.draft_message || '') : '') || existingLead?.prospect_reply || ''
 
@@ -747,10 +785,10 @@ export async function getAllLeadsForPipeline(
         id: act.id,
         company_id: act.company_id,
         company_name: co.company_name || existingLead?.company_name || 'Unknown',
-        contact_name: existingLead?.contact_name || payload.contact_name || 'Decision Maker',
-        contact_title: existingLead?.contact_title || 'Owner',
+        contact_name: existingLead?.contact_name || contact.full_name || payload.contact_name || 'Decision Maker',
+        contact_title: existingLead?.contact_title || contact.title || 'Owner',
         industry: co.industry || existingLead?.industry || 'General',
-        sector: existingLead?.sector || 'general',
+        sector: existingLead?.sector || (co.category as any) || 'general',
         phone,
         instagram_handle: igHandle,
         linkedin_url: liUrl,
@@ -764,9 +802,9 @@ export async function getAllLeadsForPipeline(
         specific_observation: specificObs,
         prospect_reply: replySnippet,
         pain_point: payload.pain_point || '',
-        call_opening_line: payload.call_opening_line || existingLead?.call_opening_line || '',
+        call_opening_line: payload.call_opening_line || existingLead?.call_opening_line || stagedSeq?.cold_call_script?.opener || '',
         notes: payload.notes || act.notes || existingLead?.notes || '',
-        staged_sequence: existingLead?.staged_sequence,
+        staged_sequence: stagedSeq,
         sent_at: act.created_at,
         updated_at: payload.updated_at || act.created_at,
       })
@@ -1241,7 +1279,8 @@ export async function importCSVOutreach(data: {
           website: sampleRow?.website?.trim() || null,
           email: sampleRow?.email?.trim() || null,
           linkedin_url: sampleRow?.linkedin_url?.trim() || null,
-          status: 'prospect',
+          status: 'contacted',
+          pipeline_stage: 'Contacted',
           notes: sampleRow?.notes?.trim() || 'Imported via CSV',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -1260,6 +1299,19 @@ export async function importCSVOutreach(data: {
           companyMap.set(co.company_name.toLowerCase().trim(), co.id)
         })
       }
+    }
+
+    // Update existing companies to contacted status
+    const allCompanyIds = Array.from(companyMap.values()).filter(Boolean)
+    if (allCompanyIds.length > 0) {
+      await supabase
+        .from('companies')
+        .update({
+          status: 'contacted',
+          pipeline_stage: 'Contacted',
+          updated_at: new Date().toISOString(),
+        })
+        .in('id', allCompanyIds)
     }
 
     // 4. Create primary contacts in Supabase `contacts` table
@@ -1318,6 +1370,7 @@ export async function importCSVOutreach(data: {
     const { error: actErr } = await supabase.from('activities').insert(activityRecords)
     if (actErr) return { count: 0, error: actErr.message }
 
+    revalidateAllCRMPages()
     return { count: activityRecords.length, error: null }
   } catch (err) {
     return { count: 0, error: (err as Error).message }

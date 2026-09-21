@@ -8,6 +8,8 @@ import { getOpportunities } from "@/lib/actions/opportunities";
 import { getLinkedInProspects } from "@/lib/actions/linkedin";
 import { getAllLeadsForPipeline } from "@/lib/actions/ig-dm";
 
+export const dynamic = "force-dynamic";
+
 export default async function TealCRMDashboardPage() {
   const [
     statsRes,

@@ -935,6 +935,20 @@ export default function OutreachPipelinePage() {
           fetchLeads(false);
         }}
       />
+
+      {/* ── Log Past Outreach & CSV Outreach Import Modal ────────────────── */}
+      {logOpen && (
+        <LogModal
+          onClose={() => setLogOpen(false)}
+          onSuccess={() => {
+            setLogOpen(false);
+            fetchLeads(false);
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("lead-updated"));
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -1426,59 +1440,52 @@ const TEMPLATES: { id: OutreachTemplate; label: string }[] = [
 
 // ─── CSV Parser & Auto Matcher ────────────────────────────────────────────────
 function parseCSV(text: string): { headers: string[]; rows: Record<string, string>[] } {
-  const lines: string[] = [];
-  let current = '';
+  const parsedRows: string[][] = [];
+  let currentRow: string[] = [];
+  let currentCell = '';
   let inQuotes = false;
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
+  const cleanText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  for (let i = 0; i < cleanText.length; i++) {
+    const char = cleanText[i];
+    const nextChar = cleanText[i + 1];
+
     if (char === '"') {
-      if (inQuotes && text[i + 1] === '"') {
-        current += '"';
-        i++;
+      if (inQuotes && nextChar === '"') {
+        currentCell += '"';
+        i++; // skip escaped quote
       } else {
         inQuotes = !inQuotes;
       }
-    } else if ((char === '\n' || char === '\r') && !inQuotes) {
-      if (char === '\r' && text[i + 1] === '\n') i++;
-      lines.push(current);
-      current = '';
+    } else if (char === ',' && !inQuotes) {
+      currentRow.push(currentCell.trim());
+      currentCell = '';
+    } else if (char === '\n' && !inQuotes) {
+      currentRow.push(currentCell.trim());
+      currentCell = '';
+      if (currentRow.some(c => c.length > 0)) {
+        parsedRows.push(currentRow);
+      }
+      currentRow = [];
     } else {
-      current += char;
+      currentCell += char;
     }
   }
-  if (current.trim()) lines.push(current);
 
-  const parseLine = (line: string): string[] => {
-    const values: string[] = [];
-    let val = '';
-    let q = false;
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i];
-      if (c === '"') {
-        if (q && line[i + 1] === '"') {
-          val += '"';
-          i++;
-        } else {
-          q = !q;
-        }
-      } else if (c === ',' && !q) {
-        values.push(val.trim());
-        val = '';
-      } else {
-        val += c;
-      }
+  if (currentCell.length > 0 || currentRow.length > 0) {
+    currentRow.push(currentCell.trim());
+    if (currentRow.some(c => c.length > 0)) {
+      parsedRows.push(currentRow);
     }
-    values.push(val.trim());
-    return values;
-  };
+  }
 
-  if (lines.length === 0) return { headers: [], rows: [] };
-  const headers = parseLine(lines[0]);
+  if (parsedRows.length === 0) return { headers: [], rows: [] };
+  const headers = parsedRows[0];
   const rows: Record<string, string>[] = [];
 
-  for (let i = 1; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    const vals = parseLine(lines[i]);
+  for (let i = 1; i < parsedRows.length; i++) {
+    const vals = parsedRows[i];
+    if (!vals.some(v => v.length > 0)) continue;
     const rowObj: Record<string, string> = {};
     headers.forEach((h, idx) => {
       rowObj[h] = vals[idx] || '';
