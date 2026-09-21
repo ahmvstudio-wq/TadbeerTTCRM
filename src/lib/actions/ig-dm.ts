@@ -533,25 +533,34 @@ export async function getAllLeadsForPipeline(
       .select('*, companies(id, company_name, industry, phone, notes, research_json, category, draft_message, status, pipeline_stage)')
       .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent'])
       .order('created_at', { ascending: false })
+      .range(0, 4999)
 
     if (actErr) {
       console.warn("Activities query warning:", actErr.message)
     }
 
-    // 2. Fetch all companies with contacts to ensure 100% visibility of uncontacted/staged leads
+    // 2. Fetch companies that have entered the active outreach lifecycle (excluding raw uncontacted prospects and dormant)
     const { data: allCompanies, error: coErr } = await supabase
       .from('companies')
       .select('*, contacts(*)')
+      .range(0, 4999)
       .order('created_at', { ascending: false })
 
     if (coErr) {
       console.warn("Companies query warning:", coErr.message)
     }
 
+    const companyById = new Map<string, any>((allCompanies || []).map((c: any) => [c.id, c]))
     const leadMap = new Map<string, OutreachLead>();
 
-    // First, map all companies from the database so NO prospect is hidden
-    (allCompanies || []).forEach((co: any) => {
+    // Only map companies that have active outreach status (not raw uncontacted directory prospects)
+    const activeOutreachCompanies = (allCompanies || []).filter((co: any) => {
+      if (co.lead_type === 'Dormant' || co.status === 'dormant' || co.status === 'lost') return false
+      // Only include if company has progressed past raw 'prospect' or has a ready-to-send draft
+      return co.status !== 'prospect' || co.draft_status === 'ready_to_send'
+    });
+
+    activeOutreachCompanies.forEach((co: any) => {
       const contact = co.contacts?.[0] || {}
       let rJson: any = {}
       try {
@@ -666,7 +675,6 @@ export async function getAllLeadsForPipeline(
       })
     })
 
-    const companyById = new Map<string, any>((allCompanies || []).map((c: any) => [c.id, c]))
     const seenCompanyActivities = new Set<string>()
 
     // Next, overlay actual logged activities so live status, replies, and sent timestamps are 100% accurate.
