@@ -192,7 +192,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
 
   // Outreach Follow-ups Remaining (Explicitly designated follow-ups only)
   const outreachFollowupsRemaining = useMemo(() => {
-    return outreachLeads.filter(l => (l.status === "follow_up_due" || l.needs_followup === true) && !["not_now_snoozed", "lost", "dormant"].includes(l.status));
+    return outreachLeads.filter(l => ((l.status as string) === "follow_up_due" || (l as any).needs_followup === true) && !["not_now_snoozed", "lost", "dormant"].includes(l.status as string));
   }, [outreachLeads]);
 
   const totalProspects = stats?.total_companies ?? companies.length;

@@ -170,6 +170,49 @@ export function CsvImport({
     ];
   }, [selectedChannel]);
 
+  const parseFullCSV = (text: string): string[][] => {
+    const rows: string[][] = [];
+    let currentRow: string[] = [];
+    let currentCell = '';
+    let inQuotes = false;
+    const cleanText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+    for (let i = 0; i < cleanText.length; i++) {
+      const char = cleanText[i];
+      const nextChar = cleanText[i + 1];
+
+      if (char === '"') {
+        if (inQuotes && nextChar === '"') {
+          currentCell += '"';
+          i++; // skip escaped quote
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        currentRow.push(currentCell.trim());
+        currentCell = '';
+      } else if (char === '\n' && !inQuotes) {
+        currentRow.push(currentCell.trim());
+        currentCell = '';
+        if (currentRow.some(c => c.length > 0)) {
+          rows.push(currentRow);
+        }
+        currentRow = [];
+      } else {
+        currentCell += char;
+      }
+    }
+
+    if (currentCell.length > 0 || currentRow.length > 0) {
+      currentRow.push(currentCell.trim());
+      if (currentRow.some(c => c.length > 0)) {
+        rows.push(currentRow);
+      }
+    }
+
+    return rows;
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -182,14 +225,19 @@ export function CsvImport({
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target?.result as string;
-      const lines = text.split("\n").filter((line) => line.trim());
-      if (lines.length < 2) {
+      if (!text || !text.trim()) {
+        setError("The uploaded CSV file is empty");
+        return;
+      }
+
+      const allParsedRows = parseFullCSV(text);
+      if (allParsedRows.length < 2) {
         setError("CSV must have at least a header row and one data row");
         return;
       }
 
-      const headers = parseCSVLine(lines[0]);
-      const rows = lines.slice(1).map((line) => parseCSVLine(line));
+      const headers = allParsedRows[0];
+      const rows = allParsedRows.slice(1);
 
       setCsvHeaders(headers);
       setCsvRows(rows);
@@ -226,26 +274,6 @@ export function CsvImport({
       setStep("map");
     };
     reader.readAsText(file);
-  };
-
-  const parseCSVLine = (line: string): string[] => {
-    const result: string[] = [];
-    let current = "";
-    let inQuotes = false;
-
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      if (char === '"') {
-        inQuotes = !inQuotes;
-      } else if (char === "," && !inQuotes) {
-        result.push(current.trim());
-        current = "";
-      } else {
-        current += char;
-      }
-    }
-    result.push(current.trim());
-    return result;
   };
 
   const handleImport = async () => {

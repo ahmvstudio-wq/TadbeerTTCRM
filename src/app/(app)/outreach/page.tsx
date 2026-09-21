@@ -212,7 +212,7 @@ export default function OutreachPipelinePage() {
   const total             = leads.length;
   const replyReceivedList = filteredLeads.filter(l => l.status === "reply_received" || l.stage === "warm_up");
   // Clean follow-ups list — only show leads with explicitly scheduled / assigned follow-up status
-  const followupsDueList  = leads.filter(l => (l.status === "follow_up_due" || l.needs_followup === true) && !["not_now_snoozed", "lost", "dormant"].includes(l.status));
+  const followupsDueList  = leads.filter(l => ((l.status as string) === "follow_up_due" || (l as any).needs_followup === true) && !["not_now_snoozed", "lost", "dormant"].includes(l.status as string));
   const interested        = leads.filter(l => l.status === "replied_interested" || l.stage === "opening_identified").length;
   const callReady         = leads.filter(l => l.status === "ready_for_call" || l.stage === "coffee_invited").length;
   const booked            = leads.filter(l => l.status === "meeting_booked" || l.stage === "meeting_booked").length;
