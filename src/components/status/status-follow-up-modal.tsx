@@ -26,9 +26,10 @@ interface StatusFollowUpModalProps {
   companyId: string;
   companyName: string;
   currentStatus?: string;
+  currentStatuses?: string[];
   activityId?: string; // If launched from outreach table
   defaultChannel?: string;
-  onSuccess?: (newStatus: string, dueDate: string | null) => void;
+  onSuccess?: (newStatus: string, dueDate: string | null, newStatuses?: string[]) => void;
 }
 
 export function StatusFollowUpModal({
@@ -37,13 +38,18 @@ export function StatusFollowUpModal({
   companyId,
   companyName,
   currentStatus = "prospect",
+  currentStatuses,
   activityId,
   defaultChannel,
   onSuccess,
 }: StatusFollowUpModalProps) {
   const currentConfig = useMemo(() => getUnifiedStatus(currentStatus), [currentStatus]);
 
-  const [selectedStatus, setSelectedStatus] = useState<string>(currentConfig.id);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(() => {
+    if (currentStatuses && currentStatuses.length > 0) return currentStatuses;
+    return [currentConfig.id];
+  });
+  const [primaryStatus, setPrimaryStatus] = useState<string>(currentConfig.id);
   const [selectedCategory, setSelectedCategory] = useState<StatusCategory | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
   
@@ -59,28 +65,30 @@ export function StatusFollowUpModal({
   useEffect(() => {
     if (isOpen) {
       const conf = getUnifiedStatus(currentStatus);
-      setSelectedStatus(conf.id);
+      const list = (currentStatuses && currentStatuses.length > 0) ? currentStatuses : [conf.id];
+      setSelectedStatuses(list);
+      setPrimaryStatus(list[0] || conf.id);
       setSelectedCategory("all");
       setSearchQuery("");
       setFollowUpNote("");
       
       // Auto-suggest follow up based on status
-      applyDefaultFollowUp(conf.id);
+      applyDefaultFollowUp(list[0] || conf.id);
     }
-  }, [isOpen, currentStatus]);
+  }, [isOpen, currentStatus, currentStatuses]);
 
   const applyDefaultFollowUp = (statusId: string) => {
     const conf = getUnifiedStatus(statusId);
-    if (statusId === "reply_received") {
+    if (statusId === "reply_received" || statusId === "audit_requested") {
       setFollowUpOption("2d");
-      setFollowUpNote("Reply received — follow up on conversation / discovery");
-    } else if (statusId === "no_reply" || statusId === "contacted") {
+      setFollowUpNote(statusId === "audit_requested" ? "Audit requested — prepare & deliver digital audit" : "Reply received — follow up on conversation / discovery");
+    } else if (statusId === "no_reply" || statusId === "contacted" || statusId === "voice_note_sent") {
       setFollowUpOption("3d");
       setFollowUpNote("Touch sent — check for response / next touch");
-    } else if (statusId === "opening_identified" || statusId === "objection") {
+    } else if (statusId === "opening_identified" || statusId === "objection" || statusId === "portfolio_shared" || statusId === "audit_sent") {
       setFollowUpOption("2d");
-      setFollowUpNote("Opening / objection — follow up with tailored solution");
-    } else if (statusId === "ready_for_call" || statusId === "meeting_booked") {
+      setFollowUpNote(statusId === "audit_sent" ? "Audit delivered — follow up on review & impressions" : "Opening / objection — follow up with tailored solution");
+    } else if (statusId === "ready_for_call" || statusId === "call_scheduled" || statusId === "meeting_booked") {
       setFollowUpOption("1d");
       setFollowUpNote(statusId === "meeting_booked" ? "Prepare meeting deck and confirm timing" : "Execute scheduled outbound call");
     } else if (statusId === "proposal_requested" || statusId === "proposal") {
@@ -92,9 +100,20 @@ export function StatusFollowUpModal({
     }
   };
 
-  const handleStatusSelect = (statusId: string) => {
-    setSelectedStatus(statusId);
-    applyDefaultFollowUp(statusId);
+  const toggleStatus = (statusId: string) => {
+    setSelectedStatuses((prev) => {
+      const exists = prev.includes(statusId);
+      let next: string[];
+      if (exists) {
+        if (prev.length === 1) return prev; // Keep at least one
+        next = prev.filter((s) => s !== statusId);
+      } else {
+        next = [...prev, statusId];
+      }
+      setPrimaryStatus(statusId);
+      applyDefaultFollowUp(statusId);
+      return next;
+    });
   };
 
   // Helper date calculations
@@ -132,7 +151,7 @@ export function StatusFollowUpModal({
 
   const handleSave = async () => {
     setSaving(true);
-    const targetStatusConfig = getUnifiedStatus(selectedStatus);
+    const targetStatusConfig = getUnifiedStatus(primaryStatus || selectedStatuses[0]);
     const targetDueDate = currentFollowUp.dateStr;
 
     try {
@@ -140,6 +159,7 @@ export function StatusFollowUpModal({
       if (activityId) {
         await updateOutreachStatus(activityId, {
           status: targetStatusConfig.id as any,
+          statuses: selectedStatuses,
           followUpDate: targetDueDate,
           followUpNote: followUpNote || `Follow up with ${companyName} (${targetStatusConfig.label})`,
           followUpChannel,
@@ -163,6 +183,7 @@ export function StatusFollowUpModal({
               source: "status_followup_modal",
               companyId,
               status: targetStatusConfig.id,
+              statuses: selectedStatuses,
               followUpDate: targetDueDate,
             },
           })
@@ -172,14 +193,14 @@ export function StatusFollowUpModal({
       if (targetDueDate) {
         addToast(
           "success",
-          `Status set to "${targetStatusConfig.label}" & follow-up scheduled for ${currentFollowUp.label}!`
+          `Status updated (${selectedStatuses.length} tags) & follow-up scheduled for ${currentFollowUp.label}!`
         );
       } else {
-        addToast("success", `Status updated to "${targetStatusConfig.label}"`);
+        addToast("success", `Status updated (${selectedStatuses.length} tags)`);
       }
 
       if (onSuccess) {
-        onSuccess(targetStatusConfig.id, targetDueDate);
+        onSuccess(targetStatusConfig.id, targetDueDate, selectedStatuses);
       }
 
       onClose();
@@ -261,31 +282,78 @@ export function StatusFollowUpModal({
               </div>
             </div>
 
-            {/* Status Grid */}
+            {/* Active Selected Tags Strip */}
+            <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-xl bg-slate-100/90 border border-slate-200 mb-2.5">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500 mr-1">
+                Selected ({selectedStatuses.length}):
+              </span>
+              {selectedStatuses.map((stId) => {
+                const conf = getUnifiedStatus(stId);
+                const isPrimary = stId === primaryStatus;
+                return (
+                  <span
+                    key={stId}
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[11px] font-bold font-mono transition-all",
+                      conf.badgeClass,
+                      isPrimary && "ring-2 ring-slate-900 shadow-xs"
+                    )}
+                  >
+                    <span className={cn("h-1.5 w-1.5 rounded-full", conf.dotColor)} />
+                    <span>{conf.shortLabel || conf.label}</span>
+                    {isPrimary && (
+                      <span className="text-[8px] uppercase font-black px-1 py-0.2 rounded bg-black/10 text-slate-800">
+                        Primary
+                      </span>
+                    )}
+                    {selectedStatuses.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleStatus(stId);
+                        }}
+                        className="hover:text-red-700 ml-0.5 text-xs font-bold leading-none cursor-pointer"
+                        title="Remove status"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </span>
+                );
+              })}
+            </div>
+
+            {/* Status Grid with Checkboxes */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto p-1 border border-slate-200 rounded-xl bg-slate-50/50">
               {filteredStatuses.map((s) => {
-                const isSelected = selectedStatus === s.id;
+                const isChecked = selectedStatuses.includes(s.id);
+                const isPrimary = primaryStatus === s.id;
                 return (
-                  <button
+                  <div
                     key={s.id}
-                    type="button"
-                    onClick={() => handleStatusSelect(s.id)}
+                    onClick={() => toggleStatus(s.id)}
                     className={cn(
-                      "flex items-start gap-2.5 p-2.5 rounded-xl border text-left transition cursor-pointer relative",
-                      isSelected
-                        ? "border-teal-600 bg-teal-50/70 shadow-xs ring-1 ring-teal-500"
+                      "flex items-start gap-2.5 p-2.5 rounded-xl border text-left transition cursor-pointer relative select-none",
+                      isChecked
+                        ? "border-teal-600 bg-teal-50/80 shadow-xs ring-1 ring-teal-500"
                         : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/80"
                     )}
                   >
-                    <div className={cn("h-2.5 w-2.5 rounded-full mt-1 shrink-0", s.dotColor)} />
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => {}}
+                      className="mt-1 h-3.5 w-3.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500 shrink-0 pointer-events-none"
+                    />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-1">
-                        <span className={cn("text-xs font-bold leading-none truncate", isSelected ? "text-teal-950 font-black" : "text-slate-900")}>
+                        <span className={cn("text-xs font-bold leading-none truncate", isChecked ? "text-teal-950 font-black" : "text-slate-900")}>
                           {s.label}
                         </span>
-                        {isSelected && (
-                          <span className="h-4 w-4 rounded-full bg-teal-600 text-white flex items-center justify-center text-[10px] shrink-0">
-                            <Check className="h-2.5 w-2.5 stroke-[3]" />
+                        {isPrimary && (
+                          <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-teal-600 text-white shrink-0">
+                            Primary
                           </span>
                         )}
                       </div>
@@ -293,7 +361,7 @@ export function StatusFollowUpModal({
                         {s.description}
                       </p>
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -322,8 +390,8 @@ export function StatusFollowUpModal({
                 { 
                   id: "2d", 
                   label: "+2 Days", 
-                  sub: selectedStatus === "reply_received" ? "⭐ Recommended" : "In 2 days",
-                  highlight: selectedStatus === "reply_received" 
+                  sub: primaryStatus === "reply_received" || primaryStatus === "audit_requested" ? "⭐ Recommended" : "In 2 days",
+                  highlight: primaryStatus === "reply_received" || primaryStatus === "audit_requested"
                 },
                 { id: "3d", label: "+3 Days", sub: "In 3 days" },
                 { id: "7d", label: "+1 Week", sub: "Next week" },
@@ -451,8 +519,8 @@ export function StatusFollowUpModal({
                 <CheckCircle2 className="h-3.5 w-3.5 text-teal-400" />
                 <span>
                   {followUpOption !== "none"
-                    ? `Update to "${getUnifiedStatus(selectedStatus).label}" & Follow Up (${currentFollowUp.label})`
-                    : `Update to "${getUnifiedStatus(selectedStatus).label}"`}
+                    ? `Update to "${getUnifiedStatus(primaryStatus).label}"${selectedStatuses.length > 1 ? ` (+${selectedStatuses.length - 1})` : ''} & Follow Up (${currentFollowUp.label})`
+                    : `Update to "${getUnifiedStatus(primaryStatus).label}"${selectedStatuses.length > 1 ? ` (+${selectedStatuses.length - 1})` : ''}`}
                 </span>
               </>
             )}

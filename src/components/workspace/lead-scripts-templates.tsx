@@ -63,7 +63,10 @@ export function LeadScriptsTemplates({
 
   // Generate channel-specific tailored templates according to Oman Operating System
   const getTailoredTemplates = () => {
-    const t1 = stagedSeq?.touch_1?.message || `Assalamu Alaikum ${contactName}, I was looking at ${companyName}'s work in ${industry} and noticed ${observation}.\n\nWho is the best person on your team to speak with about operations and customer inquiries in Muscat?`;
+    const customDraft = (company as any).draft_message || (company as any).research_json?.draft_message;
+    const t1 = (selectedChannel === "whatsapp" && customDraft) 
+      ? customDraft 
+      : (stagedSeq?.touch_1?.message || customDraft || `Salam Alaikum ${contactName !== 'Decision Maker' ? contactName : ''}, hope you’re doing well. I came across your work with ${companyName} and thought it would be good to connect and stay in touch.`);
     const t2 = stagedSeq?.touch_2?.message || `Hi ${contactName}, following up on my previous note. We've been observing how top ${industry} businesses in Muscat handle customer response times and booking flow.\n\nWould you be open to a casual 15-minute coffee sit-down sometime this week?`;
     const t3 = stagedSeq?.touch_3?.message || `Hi ${contactName}, one thing we notice with ${industry} operations is how quickly inquiries can drop off during peak hours without dedicated response automation.\n\nAre you guys handling direct messages in-house or through staff?`;
     const t4 = stagedSeq?.touch_4?.message || `Hi ${contactName}, I'm going to be around Muscat this week. Would love to buy you a 20-minute coffee just to share a few observations on what's working for local ${industry} brands. How does Thursday look?`;

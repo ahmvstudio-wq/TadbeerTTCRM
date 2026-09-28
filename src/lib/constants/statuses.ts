@@ -61,6 +61,17 @@ export const UNIFIED_STATUSES: UnifiedStatusConfig[] = [
     description: "Second or third observation touch dispatched.",
     defaultFollowUpDays: 3,
   },
+  {
+    id: "voice_note_sent",
+    label: "Voice Note Sent",
+    shortLabel: "Voice Note",
+    category: "outreach",
+    categoryLabel: "Outreach & Cold",
+    badgeClass: "bg-purple-100 text-purple-950 border-purple-400 font-bold",
+    dotColor: "bg-purple-600",
+    description: "Personalized voice note audio touch dispatched.",
+    defaultFollowUpDays: 3,
+  },
 
   // ─── 2. Active Conversations & Replies ───────────────────────────────────────
   {
@@ -94,6 +105,39 @@ export const UNIFIED_STATUSES: UnifiedStatusConfig[] = [
     badgeClass: "bg-amber-100 text-amber-950 border-amber-400 font-bold",
     dotColor: "bg-amber-600",
     description: "Bottleneck, frustration, or growth goal revealed. Ready for coffee / call invite.",
+    defaultFollowUpDays: 2,
+  },
+  {
+    id: "audit_requested",
+    label: "Share Audit Request (Audit Requested)",
+    shortLabel: "Audit Req",
+    category: "conversation",
+    categoryLabel: "Conversations & Replies",
+    badgeClass: "bg-amber-100 text-amber-950 border-amber-400 font-bold",
+    dotColor: "bg-amber-600",
+    description: "Prospect requested or accepted a free business/digital audit.",
+    defaultFollowUpDays: 2,
+  },
+  {
+    id: "audit_sent",
+    label: "Audit Sent / Shared",
+    shortLabel: "Audit Sent",
+    category: "conversation",
+    categoryLabel: "Conversations & Replies",
+    badgeClass: "bg-teal-100 text-teal-950 border-teal-400 font-bold",
+    dotColor: "bg-teal-600",
+    description: "Custom audit report delivered. Follow-up due within 2 days.",
+    defaultFollowUpDays: 2,
+  },
+  {
+    id: "portfolio_shared",
+    label: "Portfolio / Sample Shared",
+    shortLabel: "Sample Sent",
+    category: "conversation",
+    categoryLabel: "Conversations & Replies",
+    badgeClass: "bg-sky-100 text-sky-950 border-sky-400 font-bold",
+    dotColor: "bg-sky-600",
+    description: "Case study, relevant work sample, or portfolio shared.",
     defaultFollowUpDays: 2,
   },
   {
@@ -141,6 +185,17 @@ export const UNIFIED_STATUSES: UnifiedStatusConfig[] = [
     dotColor: "bg-violet-600",
     description: "Outbound call completed. Awaiting callback or next touch in cadence.",
     defaultFollowUpDays: 2,
+  },
+  {
+    id: "call_scheduled",
+    label: "Follow-Up Call Scheduled",
+    shortLabel: "Call Sched",
+    category: "pipeline",
+    categoryLabel: "Pipeline, Calls & Deals",
+    badgeClass: "bg-blue-100 text-blue-950 border-blue-500 font-bold",
+    dotColor: "bg-blue-600",
+    description: "Call appointment confirmed on calendar.",
+    defaultFollowUpDays: 1,
   },
   {
     id: "coffee_invited",
@@ -260,6 +315,24 @@ export const STATUS_ALIAS_MAP: Record<string, string> = {
   "opening identified": "opening_identified",
   replied_interested: "opening_identified",
   interested: "opening_identified",
+  audit_requested: "audit_requested",
+  "audit requested": "audit_requested",
+  "share the audit request": "audit_requested",
+  "share audit request": "audit_requested",
+  "share audit request (audit requested)": "audit_requested",
+  "audit req": "audit_requested",
+  audit_sent: "audit_sent",
+  "audit sent": "audit_sent",
+  "audit sent / shared": "audit_sent",
+  portfolio_shared: "portfolio_shared",
+  "portfolio / sample shared": "portfolio_shared",
+  "sample shared": "portfolio_shared",
+  "portfolio shared": "portfolio_shared",
+  voice_note_sent: "voice_note_sent",
+  "voice note sent": "voice_note_sent",
+  call_scheduled: "call_scheduled",
+  "call scheduled": "call_scheduled",
+  "follow-up call scheduled": "call_scheduled",
   "objection raised": "objection",
   "objection raised / handled": "objection",
   replied_objection: "objection",
@@ -344,14 +417,19 @@ export function mapToDbCompanyStatus(rawStatus?: string | null): string {
     case "contacted":
     case "no_reply":
     case "follow_up_sent":
+    case "voice_note_sent":
     case "reply_received":
     case "warm_up":
     case "opening_identified":
+    case "audit_requested":
+    case "audit_sent":
+    case "portfolio_shared":
     case "objection":
     case "agency_existing":
     case "called":
       return "contacted";
     case "ready_for_call":
+    case "call_scheduled":
     case "coffee_invited":
       return "in_call_queue";
     case "meeting_booked":
@@ -391,6 +469,16 @@ export function mapToDbPipelineStage(rawStatus?: string | null): string {
       return "Warm-Up In Progress";
     case "opening_identified":
       return "Opening Identified";
+    case "audit_requested":
+      return "Audit Requested";
+    case "audit_sent":
+      return "Audit Sent";
+    case "portfolio_shared":
+      return "Portfolio Shared";
+    case "voice_note_sent":
+      return "Voice Note Sent";
+    case "call_scheduled":
+      return "Call Scheduled";
     case "objection":
       return "Objection Raised";
     case "agency_existing":
@@ -433,18 +521,23 @@ export function mapToDbLeadStatus(rawStatus?: string | null): string {
     case "contacted":
     case "no_reply":
     case "follow_up_sent":
+    case "voice_note_sent":
     case "called":
     case "ready_for_call":
       return "Contacted";
     case "reply_received":
     case "warm_up":
     case "opening_identified":
+    case "audit_requested":
+    case "audit_sent":
+    case "portfolio_shared":
     case "objection":
     case "agency_existing":
       return "Qualified";
     case "opportunity":
       return "Qualified";
     case "coffee_invited":
+    case "call_scheduled":
     case "meeting_booked":
       return "Meeting Booked";
     case "proposal_requested":
@@ -476,18 +569,28 @@ export function mapToOutreachStatus(rawStatus?: string | null): string {
       return "no_reply";
     case "follow_up_sent":
       return "follow_up_sent";
+    case "voice_note_sent":
+      return "voice_note_sent";
     case "reply_received":
       return "reply_received";
     case "warm_up":
       return "warm_up";
     case "opening_identified":
       return "opening_identified";
+    case "audit_requested":
+      return "audit_requested";
+    case "audit_sent":
+      return "audit_sent";
+    case "portfolio_shared":
+      return "portfolio_shared";
     case "objection":
       return "replied_objection";
     case "agency_existing":
       return "agency_existing";
     case "ready_for_call":
       return "ready_for_call";
+    case "call_scheduled":
+      return "call_scheduled";
     case "called":
       return "called";
     case "coffee_invited":

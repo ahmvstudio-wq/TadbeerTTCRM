@@ -13,6 +13,11 @@ export type OutreachStage =
   | 'gate_opener_sent'      // Stage 1: Sent (3-day clock active)
   | 'warm_up'               // Stage 2: Prospect replied, building rapport (no pitch)
   | 'opening_identified'    // Stage 3: Pain / bottleneck revealed
+  | 'audit_requested'       // Prospect requested or offered free business/digital audit
+  | 'audit_sent'            // Audit report delivered and shared
+  | 'portfolio_shared'      // Portfolio or sample shared
+  | 'voice_note_sent'       // Voice note touch dispatched
+  | 'call_scheduled'        // Specific call appointment locked in
   | 'coffee_invited'        // Stage 4: Casual Muscat coffee invited
   | 'meeting_booked'        // Stage 5: In-person meeting scheduled
   | 'follow_up_sent'        // Stage 6: High-value observation follow-up
@@ -21,7 +26,15 @@ export type OutreachStage =
   | 'agency_existing'       // Working with existing agency (evaluating results)
 
 // Legacy alias for backwards compatibility
-export type OutreachStatus = OutreachStage | 'sent' | 'no_reply' | 'reply_received' | 'replied_interested' | 'replied_objection' | 'ready_for_call' | 'called'
+export type OutreachStatus =
+  | OutreachStage
+  | 'sent'
+  | 'no_reply'
+  | 'reply_received'
+  | 'replied_interested'
+  | 'replied_objection'
+  | 'ready_for_call'
+  | 'called'
 
 export type SectorCategory =
   | 'aesthetic_clinics'
@@ -69,6 +82,11 @@ export const STAGE_CONFIG: Record<OutreachStage, { label: string; shortLabel: st
   gate_opener_sent:   { label: '1. Gate-Opener Sent',   shortLabel: 'Sent',     color: 'blue',    stepNumber: 1, badgeColor: 'bg-blue-100 text-blue-800 border-blue-200',       description: 'Initial touch sent. 3-day follow-up clock active.' },
   warm_up:            { label: '2. Warm-Up In Progress', shortLabel: 'Warm-Up', color: 'indigo',  stepNumber: 2, badgeColor: 'bg-indigo-100 text-indigo-800 border-indigo-200', description: 'Prospect replied. Building rapport with no pitch.' },
   opening_identified: { label: '3. Opening Identified',  shortLabel: 'Opening',  color: 'amber',   stepNumber: 3, badgeColor: 'bg-amber-100 text-amber-800 border-amber-200',   description: 'Bottleneck or frustration revealed. Ready for coffee invite.' },
+  audit_requested:    { label: 'Share Audit Request',   shortLabel: 'Audit Req', color: 'amber',   stepNumber: 3, badgeColor: 'bg-amber-100 text-amber-800 border-amber-200',   description: 'Prospect requested or accepted free business/digital audit.' },
+  audit_sent:         { label: 'Audit Sent / Shared',   shortLabel: 'Audit Sent', color: 'teal',   stepNumber: 4, badgeColor: 'bg-teal-100 text-teal-800 border-teal-200',       description: 'Audit delivered. Review & feedback follow-up active.' },
+  portfolio_shared:   { label: 'Portfolio Shared',      shortLabel: 'Sample',   color: 'sky',     stepNumber: 3, badgeColor: 'bg-sky-100 text-sky-800 border-sky-200',         description: 'Relevant case study or work sample shared.' },
+  voice_note_sent:    { label: 'Voice Note Sent',       shortLabel: 'Voice Note', color: 'purple', stepNumber: 1, badgeColor: 'bg-purple-100 text-purple-800 border-purple-200', description: 'Voice note audio touch sent.' },
+  call_scheduled:     { label: 'Call Scheduled',        shortLabel: 'Call Sched', color: 'blue',   stepNumber: 4, badgeColor: 'bg-blue-100 text-blue-800 border-blue-200',       description: 'Specific call appointment scheduled on calendar.' },
   coffee_invited:     { label: '4. Coffee Invited',     shortLabel: 'Coffee Inv', color: 'orange', stepNumber: 4, badgeColor: 'bg-orange-100 text-orange-800 border-orange-200', description: 'Casual Muscat coffee/sit-down invitation sent.' },
   meeting_booked:     { label: '5. Meeting Scheduled',  shortLabel: 'Meeting',  color: 'emerald', stepNumber: 5, badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-200', description: 'In-person meeting or coffee booked.' },
   follow_up_sent:     { label: '6. Post-Meeting Value', shortLabel: 'Follow-Up', color: 'teal',    stepNumber: 6, badgeColor: 'bg-teal-100 text-teal-800 border-teal-200',       description: 'Useful insight/observation sent following meeting.' },
@@ -83,6 +101,11 @@ export const STATUS_CONFIG: Record<string, { label: string; color: string; next?
   gate_opener_sent:   { label: 'Gate-Opener Sent', color: 'blue', next: 'warm_up' },
   warm_up:            { label: 'Warm-Up', color: 'indigo', next: 'opening_identified' },
   opening_identified: { label: 'Opening Identified', color: 'amber', next: 'coffee_invited' },
+  audit_requested:    { label: 'Share Audit Request', color: 'amber', next: 'audit_sent' },
+  audit_sent:         { label: 'Audit Sent', color: 'teal', next: 'coffee_invited' },
+  portfolio_shared:   { label: 'Portfolio Shared', color: 'sky', next: 'coffee_invited' },
+  voice_note_sent:    { label: 'Voice Note Sent', color: 'purple', next: 'warm_up' },
+  call_scheduled:     { label: 'Call Scheduled', color: 'blue', next: 'meeting_booked' },
   coffee_invited:     { label: 'Coffee Invited', color: 'orange', next: 'meeting_booked' },
   meeting_booked:     { label: 'Meeting Booked', color: 'emerald', next: 'proposal_requested' },
   follow_up_sent:     { label: 'Follow-Up Sent', color: 'teal' },
@@ -161,6 +184,7 @@ export interface OutreachLead {
   template_used: OutreachTemplate
   status: OutreachStatus
   stage?: OutreachStage
+  statuses?: string[]
   touch_count?: number
   specific_observation?: string
   prospect_reply: string

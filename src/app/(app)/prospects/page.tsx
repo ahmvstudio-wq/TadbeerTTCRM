@@ -1257,17 +1257,19 @@ export default function ProspectsPage() {
                       <td className="py-3.5 px-4" onClick={(e) => e.stopPropagation()}>
                         <UnifiedStatusBadge
                           status={(prospect as any).research_json?.unified_status || prospect.pipeline_stage || prospect.status}
+                          statuses={(prospect as any).research_json?.active_statuses || [((prospect as any).research_json?.unified_status || prospect.pipeline_stage || prospect.status)]}
                           companyId={prospect.id}
                           companyName={prospect.company_name}
                           defaultChannel={waPhone ? 'whatsapp' : igUrl ? 'instagram_dm' : linkedinUrl ? 'linkedin' : 'call'}
-                          onStatusChanged={(newStatus) => {
+                          onStatusChanged={(newStatus, dueDate, newStatuses) => {
                             setProspects(prev => prev.map(p => p.id === prospect.id ? {
                               ...p,
                               status: newStatus,
                               pipeline_stage: getUnifiedStatus(newStatus).label,
                               research_json: {
                                 ...((p as any).research_json || {}),
-                                unified_status: newStatus
+                                unified_status: newStatus,
+                                active_statuses: newStatuses || [newStatus]
                               }
                             } : p));
                             fetchProspects(search, statusFilter, false, true);

@@ -6,15 +6,16 @@ import {
   Loader2, Trash2, CheckCircle2, RefreshCw, Moon, Send,
   Check, AlertTriangle, Mail, BookOpen, Globe,
   Upload, FileSpreadsheet, Table, Settings2, FileUp, FileText,
-  Calendar,
+  Calendar, FileCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn, formatWhatsAppNumber, getCleanDisplayNotes, getCleanObservation, getCleanDraftMessage } from "@/lib/utils";
 import {
-  logOutreach, updateOutreachStatus, updateOutreachEntry, getAllLeadsForPipeline, deleteOutreachLog, bulkLogOutreach, importCSVOutreach, markChannelTouchSent, markLeadFollowedUp, type MappedCSVRow
+  logOutreach, updateOutreachStatus, updateOutreachEntry, getAllLeadsForPipeline, deleteOutreachLog, bulkLogOutreach, importCSVOutreach, markChannelTouchSent, markLeadFollowedUp, bulkUpdateOutreachStatus, type MappedCSVRow
 } from "@/lib/actions/ig-dm";
+import { addToast } from "@/components/ui/toast";
 import { getCompanies } from "@/lib/actions/companies";
 import {
   CHANNEL_CONFIG, STATUS_CONFIG, STAGE_CONFIG, SECTOR_CONFIG, TEMPLATE_LABELS,
@@ -76,6 +77,11 @@ const STATUS_CHIP: Record<OutreachStatus, string> = {
   replied_objection:  "bg-amber-100 text-amber-950 border-amber-400 font-bold",
   ready_for_call:     "bg-teal-100 text-teal-950 border-teal-500 font-bold",
   called:             "bg-violet-100 text-violet-950 border-violet-400 font-bold",
+  audit_requested:    "bg-amber-100 text-amber-950 border-amber-500 font-bold",
+  audit_sent:         "bg-indigo-100 text-indigo-950 border-indigo-400 font-bold",
+  portfolio_shared:   "bg-cyan-100 text-cyan-950 border-cyan-400 font-bold",
+  voice_note_sent:    "bg-teal-100 text-teal-950 border-teal-400 font-bold",
+  call_scheduled:     "bg-violet-100 text-violet-950 border-violet-500 font-bold",
 };
 
 const STATUSES: OutreachStatus[] = [
@@ -95,7 +101,12 @@ const STATUSES: OutreachStatus[] = [
   "replied_interested",
   "replied_objection",
   "ready_for_call",
-  "called"
+  "called",
+  "audit_requested",
+  "audit_sent",
+  "portfolio_shared",
+  "voice_note_sent",
+  "call_scheduled"
 ];
 
 const CHANNELS: OutreachChannel[] = [
@@ -143,6 +154,11 @@ export default function OutreachPipelinePage() {
   // Kanban Drag & Drop State
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+
+  // Multi-Select & Bulk Status Update State
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
+  const [bulkStatusTarget, setBulkStatusTarget] = useState<string>("audit_requested");
+  const [bulkUpdating, setBulkUpdating] = useState(false);
 
   const fetchLeads = useCallback(async (isSilent = false) => {
     if (!isSilent) setInitialLoading(true);
@@ -202,9 +218,10 @@ export default function OutreachPipelinePage() {
     });
   }, [filteredLeads]);
 
-  // Reset pagination on filter or viewMode changes
+  // Reset pagination and row selection on filter or viewMode changes
   useEffect(() => {
     setCurrentPage(1);
+    setSelectedLeadIds(new Set());
   }, [dateFilter, channelFilter, sectorFilter, stageFilter, searchQuery, viewMode]);
 
   // Metrics & Compiled Lists
@@ -298,6 +315,87 @@ export default function OutreachPipelinePage() {
     setPowerHourLeads(batch.length > 0 ? batch : filteredLeads.slice(0, 25));
     setPowerHourChannel(ch);
     setPowerHourOpen(true);
+  };
+
+  // Row selection & Bulk Action Handlers
+  const handleToggleSelectRow = (id: string) => {
+    setSelectedLeadIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleToggleSelectAllOnPage = () => {
+    const pageIds = paginatedLeads.map(l => l.id);
+    const allSelected = pageIds.length > 0 && pageIds.every(id => selectedLeadIds.has(id));
+    setSelectedLeadIds(prev => {
+      const next = new Set(prev);
+      if (allSelected) {
+        pageIds.forEach(id => next.delete(id));
+      } else {
+        pageIds.forEach(id => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAllInView = () => {
+    const allIds = activeLeadsList.map(l => l.id);
+    setSelectedLeadIds(new Set(allIds));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedLeadIds(new Set());
+  };
+
+  const handleApplyBulkStatus = async (targetStatus: string) => {
+    if (selectedLeadIds.size === 0 || bulkUpdating) return;
+    setBulkUpdating(true);
+    const leadIdArr = Array.from(selectedLeadIds);
+    const targetCfg = getUnifiedStatus(targetStatus);
+
+    // Optimistic local update
+    setLeads(prev => prev.map(l => {
+      if (selectedLeadIds.has(l.id)) {
+        return {
+          ...l,
+          status: targetStatus as any,
+          stage: targetStatus as any,
+          statuses: [targetStatus]
+        };
+      }
+      return l;
+    }));
+
+    try {
+      const res = await bulkUpdateOutreachStatus({
+        leadIds: leadIdArr,
+        status: targetStatus as OutreachStatus,
+        statuses: [targetStatus],
+        notes: `Bulk status update to ${targetCfg.label}`
+      });
+
+      if (res.error) {
+        addToast("error", `Bulk update error: ${res.error}`);
+        fetchLeads(true);
+      } else {
+        addToast("success", `Updated ${leadIdArr.length} leads to "${targetCfg.label}"!`);
+        setSelectedLeadIds(new Set());
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("lead-updated", {
+            detail: { status: targetStatus, count: leadIdArr.length }
+          }));
+        }
+        handleSilentUpdate();
+      }
+    } catch (err: any) {
+      addToast("error", `Bulk update failed: ${err.message}`);
+      fetchLeads(true);
+    } finally {
+      setBulkUpdating(false);
+    }
   };
 
   return (
@@ -514,14 +612,27 @@ export default function OutreachPipelinePage() {
         /* ── HIGH-DENSITY COMPACT CONTACT TABLE VIEW (NO BORING SCROLLING!) ── */
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden font-sans">
           <div className="p-3 bg-slate-50/70 border-b border-slate-200 flex items-center justify-between gap-3 text-xs">
-            <span className="font-extrabold text-slate-700">
-              {viewMode === "followups"
-                ? `Showing ${activeLeadsList.length} leads due for follow-up (2-3+ days with no reply)`
-                : viewMode === "calls"
-                ? `Showing ${activeLeadsList.length} leads in Call Queue`
-                : `Showing ${activeLeadsList.length} contacts ${searchQuery && `matching "${searchQuery}"`}`}
-            </span>
-            <span className="text-slate-400 text-[11px]">Click status dropdown to update directly inline</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-extrabold text-slate-700">
+                {viewMode === "followups"
+                  ? `Showing ${activeLeadsList.length} leads due for follow-up (2-3+ days with no reply)`
+                  : viewMode === "calls"
+                  ? `Showing ${activeLeadsList.length} leads in Call Queue`
+                  : `Showing ${activeLeadsList.length} contacts ${searchQuery && `matching "${searchQuery}"`}`}
+              </span>
+              {selectedLeadIds.size > 0 && (
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-teal-100 text-teal-900 border border-teal-300 font-extrabold text-[11px]">
+                  {selectedLeadIds.size} selected
+                  <button
+                    onClick={handleClearSelection}
+                    className="text-teal-700 hover:text-teal-950 font-bold ml-1 cursor-pointer"
+                  >
+                    (Clear)
+                  </button>
+                </span>
+              )}
+            </div>
+            <span className="text-slate-400 text-[11px]">Click status badge to view/assign tags & schedule follow-up</span>
           </div>
 
           {activeLeadsList.length === 0 ? (
@@ -541,6 +652,15 @@ export default function OutreachPipelinePage() {
                 <table className="w-full text-left text-xs border-collapse">
                   <thead className="bg-slate-200/90 border-b border-slate-300 text-slate-900 font-black text-[11px] tracking-wide">
                     <tr>
+                      <th className="p-3 w-10 text-center">
+                        <input
+                          type="checkbox"
+                          checked={paginatedLeads.length > 0 && paginatedLeads.every(l => selectedLeadIds.has(l.id))}
+                          onChange={handleToggleSelectAllOnPage}
+                          className="h-4 w-4 rounded border-slate-300 accent-teal-600 cursor-pointer align-middle"
+                          title="Select / deselect all visible rows on this page"
+                        />
+                      </th>
                       <th className="p-3">Company / Business</th>
                       <th className="p-3">Channel & Handle</th>
                       <th className="p-3">Pipeline Status</th>
@@ -555,9 +675,20 @@ export default function OutreachPipelinePage() {
                       const waDigits = phone ? formatWhatsAppNumber(phone) : "";
                       const waUrl = waDigits ? `https://wa.me/${waDigits}` : null;
                       const cleanH = (lead.handle || "").trim();
+                      const isRowSelected = selectedLeadIds.has(lead.id);
 
                       return (
-                        <tr key={lead.id} className="hover:bg-slate-100/70 transition-colors group">
+                        <tr key={lead.id} className={cn("hover:bg-slate-100/70 transition-colors group", isRowSelected && "bg-teal-50/60")}>
+                          {/* Selection Checkbox */}
+                          <td className="p-3 w-10 text-center" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={isRowSelected}
+                              onChange={() => handleToggleSelectRow(lead.id)}
+                              className="h-4 w-4 rounded border-slate-300 accent-teal-600 cursor-pointer align-middle"
+                            />
+                          </td>
+
                           {/* Company & Industry */}
                           <td className="p-3">
                             <button
@@ -587,12 +718,18 @@ export default function OutreachPipelinePage() {
                           <td className="p-3" onClick={(e) => e.stopPropagation()}>
                             <UnifiedStatusBadge
                               status={lead.status}
+                              statuses={lead.statuses && lead.statuses.length > 0 ? lead.statuses : [lead.status]}
                               companyId={lead.company_id || lead.id.replace(/^staged-/, '')}
                               companyName={lead.company_name}
                               activityId={lead.id}
                               defaultChannel={lead.channel}
-                              onStatusChanged={(newStatus) => {
-                                setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: newStatus as any, stage: newStatus as any } : l));
+                              onStatusChanged={(newStatus, dueDate, newStatuses) => {
+                                setLeads(prev => prev.map(l => l.id === lead.id ? {
+                                  ...l,
+                                  status: newStatus as any,
+                                  stage: newStatus as any,
+                                  statuses: newStatuses || [newStatus]
+                                } : l));
                                 handleSilentUpdate();
                               }}
                             />
@@ -943,6 +1080,110 @@ export default function OutreachPipelinePage() {
             }
           }}
         />
+      )}
+      {/* ── Floating Sticky Bulk Action Bar ───────────────────────────────── */}
+      {selectedLeadIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-950 text-white rounded-2xl shadow-2xl border border-slate-700/90 px-4 py-3 flex items-center gap-3.5 flex-wrap sm:flex-nowrap backdrop-blur-md">
+          <div className="flex items-center gap-2 pr-3 border-r border-slate-800 shrink-0">
+            <span className="bg-teal-500 text-slate-950 font-black text-xs px-2.5 py-0.5 rounded-full">
+              {selectedLeadIds.size}
+            </span>
+            <span className="text-xs font-bold text-slate-200 whitespace-nowrap">selected</span>
+            {selectedLeadIds.size < activeLeadsList.length && (
+              <button
+                onClick={handleSelectAllInView}
+                className="text-[11px] text-teal-400 hover:text-teal-300 underline font-medium cursor-pointer ml-1 whitespace-nowrap"
+              >
+                Select all {activeLeadsList.length}
+              </button>
+            )}
+          </div>
+
+          {/* Quick 1-Click Action Buttons */}
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <Button
+              size="sm"
+              disabled={bulkUpdating}
+              onClick={() => handleApplyBulkStatus("audit_requested")}
+              className="h-8 px-3 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white shadow-2xs cursor-pointer flex items-center gap-1.5 shrink-0"
+            >
+              <FileCheck className="h-3.5 w-3.5" />
+              <span>Share Audit Request</span>
+            </Button>
+
+            <Button
+              size="sm"
+              disabled={bulkUpdating}
+              onClick={() => handleApplyBulkStatus("audit_sent")}
+              className="h-8 px-3 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-2xs cursor-pointer flex items-center gap-1.5 shrink-0"
+            >
+              <span>Audit Sent</span>
+            </Button>
+
+            <Button
+              size="sm"
+              disabled={bulkUpdating}
+              onClick={() => handleApplyBulkStatus("follow_up_sent")}
+              className="h-8 px-3 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white shadow-2xs cursor-pointer flex items-center gap-1.5 shrink-0"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              <span>Follow-up Sent Today</span>
+            </Button>
+
+            {/* Dropdown for All Other Unified Statuses */}
+            <div className="flex items-center gap-1.5 pl-2 border-l border-slate-800 shrink-0">
+              <select
+                value={bulkStatusTarget}
+                onChange={(e) => setBulkStatusTarget(e.target.value)}
+                disabled={bulkUpdating}
+                className="h-8 px-2.5 text-xs font-medium bg-slate-900 border border-slate-700 rounded-xl text-slate-100 cursor-pointer focus:outline-none focus:border-teal-500"
+              >
+                <optgroup label="Audits & Assets">
+                  <option value="audit_requested">Share Audit Request / Requested</option>
+                  <option value="audit_sent">Audit Sent / Delivered</option>
+                  <option value="portfolio_shared">Portfolio / Samples Shared</option>
+                  <option value="voice_note_sent">Voice Note Sent</option>
+                </optgroup>
+                <optgroup label="Follow-ups & Responses">
+                  <option value="follow_up_sent">Follow-up Sent</option>
+                  <option value="reply_received">Reply Received</option>
+                  <option value="replied_interested">Interested / Opening</option>
+                  <option value="replied_objection">Objection / Questions</option>
+                  <option value="not_now_snoozed">Not Now / Snoozed</option>
+                </optgroup>
+                <optgroup label="Calls & Meetings">
+                  <option value="ready_for_call">Ready for Call</option>
+                  <option value="call_scheduled">Call Scheduled</option>
+                  <option value="called">Call Completed</option>
+                  <option value="meeting_booked">Meeting Booked</option>
+                </optgroup>
+                <optgroup label="Initial Outreach">
+                  <option value="gate_opener_sent">Gate-Opener Sent</option>
+                  <option value="gate_opener_staged">Gate-Opener Staged</option>
+                  <option value="sent">Sent / Pitch In Flight</option>
+                </optgroup>
+              </select>
+
+              <Button
+                size="sm"
+                disabled={bulkUpdating}
+                onClick={() => handleApplyBulkStatus(bulkStatusTarget)}
+                className="h-8 px-3 rounded-xl text-xs font-bold bg-white text-slate-950 hover:bg-slate-200 cursor-pointer shadow-2xs"
+              >
+                {bulkUpdating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Apply"}
+              </Button>
+            </div>
+
+            <button
+              onClick={handleClearSelection}
+              disabled={bulkUpdating}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer ml-1"
+              title="Clear selection"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

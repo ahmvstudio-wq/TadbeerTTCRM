@@ -190,6 +190,7 @@ export async function bulkLogOutreach(data: {
 // ─── Update entry (any field) ────────────────────────────────────────────────
 export async function updateOutreachEntry(activityId: string, update: {
   status?: OutreachStatus
+  statuses?: string[]
   company_name?: string
   handle?: string
   channel?: OutreachChannel
@@ -261,9 +262,16 @@ export async function updateOutreachEntry(activityId: string, update: {
         current = {}
       }
     }
-    const updated = { ...current, ...update, updated_at: new Date().toISOString() }
+    const status: OutreachStatus = (update as any).status || current.status || 'sent'
+    const statuses: string[] = update.statuses || current.statuses || (status ? [status] : ['sent'])
+    const updated = {
+      ...current,
+      ...update,
+      status,
+      statuses,
+      updated_at: new Date().toISOString()
+    }
     const channel: OutreachChannel = updated.channel || 'cold_call'
-    const status: OutreachStatus = updated.status || 'sent'
 
     const dbPayload: any = {
       description: JSON.stringify(updated),
@@ -333,6 +341,7 @@ export async function updateOutreachEntry(activityId: string, update: {
       const updatedR = {
         ...curR,
         unified_status: unified.id,
+        active_statuses: statuses,
         stage_updated_at: new Date().toISOString()
       }
 
@@ -406,6 +415,7 @@ export async function updateOutreachEntry(activityId: string, update: {
 
 export async function updateOutreachStatus(activityId: string, update: {
   status: OutreachStatus
+  statuses?: string[]
   prospect_reply?: string
   pain_point?: string
   call_opening_line?: string
@@ -416,6 +426,35 @@ export async function updateOutreachStatus(activityId: string, update: {
   followUpChannel?: string | null
 }) {
   return updateOutreachEntry(activityId, update)
+}
+
+// ─── Bulk Update Outreach Status (For multi-select rows) ─────────────────────
+export async function bulkUpdateOutreachStatus(data: {
+  leadIds: string[]
+  status: OutreachStatus
+  statuses?: string[]
+  notes?: string
+  followUpDays?: number | null
+  followUpDate?: string | null
+  followUpNote?: string | null
+  followUpChannel?: string | null
+}) {
+  try {
+    await requireAuth()
+    const promises = data.leadIds.map(leadId =>
+      updateOutreachEntry(leadId, {
+        status: data.status,
+        statuses: data.statuses || [data.status],
+        notes: data.notes,
+        ...((data as any))
+      })
+    )
+    const results = await Promise.all(promises)
+    revalidateAllCRMPages()
+    return { count: results.length, error: null }
+  } catch (err) {
+    return { count: 0, error: (err as Error).message }
+  }
 }
 
 // ─── Mark Lead Followed Up (Universal Sync) ──────────────────────────────────
@@ -689,6 +728,8 @@ export async function getAllLeadsForPipeline(
 
       const exactSource = rJson?.unified_status || co.pipeline_stage || co.status
       const derivedStatus: OutreachStatus = (mapToOutreachStatus(exactSource) as OutreachStatus) || 'gate_opener_staged'
+      const rawStatuses = rJson?.active_statuses || (derivedStatus ? [derivedStatus] : ['gate_opener_staged'])
+      const stagedStatuses = Array.isArray(rawStatuses) ? rawStatuses : [derivedStatus]
 
       leadMap.set(co.id, {
         id: `staged-${co.id}`,
@@ -707,6 +748,7 @@ export async function getAllLeadsForPipeline(
         template_used: 'gate_opener',
         status: derivedStatus,
         stage: derivedStatus as any,
+        statuses: stagedStatuses,
         touch_count: 0,
         specific_observation: specificObs,
         prospect_reply: '',
@@ -809,6 +851,7 @@ export async function getAllLeadsForPipeline(
         template_used: (payload.template_used || 'gate_opener') as OutreachTemplate,
         status,
         stage: status as any,
+        statuses: Array.isArray(payload.statuses) ? payload.statuses : (Array.isArray(rJson?.active_statuses) ? rJson.active_statuses : (existingLead?.statuses || [status])),
         touch_count: existingLead?.touch_count || 1,
         specific_observation: specificObs,
         prospect_reply: replySnippet,

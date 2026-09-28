@@ -368,91 +368,111 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
             
             {/* Channel 1: Instagram */}
-            <div className="p-4 rounded-2xl bg-white/60 hover:bg-white border border-black/[0.05] hover:border-black/[0.15] hover:shadow-glass transition-all duration-150 flex flex-col justify-between space-y-3.5 group shadow-2xs">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-[#f5f5f7] border border-black/[0.04] text-black flex items-center justify-center shrink-0 shadow-2xs group-hover:bg-black group-hover:text-white transition-colors">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
-                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
-                    <circle cx="12" cy="12" r="3.5"/>
-                    <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>
-                  </svg>
+            <div className="p-4 rounded-2xl bg-white/80 hover:bg-white border border-black/[0.06] hover:border-pink-500/30 hover:shadow-lg hover:shadow-pink-500/5 transition-all duration-200 flex flex-col justify-between space-y-3.5 group">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-pink-50 to-purple-50 border border-pink-200/60 text-pink-600 flex items-center justify-center shrink-0 shadow-2xs group-hover:bg-gradient-to-tr group-hover:from-pink-500 group-hover:to-purple-600 group-hover:text-white group-hover:border-transparent transition-all duration-200">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-5 w-5">
+                      <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                      <circle cx="12" cy="12" r="3.5"/>
+                      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-neutral-900 tracking-tight">Instagram DMs</h4>
+                    <p className="text-[11px] text-neutral-500">Target: 25 / day</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-xs font-normal text-neutral-900 font-display">Instagram</h4>
-                  <p className="text-[11px] text-[#8a8d95] font-light font-body">Target: 25 / day</p>
-                </div>
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-pink-50 text-pink-700 border border-pink-200">
+                  Ready
+                </span>
               </div>
               <Button
                 onClick={() => handleLaunchChannelPowerHour('instagram_dm')}
                 disabled={loadingChannel === 'instagram_dm'}
-                className="w-full bg-black hover:bg-neutral-800 text-white font-normal text-xs py-2 rounded-xl transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs font-body"
+                className="w-full bg-neutral-900 hover:bg-pink-600 text-white font-bold text-xs py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
-                {loadingChannel === 'instagram_dm' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+                {loadingChannel === 'instagram_dm' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5 text-pink-400 group-hover:text-white" />}
                 Start 25 Batch
               </Button>
             </div>
 
             {/* Channel 2: WhatsApp */}
-            <div className="p-4 rounded-2xl bg-white/60 hover:bg-white border border-black/[0.05] hover:border-black/[0.15] hover:shadow-glass transition-all duration-150 flex flex-col justify-between space-y-3.5 group shadow-2xs">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-[#f5f5f7] border border-black/[0.04] text-black flex items-center justify-center shrink-0 shadow-2xs group-hover:bg-black group-hover:text-white transition-colors">
-                  <MessageCircle className="h-4 w-4" />
+            <div className="p-4 rounded-2xl bg-white/80 hover:bg-white border border-black/[0.06] hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 transition-all duration-200 flex flex-col justify-between space-y-3.5 group">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs group-hover:bg-emerald-600 group-hover:text-white group-hover:border-transparent transition-all duration-200">
+                    <MessageCircle className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-neutral-900 tracking-tight">WhatsApp Direct</h4>
+                    <p className="text-[11px] text-neutral-500">Target: 25 / day</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-xs font-normal text-neutral-900 font-display">WhatsApp</h4>
-                  <p className="text-[11px] text-[#8a8d95] font-light font-body">Target: 25 / day</p>
-                </div>
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  Ready
+                </span>
               </div>
               <Button
                 onClick={() => handleLaunchChannelPowerHour('whatsapp')}
                 disabled={loadingChannel === 'whatsapp'}
-                className="w-full bg-black hover:bg-neutral-800 text-white font-normal text-xs py-2 rounded-xl transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs font-body"
+                className="w-full bg-[#0f343c] hover:bg-emerald-600 text-white font-bold text-xs py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
-                {loadingChannel === 'whatsapp' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+                {loadingChannel === 'whatsapp' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5 text-emerald-300 group-hover:text-white" />}
                 Start 25 Batch
               </Button>
             </div>
 
             {/* Channel 3: LinkedIn */}
-            <div className="p-4 rounded-2xl bg-white/60 hover:bg-white border border-black/[0.05] hover:border-black/[0.15] hover:shadow-glass transition-all duration-150 flex flex-col justify-between space-y-3.5 group shadow-2xs">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-[#f5f5f7] border border-black/[0.04] text-black flex items-center justify-center shrink-0 shadow-2xs group-hover:bg-black group-hover:text-white transition-colors">
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
-                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-                  </svg>
+            <div className="p-4 rounded-2xl bg-white/80 hover:bg-white border border-black/[0.06] hover:border-blue-500/30 hover:shadow-lg hover:shadow-blue-500/5 transition-all duration-200 flex flex-col justify-between space-y-3.5 group">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-blue-50 border border-blue-200 text-[#0A66C2] flex items-center justify-center shrink-0 shadow-2xs group-hover:bg-[#0A66C2] group-hover:text-white group-hover:border-transparent transition-all duration-200">
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+                      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-neutral-900 tracking-tight">LinkedIn Connect</h4>
+                    <p className="text-[11px] text-neutral-500">Target: 25 / day</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-xs font-normal text-neutral-900 font-display">LinkedIn</h4>
-                  <p className="text-[11px] text-[#8a8d95] font-light font-body">Target: 25 / day</p>
-                </div>
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                  Ready
+                </span>
               </div>
               <Button
                 onClick={() => handleLaunchChannelPowerHour('linkedin')}
                 disabled={loadingChannel === 'linkedin'}
-                className="w-full bg-black hover:bg-neutral-800 text-white font-normal text-xs py-2 rounded-xl transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs font-body"
+                className="w-full bg-neutral-900 hover:bg-[#0A66C2] text-white font-bold text-xs py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
-                {loadingChannel === 'linkedin' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+                {loadingChannel === 'linkedin' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5 text-blue-400 group-hover:text-white" />}
                 Start 25 Batch
               </Button>
             </div>
 
             {/* Channel 4: Email */}
-            <div className="p-4 rounded-2xl bg-white/60 hover:bg-white border border-black/[0.05] hover:border-black/[0.15] hover:shadow-glass transition-all duration-150 flex flex-col justify-between space-y-3.5 group shadow-2xs">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-[#f5f5f7] border border-black/[0.04] text-black flex items-center justify-center shrink-0 shadow-2xs group-hover:bg-black group-hover:text-white transition-colors">
-                  <Mail className="h-4 w-4" />
+            <div className="p-4 rounded-2xl bg-white/80 hover:bg-white border border-black/[0.06] hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/5 transition-all duration-200 flex flex-col justify-between space-y-3.5 group">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center shrink-0 shadow-2xs group-hover:bg-indigo-600 group-hover:text-white group-hover:border-transparent transition-all duration-200">
+                    <Mail className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-neutral-900 tracking-tight">Email Outreach</h4>
+                    <p className="text-[11px] text-neutral-500">Target: 25 / day</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-xs font-normal text-neutral-900 font-display">Email</h4>
-                  <p className="text-[11px] text-[#8a8d95] font-light font-body">Target: 25 / day</p>
-                </div>
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  Ready
+                </span>
               </div>
               <Button
                 onClick={() => handleLaunchChannelPowerHour('email')}
                 disabled={loadingChannel === 'email'}
-                className="w-full bg-black hover:bg-neutral-800 text-white font-normal text-xs py-2 rounded-xl transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs font-body"
+                className="w-full bg-neutral-900 hover:bg-indigo-600 text-white font-bold text-xs py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
-                {loadingChannel === 'email' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+                {loadingChannel === 'email' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5 text-indigo-400 group-hover:text-white" />}
                 Start 25 Batch
               </Button>
             </div>

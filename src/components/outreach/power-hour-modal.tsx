@@ -365,23 +365,39 @@ export function PowerHourModal({
               <div className="flex items-center gap-2">
                 <Button
                   onClick={() => handleLaunchEmail('gmail')}
-                  className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs gap-1.5 px-4 py-2.5 rounded-xl shadow-md transition cursor-pointer"
+                  className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs gap-1.5 px-4 py-2.5 rounded-xl shadow-sm transition cursor-pointer"
                 >
                   <Mail className="h-3.5 w-3.5" />
                   Open Gmail
                 </Button>
                 <Button
                   onClick={() => handleLaunchEmail('outlook')}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs gap-1.5 px-4 py-2.5 rounded-xl shadow-md transition cursor-pointer"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs gap-1.5 px-4 py-2.5 rounded-xl shadow-sm transition cursor-pointer"
                 >
                   <Mail className="h-3.5 w-3.5" />
                   Open Outlook
                 </Button>
               </div>
+            ) : channel === 'whatsapp' ? (
+              <Button
+                onClick={handleLaunchAndCopy}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-2 px-5 py-2.5 rounded-xl shadow-sm transition cursor-pointer flex items-center"
+              >
+                <MessageCircle className="h-4 w-4 fill-current" />
+                Launch WhatsApp Chat
+              </Button>
+            ) : channel === 'instagram_dm' ? (
+              <Button
+                onClick={handleLaunchAndCopy}
+                className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white font-bold text-xs gap-2 px-5 py-2.5 rounded-xl shadow-sm transition cursor-pointer flex items-center"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Open Instagram & Copy
+              </Button>
             ) : (
               <Button
                 onClick={handleLaunchAndCopy}
-                className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs gap-2 px-5 py-2.5 rounded-xl shadow-md transition cursor-pointer"
+                className="bg-[#0A66C2] hover:bg-[#084e96] text-white font-bold text-xs gap-2 px-5 py-2.5 rounded-xl shadow-sm transition cursor-pointer flex items-center"
               >
                 <ExternalLink className="h-4 w-4" />
                 {channelCfg.actionLabel}
@@ -391,7 +407,7 @@ export function PowerHourModal({
             <Button
               onClick={handleMarkSentAndNext}
               disabled={sending}
-              className="bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-950 font-black text-xs gap-2 px-6 py-2.5 rounded-xl shadow-lg transition cursor-pointer"
+              className="bg-neutral-900 hover:bg-black dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 font-bold text-xs gap-2 px-6 py-2.5 rounded-xl shadow-md transition cursor-pointer"
             >
               <Check className="h-4 w-4 text-emerald-400 dark:text-emerald-600" />
               Mark Sent & Next
