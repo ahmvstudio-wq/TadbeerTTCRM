@@ -239,28 +239,109 @@ export function getCleanDraftMessage(leadOrNotes: any): string {
 }
 
 export function getCleanIndustry(companyOrIndustry: any): string {
-  if (!companyOrIndustry) return 'General Enterprise';
+  if (!companyOrIndustry) return 'General Business Enterprise';
   const isObj = typeof companyOrIndustry === 'object';
-  const ind = isObj ? (companyOrIndustry.industry || companyOrIndustry.category || '') : companyOrIndustry;
-  const clean = String(ind || '').trim();
+  const rawInd = isObj ? (companyOrIndustry.industry || companyOrIndustry.category || '') : companyOrIndustry;
+  const name = isObj ? String(companyOrIndustry.company_name || '').toLowerCase() : '';
+  const ind = String(rawInd || '').toLowerCase().trim();
+  const notes = isObj ? String(companyOrIndustry.notes || '').toLowerCase() : '';
 
-  if (clean.startsWith('@') || clean.toLowerCase().includes('instagram.com/')) {
-    const name = isObj ? String(companyOrIndustry.company_name || '').toLowerCase() : '';
-    if (name.includes('boutique') || name.includes('collection') || name.includes('couture') || name.includes('dress') || name.includes('fashion') || name.includes('line') || name.includes('kaftan') || name.includes('abaya')) {
-      return 'Fashion & Apparel / Boutique';
-    }
-    return 'Retail / DTC Brand';
+  // 1. Clinics, Dental, Medical & Aesthetics
+  if (
+    ind.includes('clinic') || ind.includes('aesthetic') || ind.includes('dental') || ind.includes('derma') || ind.includes('ayurvedic') || ind.includes('optics') || ind.includes('medical') || ind.includes('wellness') || ind.includes('doctor') ||
+    name.includes('clinic') || name.includes('dental') || name.includes('derma') || name.includes('hospital') || name.includes('medical') || name.includes('polyclinic') || name.includes('physiotherapy') || name.includes('optics') || name.includes('orthodontic')
+  ) {
+    if (ind.includes('dental') || name.includes('dental') || name.includes('orthodontic')) return 'Dental & Orthodontic Clinics';
+    if (ind.includes('derma') || ind.includes('aesthetic') || name.includes('derma') || name.includes('aesthetic') || name.includes('skin') || name.includes('beauty clinic') || name.includes('laser')) return 'Aesthetic & Derma Clinics';
+    return 'Healthcare & Medical Centers';
   }
 
-  if (clean.toLowerCase().startsWith('hey ') || clean.toLowerCase().startsWith('hi ') || clean.toLowerCase().startsWith('assalamu')) {
-    const name = isObj ? String(companyOrIndustry.company_name || '').toLowerCase() : '';
-    if (name.includes('dermatology') || name.includes('clinic') || name.includes('spa') || name.includes('medical')) {
-      return 'Clinics & Aesthetics';
-    }
-    return 'Retail & Services';
+  // 2. F&B, Restaurants, Cafes & Hospitality
+  if (
+    ind.includes('food') || ind.includes('beverage') || ind.includes('f&b') || ind.includes('restaurant') || ind.includes('café') || ind.includes('cafe') || ind.includes('bakery') || ind.includes('pizzeria') || ind.includes('hospitality') || ind.includes('tourism') || ind.includes('colddrinks') || ind.includes('snacks') ||
+    name.includes('cafe') || name.includes('café') || name.includes('coffee') || name.includes('restaurant') || name.includes('roastery') || name.includes('bakery') || name.includes('kitchen') || name.includes('burger') || name.includes('sweets') || name.includes('pastry') || name.includes('bistro') || name.includes('lounge') || name.includes('hotel') || name.includes('resort') || name.includes('tea') || name.includes('cake')
+  ) {
+    if (name.includes('hotel') || name.includes('resort') || ind.includes('tourism') || name.includes('travel') || ind.includes('travel')) return 'Hospitality, Hotels & Tourism';
+    return 'Food & Beverage (F&B / Cafés)';
   }
 
-  return clean || 'General Enterprise';
+  // 3. Retail, Fashion, Abayas, Perfumes & DTC
+  if (
+    ind.includes('fashion') || ind.includes('abaya') || ind.includes('boutique') || ind.includes('perfume') || ind.includes('fragrance') || ind.includes('jewelry') || ind.includes('jewellery') || ind.includes('cosmetic') || ind.includes('make-up') || ind.includes('apparel') || ind.includes('shoe') || ind.includes('flowers') || ind.includes('flower') || ind.includes('gifts') || ind.includes('mussar') || ind.includes('dtc') || ind.includes('social_commerce') ||
+    name.includes('abaya') || name.includes('boutique') || name.includes('perfume') || name.includes('fragrance') || name.includes('jewelry') || name.includes('jewellery') || name.includes('fashion') || name.includes('couture') || name.includes('tailor') || name.includes('mussar') || name.includes('flower') || name.includes('floral') || name.includes('gifts') || name.includes('cosmetics') || name.includes('oud') || name.includes('attar')
+  ) {
+    if (ind.includes('perfume') || ind.includes('fragrance') || name.includes('perfume') || name.includes('fragrance') || name.includes('oud')) return 'Luxury Fragrance & Perfumes';
+    if (ind.includes('abaya') || ind.includes('fashion') || ind.includes('boutique') || name.includes('abaya') || name.includes('boutique') || name.includes('couture')) return 'Fashion, Abayas & Boutiques';
+    if (ind.includes('flower') || ind.includes('gift') || name.includes('flower') || name.includes('floral') || name.includes('gift')) return 'Florals, Gifts & Events';
+    return 'Retail & E-Commerce (DTC)';
+  }
+
+  // 4. Real Estate, Property & Interior Design
+  if (
+    ind.includes('real estate') || ind.includes('property') || ind.includes('interior') || ind.includes('furniture') || ind.includes('furnishing') ||
+    name.includes('properties') || name.includes('real estate') || name.includes('realty') || name.includes('developer') || name.includes('brokerage') || name.includes('interior') || name.includes('decor')
+  ) {
+    return 'Real Estate, Property & Interiors';
+  }
+
+  // 5. Automotive, Transport & Logistics
+  if (
+    ind.includes('automotive') || ind.includes('car') || ind.includes('transportation') || ind.includes('logistics') || ind.includes('aviation') ||
+    name.includes('motors') || name.includes('automobiles') || name.includes('automotive') || name.includes('car') || name.includes('cargo') || name.includes('logistics') || name.includes('transport')
+  ) {
+    return 'Automotive, Logistics & Fleet';
+  }
+
+  // 6. Technology, Software, Cybersecurity & Media
+  if (
+    ind.includes('technology') || ind.includes('pos') || ind.includes('cybersecurity') || ind.includes('software') || ind.includes('electronics') || ind.includes('3d printing') || ind.includes('hardware') || ind.includes('media') || ind.includes('design') || ind.includes('marketing') || ind.includes('advertising') ||
+    name.includes('tech') || name.includes('software') || name.includes('digital') || name.includes('media') || name.includes('systems') || name.includes('cyber') || name.includes('marketing')
+  ) {
+    return 'Technology, Software & Media';
+  }
+
+  // 7. Finance, Insurance, Legal & Banking
+  if (
+    ind.includes('finance') || ind.includes('banking') || ind.includes('insurance') || ind.includes('accounting') || ind.includes('audit') || ind.includes('fintech') || ind.includes('legal') || ind.includes('exchange') || ind.includes('investment') ||
+    name.includes('insurance') || name.includes('bank') || name.includes('takaful') || name.includes('finance') || name.includes('capital') || name.includes('exchange') || name.includes('audit') || name.includes('investment')
+  ) {
+    return 'Finance, Banking & Insurance';
+  }
+
+  // 8. Education & Training
+  if (
+    ind.includes('education') || ind.includes('training') || ind.includes('coaching') ||
+    name.includes('academy') || name.includes('school') || name.includes('college') || name.includes('university') || name.includes('training') || name.includes('institute') || name.includes('gutech')
+  ) {
+    return 'Education & Professional Training';
+  }
+
+  // 9. Construction, Contracting, Engineering & Industrial
+  if (
+    ind.includes('construction') || ind.includes('contracting') || ind.includes('engineering') || ind.includes('manufacturing') || ind.includes('chemical') || ind.includes('oil & gas') || ind.includes('building materials') ||
+    name.includes('contracting') || name.includes('construction') || name.includes('engineering') || name.includes('manufacturing') || name.includes('industrial') || name.includes('steel')
+  ) {
+    return 'Construction, Engineering & Industrial';
+  }
+
+  // 10. Supermarket, Hypermarket & FMCG
+  if (
+    ind.includes('supermarket') || ind.includes('hypermarket') || ind.includes('fmcg') ||
+    name.includes('hypermarket') || name.includes('supermarket') || name.includes('mart')
+  ) {
+    return 'Supermarket & FMCG Retail';
+  }
+
+  // 11. Trading & General Business
+  if (ind.includes('trading') || name.includes('trading') || name.includes('traders')) {
+    return 'Trading & Commercial Distribution';
+  }
+
+  if (rawInd && rawInd !== 'General' && rawInd !== 'general' && rawInd !== 'General Business' && !rawInd.startsWith('@') && !rawInd.startsWith('Hey') && !rawInd.startsWith('Hi')) {
+    return rawInd;
+  }
+
+  return 'General Business Enterprise';
 }
 
 export function getCleanDisplayNotes(notes: any): string {

@@ -101,6 +101,7 @@ type ViewMode = 'table' | 'board' | 'grid';
 export default function ProspectsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [industryFilter, setIndustryFilter] = useState<string>("all");
   const [leadTypeFilter, setLeadTypeFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("all");
@@ -513,6 +514,17 @@ export default function ProspectsPage() {
     return true;
   };
 
+  // Distinct Standardized Industries for Filter
+  const availableIndustries = useMemo(() => {
+    const targetList = showDormant ? dormantLeads : activeProspects;
+    const set = new Set<string>();
+    targetList.forEach(p => {
+      const ind = getCleanIndustry(p);
+      if (ind) set.add(ind);
+    });
+    return Array.from(set).sort();
+  }, [showDormant, dormantLeads, activeProspects]);
+
   // Filter & Sort Logic
   const filteredProspects = useMemo(() => {
     const baseList = showDormant ? dormantLeads : activeProspects;
@@ -521,6 +533,12 @@ export default function ProspectsPage() {
       if (sourceFilter === 'insights' && getLeadSource(p).type !== 'insights') return false;
       if (sourceFilter === 'linkedin' && getLeadSource(p).type !== 'linkedin') return false;
       if (sourceFilter === 'csv' && getLeadSource(p).type !== 'csv') return false;
+
+      // Industry / Sector Filter
+      if (industryFilter && industryFilter !== 'all') {
+        const cleanInd = getCleanIndustry(p);
+        if (cleanInd !== industryFilter) return false;
+      }
 
       // Channel Category Filter
       if (channelFilter === 'whatsapp') {
@@ -551,7 +569,7 @@ export default function ProspectsPage() {
       if (leadSegment === 'database' && p.lead_source === 'new_lead') return false;
       return true;
     });
-  }, [showDormant, dormantLeads, activeProspects, leadTypeFilter, sourceFilter, dateFilter, leadSegment, channelFilter, hasValidWhatsApp, hasValidPhone, hasValidEmail]);
+  }, [showDormant, dormantLeads, activeProspects, leadTypeFilter, sourceFilter, dateFilter, leadSegment, channelFilter, industryFilter, hasValidWhatsApp, hasValidPhone, hasValidEmail]);
 
   const sortedProspects = useMemo(() => {
     return [...filteredProspects].sort((a, b) => {
@@ -582,7 +600,7 @@ export default function ProspectsPage() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, statusFilter, dateFilter, channelFilter, leadSegment, sortBy]);
+  }, [search, statusFilter, industryFilter, dateFilter, channelFilter, leadSegment, sortBy]);
 
   const totalItems = sortedProspects.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -872,6 +890,23 @@ export default function ProspectsPage() {
                   {COMPANY_STATUSES[sKey]?.label} ({prospects.filter(p => p.status === sKey).length})
                 </option>
               ))}
+            </select>
+
+            <select
+              value={industryFilter}
+              onChange={(e) => setIndustryFilter(e.target.value)}
+              className="bg-neutral-50 border border-neutral-200 rounded-lg text-xs font-bold text-neutral-700 h-8 px-2.5 focus:bg-white cursor-pointer font-sans max-w-[210px] truncate"
+              title="Filter by Industry / Sector"
+            >
+              <option value="all">All Industries ({availableIndustries.length} Sectors)</option>
+              {availableIndustries.map((ind) => {
+                const count = (showDormant ? dormantLeads : activeProspects).filter(p => getCleanIndustry(p) === ind).length;
+                return (
+                  <option key={ind} value={ind}>
+                    {ind} ({count})
+                  </option>
+                );
+              })}
             </select>
 
             <select
@@ -1241,7 +1276,7 @@ export default function ProspectsPage() {
                       {/* Industry */}
                       <td className="py-3.5 px-4 hidden md:table-cell">
                         <span className="text-neutral-700 text-xs font-semibold truncate block max-w-[160px]">
-                          {getCleanIndustry(prospect.industry || prospect.company_name)}
+                          {getCleanIndustry(prospect)}
                         </span>
                         <span className="text-[10px] text-neutral-400 font-mono block">
                           {[prospect.city, prospect.country].filter(Boolean).join(", ") || 'Oman'}
