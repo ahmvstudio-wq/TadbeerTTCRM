@@ -1,7 +1,7 @@
 'use server'
 
 import { getSupabaseAdminClient } from '@/lib/supabase/config'
-import { generateForNewProspects, normalizeCategory, buildDeterministicSequence } from '@/lib/ai/outreach-generator'
+import { normalizeCategory, buildDeterministicSequence } from '@/lib/outreach-playbook'
 import { requireAuth } from '@/lib/auth-guard'
 import { CHANNEL_CONFIG, type OutreachChannel, type SectorCategory } from '@/lib/types/outreach'
 import { isValidLinkedInUrl } from '@/lib/utils'

@@ -30,6 +30,7 @@ import { PowerHourModal } from "@/components/outreach/power-hour-modal";
 import { getChannelDailyBatch } from "@/lib/actions/ig-dm";
 import { type OutreachChannel, CHANNEL_CONFIG } from "@/lib/types/outreach";
 import { Badge } from "@/components/ui/badge";
+import { DateRangeFilter } from "@/components/ui/date-range-filter";
 
 // Semi-Circular Dark Teal Speedometer Gauge for Conversion Rate
 function TealGauge({ percentage = 0 }: { percentage?: number }) {
@@ -152,14 +153,33 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
   };
   const [chartView, setChartView] = useState<"monthly" | "yearly">("yearly");
 
+  const [dateFilter, setDateFilter] = useState<string>("all");
+
+  const handleDateFilterChange = async (newVal: string) => {
+    setDateFilter(newVal);
+    setLoading(true);
+    try {
+      const [statsRes, outreachRes] = await Promise.all([
+        getDashboardStats(newVal),
+        getAllLeadsForPipeline(newVal)
+      ]);
+      if (statsRes.data) setStats(statsRes.data);
+      if (outreachRes.data) setOutreachLeads(outreachRes.data);
+    } catch (err) {
+      console.error("Dashboard date filter update error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const refreshDashboardData = useCallback(async () => {
     try {
       const [statsRes, compRes, fuRes, meetingsRes, outreachRes] = await Promise.all([
-        getDashboardStats(),
+        getDashboardStats(dateFilter),
         getCompanies(),
         getFollowUps("pending"),
         getMeetings("upcoming"),
-        getAllLeadsForPipeline("all")
+        getAllLeadsForPipeline(dateFilter)
       ]);
       if (statsRes.data) setStats(statsRes.data);
       if (compRes.data) setCompanies(compRes.data);
@@ -169,7 +189,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
     } catch (err) {
       console.error("Dashboard silent refresh error:", err);
     }
-  }, []);
+  }, [dateFilter]);
 
   useEffect(() => {
     const handleLeadUpdated = () => {
@@ -195,15 +215,21 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
     return outreachLeads.filter(l => ((l.status as string) === "follow_up_due" || (l as any).needs_followup === true) && !["not_now_snoozed", "lost", "dormant"].includes(l.status as string));
   }, [outreachLeads]);
 
-  const totalProspects = stats?.total_companies ?? companies.length;
-  const inOutreachCount = outreachLeads.length > 0 ? outreachLeads.length : (stats?.in_outreach ?? 0);
+  const totalProspects = stats?.is_filtered
+    ? (stats?.total_companies ?? outreachLeads.length)
+    : (stats?.total_companies ?? companies.length);
+  const inOutreachCount = stats?.is_filtered
+    ? (stats?.in_outreach ?? outreachLeads.length)
+    : (outreachLeads.length > 0 ? outreachLeads.length : (stats?.in_outreach ?? 0));
   const activePipeline = inOutreachCount;
   
   const pipelineValue = useMemo(() => {
     return opportunitiesList.reduce((acc, o) => acc + (o.estimated_value || 0), 0);
   }, [opportunitiesList]);
 
-  const meetingsBooked = stats?.upcoming_meetings ?? meetingsList.length;
+  const meetingsBooked = stats?.is_filtered
+    ? (stats?.total_meetings_booked ?? stats?.upcoming_meetings ?? 0)
+    : (stats?.upcoming_meetings ?? meetingsList.length);
   const conversionRate = stats?.conversion_rate ?? (totalProspects > 0 ? Math.round((meetingsBooked / totalProspects) * 1000) / 10 : 0);
 
   // Real Monthly Lead Activity (Calculated directly from companies database)
@@ -240,7 +266,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
 
   // Real Channel Distribution Data (Strict Database Saved Truth)
   const channelBreakdown = useMemo(() => {
-    if (stats?.channel_breakdown && companies.length === stats.total_companies) {
+    if (stats?.channel_breakdown) {
       return stats.channel_breakdown;
     }
     let li = 0;
@@ -273,7 +299,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
 
   // Real Pipeline Stage Funnel Breakdown (Strict Database Saved Truth)
   const stageFunnel = useMemo(() => {
-    if (stats?.stage_funnel && companies.length === stats.total_companies) {
+    if (stats?.stage_funnel) {
       return stats.stage_funnel;
     }
     const total = Math.max(1, totalProspects);
@@ -292,6 +318,47 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
   return (
     <div className="min-h-screen bg-transparent p-3 sm:p-6 lg:p-8 space-y-5 font-sans max-w-7xl mx-auto">
       
+      {/* ── DASHBOARD HEADER & PERIOD FILTER TOOLBAR ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/80 backdrop-blur-xl rounded-2xl px-5 py-3.5 border border-black/[0.06] shadow-glass font-sans">
+        <div className="flex items-center gap-3">
+          <div className={cn("h-2.5 w-2.5 rounded-full", stats?.is_filtered ? "bg-black" : "bg-emerald-500 animate-pulse")} />
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-sm font-semibold text-neutral-900 tracking-tight font-display">
+                Executive Overview
+              </h1>
+              {stats?.is_filtered && (
+                <Badge variant="outline" className="text-[10px] font-mono bg-black text-white border-black px-2 py-0">
+                  {stats?.filter_label || "Filtered"}
+                </Badge>
+              )}
+            </div>
+            <p className="text-[11px] text-neutral-500 font-light font-body">
+              {stats?.is_filtered
+                ? `Showing activity for ${stats?.filter_label} • KPI cards & funnel reflect this timeframe`
+                : "Real-time metrics & pipeline cadence • All time database view"}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap justify-between sm:justify-end">
+          <DateRangeFilter
+            value={dateFilter}
+            onChange={handleDateFilterChange}
+          />
+          <Button
+            onClick={() => refreshDashboardData()}
+            disabled={loading}
+            variant="outline"
+            size="sm"
+            className="h-8 px-2.5 rounded-xl text-xs text-neutral-600 hover:text-black border-neutral-200 cursor-pointer shadow-2xs"
+            title="Refresh Metrics"
+          >
+            <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin text-black")} />
+          </Button>
+        </div>
+      </div>
+
       {/* ── TOP OF DASHBOARD: Dedicated Lean White/Black Outreach Workstation ── */}
       <div className="bg-white/80 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-black/[0.06] shadow-glass space-y-6 font-sans">
         
@@ -489,16 +556,18 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
         <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-4 sm:p-5 border border-black/[0.06] shadow-glass hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] transition-all flex flex-col justify-between space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-normal uppercase tracking-wider text-[#6b7280] flex items-center gap-1.5 truncate font-body">
-              <Users className="h-3.5 w-3.5 text-black shrink-0" /> Total Leads
+              <Users className="h-3.5 w-3.5 text-black shrink-0" /> {stats?.is_filtered ? "Period Leads" : "Total Leads"}
             </span>
-            <span className="text-[9px] text-black font-medium bg-black/[0.04] px-2 py-0.5 rounded border border-black/[0.06]">LIVE</span>
+            <span className="text-[9px] text-black font-medium bg-black/[0.04] px-2 py-0.5 rounded border border-black/[0.06]">
+              {stats?.is_filtered ? "FILTERED" : "LIVE"}
+            </span>
           </div>
           <div className="my-1 flex items-baseline justify-between">
             <h3 className="text-3xl font-light text-black tracking-tight font-display">{totalProspects}</h3>
           </div>
           <div className="pt-2 border-t border-black/[0.04] flex items-center justify-between text-[10px] text-[#8a8d95] font-light font-body">
-            <span>In Database</span>
-            <span className="text-black font-mono">All records</span>
+            <span>{stats?.is_filtered ? (stats?.filter_label || "Selected Period") : "In Database"}</span>
+            <span className="text-black font-mono">{stats?.is_filtered ? `DB: ${stats?.total_database_all ?? companies.length}` : "All records"}</span>
           </div>
         </div>
 
@@ -508,14 +577,16 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
             <span className="text-[10px] font-normal uppercase tracking-wider text-[#6b7280] flex items-center gap-1.5 truncate font-body">
               <Send className="h-3.5 w-3.5 text-black shrink-0" /> In Outreach
             </span>
-            <span className="text-[9px] text-white font-medium bg-black px-2 py-0.5 rounded">ACTIVE</span>
+            <span className="text-[9px] text-white font-medium bg-black px-2 py-0.5 rounded">
+              {stats?.is_filtered ? "TOUCHED" : "ACTIVE"}
+            </span>
           </div>
           <div className="my-1 flex items-baseline justify-between">
-            <h3 className="text-3xl font-light text-black tracking-tight font-display">{activePipeline}</h3>
+            <h3 className="text-3xl font-light text-black tracking-tight font-display">{inOutreachCount}</h3>
           </div>
           <div className="pt-2 border-t border-black/[0.04] flex items-center justify-between text-[10px] text-[#8a8d95] font-light font-body">
-            <span>Active</span>
-            <span className="text-black font-mono">{activePipeline} in progress</span>
+            <span>{stats?.is_filtered ? (stats?.filter_label || "In Period") : "Active"}</span>
+            <span className="text-black font-mono">{inOutreachCount} in progress</span>
           </div>
         </div>
 
@@ -531,7 +602,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
             <h3 className="text-3xl font-light text-black tracking-tight font-display">{meetingsBooked}</h3>
           </div>
           <div className="pt-2 border-t border-black/[0.04] flex items-center justify-between text-[10px] text-[#8a8d95] font-light font-body">
-            <span>Confirmed</span>
+            <span>{stats?.is_filtered ? (stats?.filter_label || "In Period") : "Confirmed"}</span>
             <span className="text-black font-mono">Booked meetings</span>
           </div>
         </div>
@@ -543,7 +614,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-normal uppercase tracking-wider text-[#6b7280] flex items-center gap-1.5 truncate font-body group-hover:text-black">
-              <FileCheck className="h-3.5 w-3.5 text-black shrink-0" /> Pending Audits
+              <FileCheck className="h-3.5 w-3.5 text-black shrink-0" /> {stats?.is_filtered ? "Audits (Period)" : "Pending Audits"}
             </span>
             <span className={cn(
               "text-[9px] font-medium px-2 py-0.5 rounded border font-mono",
@@ -560,7 +631,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
             </h3>
           </div>
           <div className="pt-2 border-t border-black/[0.04] flex items-center justify-between text-[10px] text-[#8a8d95] font-light font-body">
-            <span>Pending Audits</span>
+            <span>{stats?.is_filtered ? stats?.filter_label : "Pending Audits"}</span>
             <span className="text-black font-mono flex items-center gap-0.5 group-hover:underline">
               Open <ArrowRight className="h-2.5 w-2.5" />
             </span>

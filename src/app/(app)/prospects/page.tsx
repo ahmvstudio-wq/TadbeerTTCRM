@@ -22,7 +22,7 @@ import { AddProspectModal } from "@/components/prospects/add-prospect-modal";
 import { COMPANY_STATUSES, type CompanyStatus } from "@/lib/constants";
 import { UnifiedStatusBadge } from "@/components/status/unified-status-badge";
 import { UNIFIED_STATUSES, getUnifiedStatus } from "@/lib/constants/statuses";
-import { getCompanies, updateCompanyStatus, updateCompanyLeadType, addCompanyActivity, triggerDraftGeneration, triggerBatchDraftGeneration, reactivateCompany } from "@/lib/actions/companies";
+import { getCompanies, updateCompanyStatus, updateCompanyLeadType, addCompanyActivity, reactivateCompany } from "@/lib/actions/companies";
 import { addToCallQueue, addBatchToCallQueue } from "@/lib/actions/calls";
 import { deleteCompany } from "@/lib/actions/delete";
 import { bulkImportCompanies } from "@/lib/actions/import";
@@ -115,10 +115,6 @@ export default function ProspectsPage() {
   const [csvOpen, setCsvOpen] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const { openLead } = useUnifiedLead();
-
-  // AI Outreach Draft State
-  const [generatingDraftId, setGeneratingDraftId] = useState<string | null>(null);
-  const [batchGenerating, setBatchGenerating] = useState(false);
 
   // UI Modes
   const [viewMode, setViewMode] = useState<ViewMode>('table');
@@ -735,27 +731,6 @@ export default function ProspectsPage() {
               <Plus className="h-3.5 w-3.5" />
               Add Prospect
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={async () => {
-                setBatchGenerating(true);
-                const results = await triggerBatchDraftGeneration();
-                setBatchGenerating(false);
-                const ready = results.filter(r => r.status === 'ready_to_send').length;
-                if (ready > 0) {
-                  addToast("success", `Generated ${ready} message drafts!`);
-                } else {
-                  addToast("error", "No pending leads found.");
-                }
-                fetchProspects(search, statusFilter);
-              }}
-              disabled={batchGenerating}
-              className="bg-[#0f343c] hover:bg-[#091f24] text-white border border-[#16434d] text-xs font-mono font-bold h-8 rounded-lg transition-all cursor-pointer shadow-xs flex items-center gap-1.5"
-            >
-              {batchGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5 text-white" />}
-              AI Drafts
-            </Button>
             <Link href="/daily-cadence">
               <Button className="bg-[#0f343c] hover:bg-[#091f24] text-white border border-[#16434d] text-xs font-mono font-bold h-8 rounded-lg px-3 transition-all cursor-pointer">
                 <PhoneCall className="h-3.5 w-3.5 mr-1.5 text-white" />Daily Cadence
@@ -1085,7 +1060,7 @@ export default function ProspectsPage() {
             )}
           >
             <Zap className="h-3 w-3" />
-            <span>Insights / AI</span>
+            <span>Insights & Research</span>
             <span className={cn("text-[10px] px-1.5 py-0.2 rounded-full font-black", channelFilter === "insights" ? "bg-white/20 text-white" : "bg-teal-100 text-[#174E59]")}>
               {channelCategoryCounts.insights}
             </span>

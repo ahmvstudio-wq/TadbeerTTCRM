@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Copy, Check, MessageSquare, Loader2, Globe, BookOpen } from "lucide-react";
+import { X, Copy, Check, MessageSquare, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -27,17 +27,6 @@ export function DMEmailTemplateModal({
   const [activeTab, setActiveTab] = useState<TabType>("approaches");
   const [activeId, setActiveId] = useState<string>(PLAYBOOK_TEMPLATES.approaches[0].id);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  
-  // AI Scraper State
-  const initialUrl = (ctx.handle && ctx.handle.startsWith('http')) 
-    ? ctx.handle 
-    : (ctx.channel === 'instagram_dm' && ctx.handle && !/^[\d\+\-\s\(\)]+$/.test(ctx.handle)) 
-      ? `https://instagram.com/${ctx.handle.replace('@', '')}` 
-      : "";
-      
-  const [scrapeUrl, setScrapeUrl] = useState(initialUrl);
-  const [generatingAI, setGeneratingAI] = useState(false);
-  
   // Variables state
   const [variables, setVariables] = useState<Record<string, string>>({
     Company: ctx.companyName,
@@ -74,29 +63,7 @@ export function DMEmailTemplateModal({
     setActiveId(PLAYBOOK_TEMPLATES[tab][0].id);
   };
 
-  const handleGenerateObservation = async () => {
-    if (!scrapeUrl) return;
-    setGeneratingAI(true);
-    try {
-      const res = await fetch("/api/ai/scrape-observation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          url: scrapeUrl, 
-          companyName: variables.Company || "Company", 
-          industry: variables.sector || "industry"
-        })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      
-      handleVarChange("specific observation", data.observation);
-    } catch (err: any) {
-      alert(err.message || "Failed to generate observation");
-    } finally {
-      setGeneratingAI(false);
-    }
-  };
+
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -198,34 +165,6 @@ export function DMEmailTemplateModal({
 
             {selected.variables.length > 0 && (
               <div className="space-y-4">
-                {selected.variables.includes("specific observation") && (
-                  <div className="bg-violet-50/50 border border-violet-100 p-4 rounded-2xl space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Globe className="h-4 w-4 text-violet-600" />
-                      <label className="text-xs font-bold text-violet-900">AI Personalization (Scrape URL)</label>
-                    </div>
-                    <div className="flex gap-2">
-                      <Input
-                        value={scrapeUrl}
-                        onChange={e => setScrapeUrl(e.target.value)}
-                        placeholder="Website or Instagram URL..."
-                        className="h-9 text-xs bg-white flex-1 border-violet-200"
-                      />
-                      <Button 
-                        type="button" 
-                        onClick={handleGenerateObservation} 
-                        disabled={generatingAI || !scrapeUrl}
-                        className="h-9 text-xs bg-violet-600 hover:bg-violet-700 text-white px-4 rounded-xl shadow-sm"
-                      >
-                        {generatingAI ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : "Generate"}
-                      </Button>
-                    </div>
-                    <p className="text-[10px] text-violet-600 font-medium leading-tight">
-                      The AI will read the URL and automatically fill in the "specific observation" below based on what they do.
-                    </p>
-                  </div>
-                )}
-
                 <div className="space-y-2">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Fill in Variables</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -33,6 +33,7 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Prospects", href: "/prospects", icon: Users },
   { name: "Daily Cadence", href: "/daily-cadence", icon: Zap },
+  { name: "Follow-ups", href: "/follow-ups", icon: Clock },
   { name: "Outreach", href: "/outreach", icon: Send },
   { name: "Audits", href: "/audits", icon: FileCheck },
   { name: "Meetings", href: "/meetings", icon: Calendar },

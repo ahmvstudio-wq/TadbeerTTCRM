@@ -15,7 +15,7 @@ import './load-env';
 import { createClient } from '@supabase/supabase-js';
 import { bulkImportCompanies } from '../src/lib/actions/import';
 import { getChannelDailyBatch, markChannelTouchSent, getAllLeadsForPipeline } from '../src/lib/actions/ig-dm';
-import { generateOutreachMessage, normalizeCategory, getCategoryPlaybook, buildDeterministicSequence } from '../src/lib/ai/outreach-generator';
+import { normalizeCategory, buildDeterministicSequence, TTT_CATEGORY_PLAYBOOKS, CADENCE_DELAYS } from '../src/lib/outreach-playbook';
 import {
   formatWhatsAppNumber,
   formatPhoneNumberForDisplay,
@@ -357,35 +357,27 @@ async function main() {
       return { dental, aesthetic, dtc, training, hospitality, general };
     });
 
-    await runTest('AI Generation', 'generateOutreachMessage executes Gemini LLM generation with sector playbook constraints', async () => {
-      const { data: insertedCos } = await supabase
-        .from('companies')
-        .select('*')
-        .ilike('notes', `%${testPrefix}%`);
+    await runTest('Deterministic Cadence', 'buildDeterministicSequence builds exact 4-stage sequence with strict delays (+2d, +3d, +5d)', async () => {
+      const seq = buildDeterministicSequence(
+        'Muscat Smiles Dental',
+        'Dr. Tariq',
+        'dental_clinics',
+        'Advanced Invisalign aligner cases in Muscat',
+        'instagram_dm'
+      );
 
-      const targetLead = insertedCos!.find(c => c.company_name.includes('Muscat Smiles Dental'));
-      assert(!!targetLead, 'Target lead Muscat Smiles Dental not found');
-
-      const result = await generateOutreachMessage(targetLead!.id);
-      assert(result.status === 'ready_to_send', `Expected status 'ready_to_send', got '${result.status}'. Reason: ${result.reason}`);
-      assert(!!result.draftMessage, 'Draft message was not generated');
-      assert(result.draftMessage!.length > 20, `Draft message too short: ${result.draftMessage}`);
-      assert(!!result.angleReasoning, 'Angle reasoning was not generated');
-
-      // Verify saved in DB
-      const { data: updatedCo } = await supabase
-        .from('companies')
-        .select('notes')
-        .eq('id', targetLead!.id)
-        .single();
-      const parsedNotes = parseLeadNotes(updatedCo?.notes);
-      assert(parsedNotes.draft_message === result.draftMessage, 'Draft message was not synced to DB notes JSON');
+      assert(!!seq.touch_1, 'Missing touch_1');
+      assert(seq.touch_1.channel === 'instagram_dm', 'Channel mismatch in touch_1');
+      assert(seq.touch_2?.day_delay === CADENCE_DELAYS.GREETING_TO_FOLLOWUP_1, `Expected delay ${CADENCE_DELAYS.GREETING_TO_FOLLOWUP_1}, got ${seq.touch_2?.day_delay}`);
+      assert(seq.touch_3?.day_delay === CADENCE_DELAYS.FOLLOWUP_1_TO_AUDIT_OFFER, `Expected delay ${CADENCE_DELAYS.FOLLOWUP_1_TO_AUDIT_OFFER}, got ${seq.touch_3?.day_delay}`);
+      assert(Boolean(seq.touch_3?.message.includes('audit')), 'Touch 3 does not offer outside-in audit');
+      assert(CADENCE_DELAYS.AUDIT_OFFER_TO_COFFEE_CALL === 5, 'Stage 4 delay is not 5 days');
 
       return {
-        companyName: targetLead!.company_name,
-        draftMessage: result.draftMessage,
-        angleReasoning: result.angleReasoning,
-        status: result.status
+        touch1: seq.touch_1.message.slice(0, 50) + '...',
+        delay1to2: seq.touch_2?.day_delay,
+        delay2to3: seq.touch_3?.day_delay,
+        delay3to4: CADENCE_DELAYS.AUDIT_OFFER_TO_COFFEE_CALL
       };
     });
 

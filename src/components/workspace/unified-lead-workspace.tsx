@@ -30,7 +30,6 @@ import { ActivityTimeline } from "./activity-timeline";
 import { LeadResearchCard } from "./lead-research-card";
 import { LeadScriptsTemplates } from "./lead-scripts-templates";
 import { LeadTasksManager } from "./lead-tasks-manager";
-import { LeadAICopilot } from "./lead-ai-copilot";
 import { LeadMeetingDocs } from "./lead-meeting-docs";
 import { getCleanIndustry, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -48,7 +47,7 @@ interface UnifiedLeadWorkspaceProps {
   companyId: string;
   onClose?: () => void;
   currentUser?: string;
-  initialTab?: "overview" | "research" | "history" | "scripts" | "tasks" | "ai" | "meeting_docs";
+  initialTab?: "overview" | "research" | "history" | "scripts" | "tasks" | "meeting_docs";
 }
 
 export function UnifiedLeadWorkspace({
@@ -66,7 +65,7 @@ export function UnifiedLeadWorkspace({
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [touches, setTouches] = useState<any[]>([]);
 
-  const [activeTab, setActiveTab] = useState<"overview" | "research" | "history" | "scripts" | "tasks" | "ai" | "meeting_docs">(initialTab || "overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "research" | "history" | "scripts" | "tasks" | "meeting_docs">(initialTab || "overview");
 
   useEffect(() => {
     if (initialTab) {
@@ -245,7 +244,6 @@ export function UnifiedLeadWorkspace({
     { id: "history", label: `History (${activities.length})` },
     { id: "scripts", label: "Scripts" },
     { id: "tasks", label: `Tasks (${followUps.length + meetings.length})` },
-    { id: "ai", label: "AI Assistant" },
   ];
 
   return (
@@ -641,15 +639,6 @@ export function UnifiedLeadWorkspace({
             followUps={followUps}
             meetings={meetings}
             onRefresh={fetchLeadData}
-          />
-        )}
-
-        {activeTab === "ai" && (
-          <LeadAICopilot
-            company={company}
-            primaryContact={primaryContact}
-            activities={activities}
-            preparations={preparations}
           />
         )}
       </div>

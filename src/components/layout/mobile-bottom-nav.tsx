@@ -32,6 +32,7 @@ const mainNav = [
 ]
 
 const extraNav = [
+  { name: "Follow-ups", href: "/follow-ups", icon: Clock },
   { name: "Audits", href: "/audits", icon: FileCheck },
   { name: "Meetings", href: "/meetings", icon: Calendar },
   { name: "Pipeline", href: "/pipeline", icon: TrendingUp },

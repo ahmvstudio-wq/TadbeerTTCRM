@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { TopNavbar } from "@/components/layout/top-navbar";
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { ToastContainer } from "@/components/ui/toast";
-import { AIDrawer } from "@/components/ai/ai-drawer";
 import { UnifiedLeadProvider } from "@/context/unified-lead-context";
 import { Loader2 } from "lucide-react";
 
@@ -61,7 +60,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <main className="flex-1 p-3 sm:p-5 md:p-8 max-w-[1850px] w-full mx-auto">
             {children}
           </main>
-          <AIDrawer />
           <MobileBottomNav />
         </div>
       </div>

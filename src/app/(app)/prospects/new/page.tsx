@@ -162,7 +162,7 @@ export default function NewProspectPage() {
           <div>
             <p className={`text-sm font-bold ${mode === "full" ? "text-violet-800" : "text-slate-800"}`}>Full New Lead</p>
             <p className={`text-xs mt-0.5 ${mode === "full" ? "text-violet-600" : "text-slate-500"}`}>
-              Rich profile + research notes for maximum AI accuracy.
+              Rich profile + research notes for complete account context.
             </p>
           </div>
         </button>
@@ -244,7 +244,7 @@ export default function NewProspectPage() {
               <label className="text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5 block">
                 <FileText className="h-3.5 w-3.5 text-violet-500" />
                 Research Notes
-                <span className="text-[10px] font-semibold text-slate-400 ml-1 normal-case">(Feeds the AI directly)</span>
+                <span className="text-[10px] font-semibold text-slate-400 ml-1 normal-case">(Stored directly on account profile)</span>
               </label>
               <Textarea
                 name="researchNotes"
@@ -254,7 +254,7 @@ export default function NewProspectPage() {
                 className="text-sm bg-white resize-none border-violet-200 focus:ring-violet-400 rounded-xl min-h-[120px]"
                 rows={5}
               />
-              <p className="text-[10px] text-slate-400 mt-1.5">These notes are instantly injected into the AI Sales Assistant for this contact.</p>
+              <p className="text-[10px] text-slate-400 mt-1.5">These notes are saved and accessible across all outreach workflows for this contact.</p>
             </div>
           </div>
         )}

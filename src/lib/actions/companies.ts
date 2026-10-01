@@ -1,6 +1,5 @@
 'use server'
 
-import { generateOutreachMessage } from '@/lib/ai/outreach-generator'
 import { requireAuth } from '@/lib/auth-guard'
 import { getSupabaseAdminClient } from '@/lib/supabase/config'
 import { isValidLinkedInUrl } from '@/lib/utils'
@@ -224,9 +223,6 @@ export async function createCompany(data: {
       created_at: new Date().toISOString()
     })
 
-    // Auto-generate pre-staged sequence and warm draft
-    generateOutreachMessage(company.id).catch(err => console.error("Auto draft error:", err))
-
     revalidateAllCRMPages()
     return { data: company, error: null }
   } catch (error) {
@@ -322,7 +318,11 @@ export async function updateCompanyStatus(
     if (acts && acts.length > 0) {
       const act = acts[0]
       let p: any = {}
-      try { p = act.description ? JSON.parse(act.description) : {} } catch {}
+      try {
+        p = act.description ? JSON.parse(act.description) : {}
+      } catch {
+        p = { notes: act.description }
+      }
       const newP = { ...p, status: actStatus, updated_at: new Date().toISOString() }
       await supabase.from('activities').update({ description: JSON.stringify(newP) }).eq('id', act.id)
     } else {
@@ -346,6 +346,10 @@ export async function updateCompanyStatus(
     } else if (typeof options?.followUpDays === 'number' && options.followUpDays > 0) {
       const d = new Date()
       d.setDate(d.getDate() + options.followUpDays)
+      scheduledDueDate = d.toISOString().split('T')[0]
+    } else if (options?.followUpDays !== null && typeof unified.defaultFollowUpDays === 'number' && unified.defaultFollowUpDays > 0) {
+      const d = new Date()
+      d.setDate(d.getDate() + unified.defaultFollowUpDays)
       scheduledDueDate = d.toISOString().split('T')[0]
     }
 
@@ -507,23 +511,31 @@ export async function addCompanyActivity(company_id: string, title: string, desc
   }
 }
 
-export async function triggerDraftGeneration(prospectId: string) {
+export async function triggerDraftGeneration(_prospectId: string) {
   await requireAuth()
-  return await generateOutreachMessage(prospectId)
+  return { status: 'skipped', reason: 'AI disabled' }
 }
 
 export async function triggerBatchDraftGeneration() {
   await requireAuth()
-  const { generateForNewProspects } = await import('@/lib/ai/outreach-generator')
-  return await generateForNewProspects()
+  return []
 }
 
 export async function assignCompanyLead(id: string, assigned_to: string | null) {
   try {
     await requireAuth()
+    const isUuid = assigned_to && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(assigned_to)
+    const updatePayload: any = {
+      assigned_bdm: assigned_to || null,
+      updated_at: new Date().toISOString()
+    }
+    if (isUuid) {
+      updatePayload.assigned_to = assigned_to
+    }
+
     const { data: company, error } = await supabase
       .from('companies')
-      .update({ assigned_to, updated_at: new Date().toISOString() })
+      .update(updatePayload)
       .eq('id', id)
       .select()
       .single()
@@ -532,10 +544,10 @@ export async function assignCompanyLead(id: string, assigned_to: string | null) 
 
     await supabase.from('activities').insert({
       company_id: id,
-      activity_type: 'lead_assigned',
+      activity_type: 'status_changed',
       title: 'Lead Assignment Updated',
       description: assigned_to ? `Assigned to ${assigned_to}` : 'Unassigned (Available)',
-      metadata: { assigned_to },
+      metadata: { assigned_to, assigned_bdm: assigned_to },
       created_at: new Date().toISOString()
     })
 

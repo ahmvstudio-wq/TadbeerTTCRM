@@ -32,6 +32,7 @@ import { PLAYBOOK_TEMPLATES } from "@/lib/outreach-messages-library";
 import { useUnifiedLead } from "@/context/unified-lead-context";
 import { UnifiedStatusBadge } from "@/components/status/unified-status-badge";
 import { UNIFIED_STATUSES, getUnifiedStatus } from "@/lib/constants/statuses";
+import { DateRangeFilter } from "@/components/ui/date-range-filter";
 
 // ─── Channel Icon Renderer ────────────────────────────────────────────────────
 function ChannelIcon({ channel, size = 14 }: { channel: OutreachChannel; size?: number }) {
@@ -586,18 +587,15 @@ export default function OutreachPipelinePage() {
 
           {/* Period Filter */}
           <div className="flex items-center gap-1.5 ml-auto">
-            <div className="flex bg-slate-100 rounded-xl p-0.5 text-[11px] font-bold">
-              {(["today","week","all"] as const).map(f => (
-                <button
-                  key={f}
-                  onClick={() => setDateFilter(f)}
-                  className={cn("px-2.5 py-0.5 rounded-lg transition-all cursor-pointer", dateFilter === f ? "bg-white text-slate-900 shadow-2xs" : "text-slate-500 hover:text-slate-800")}
-                >
-                  {f === "today" ? "Today" : f === "week" ? "This Week" : "All"}
-                </button>
-              ))}
-            </div>
-            <button onClick={() => fetchLeads(false)} className="p-1 rounded-lg bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer">
+            <DateRangeFilter
+              value={dateFilter}
+              onChange={(newVal) => setDateFilter(newVal)}
+            />
+            <button
+              onClick={() => fetchLeads(false)}
+              className="p-1.5 rounded-xl bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+              title="Refresh Outreach Leads"
+            >
               <RefreshCw className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -1867,11 +1865,6 @@ function LogModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () =
     handle: '', channel: 'instagram_dm', status: 'sent', notes: '', prospect_reply: '', pain_point: '', call_opening_line: '', outreach_date: ''
   });
 
-  // AI Scraper State
-  const [scrapeUrl, setScrapeUrl] = useState("");
-  const [generatingAI, setGeneratingAI] = useState(false);
-  const [aiObservation, setAiObservation] = useState("");
-
   useEffect(() => {
     if (entryMode === "existing" && allCompanies.length === 0) {
       getCompanies().then(res => {
@@ -1904,32 +1897,7 @@ function LogModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () =
     reader.readAsText(file);
   };
 
-  const handleGenerateObservation = async () => {
-    if (!scrapeUrl) return;
-    setGeneratingAI(true);
-    try {
-      const res = await fetch("/api/ai/scrape-observation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          url: scrapeUrl, 
-          companyName: form.company_name || "Company", 
-          industry: form.industry 
-        })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      
-      setAiObservation(data.observation);
-      if (form.notes.includes("[specific observation]")) {
-        setForm(prev => ({ ...prev, notes: prev.notes.replace("[specific observation]", data.observation) }));
-      }
-    } catch (err: any) {
-      alert(err.message || "Failed to generate observation");
-    } finally {
-      setGeneratingAI(false);
-    }
-  };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2480,37 +2448,6 @@ function LogModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () =
             </div>
           )}
 
-          {/* AI Observation Scraper (Available for single prospect or custom notes) */}
-          {entryMode !== "csv" && (
-            <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-2">
-              <div className="flex items-center gap-2">
-                <Globe className="h-4 w-4 text-violet-500" />
-                <label className="text-xs font-bold text-slate-700">AI Observation Scraper (Optional)</label>
-              </div>
-              <div className="flex gap-2">
-                <Input
-                  value={scrapeUrl}
-                  onChange={e => setScrapeUrl(e.target.value)}
-                  placeholder="https://instagram.com/..."
-                  className="h-9 text-xs bg-white flex-1"
-                />
-                <Button 
-                  type="button" 
-                  onClick={handleGenerateObservation} 
-                  disabled={generatingAI || !scrapeUrl}
-                  className="h-9 text-xs bg-violet-600 hover:bg-violet-700 text-white px-3 cursor-pointer"
-                >
-                  {generatingAI ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : "Generate"}
-                </Button>
-              </div>
-              {aiObservation && (
-                <p className="text-[10px] text-emerald-700 font-bold bg-emerald-50 p-2 rounded-lg border border-emerald-200">
-                  Generated: {aiObservation}
-                </p>
-              )}
-            </div>
-          )}
-
           {/* Approach Template Picker */}
           <div>
             <label className="text-xs font-bold text-slate-700 block mb-2">Message / Approach Used</label>
@@ -2525,7 +2462,7 @@ function LogModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () =
                       if (prev.company_name) filled = filled.replace(/\[Company\]/g, prev.company_name);
                       if (prev.industry) filled = filled.replace(/\[sector\]/g, prev.industry);
                       if (prev.handle) filled = filled.replace(/\[Name\]/g, prev.handle);
-                      if (aiObservation) filled = filled.replace(/\[specific observation\]/g, aiObservation);
+                      filled = filled.replace(/\[specific observation\]/g, "your recent business presence");
                       newNotes = filled.replace(/^"|"$/g, "");
                     }
                     return { ...prev, template_used: t.id, notes: newNotes };

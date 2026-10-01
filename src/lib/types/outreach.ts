@@ -162,8 +162,11 @@ export interface PreStagedSequence {
   objection_pack?: {
     has_agency: string
     how_much: string
-    what_do_you_do: string
-    not_right_now: string
+    what_do_you_do?: string
+    not_right_now?: string
+    send_profile?: string
+    busy_now?: string
+    [key: string]: string | undefined
   }
 }
 

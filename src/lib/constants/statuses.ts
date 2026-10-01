@@ -30,14 +30,14 @@ export const UNIFIED_STATUSES: UnifiedStatusConfig[] = [
   },
   {
     id: "contacted",
-    label: "Contacted (Opener Sent)",
-    shortLabel: "Sent",
+    label: "Contacted (Greeting Sent)",
+    shortLabel: "Greeting",
     category: "outreach",
     categoryLabel: "Outreach & Cold",
     badgeClass: "bg-blue-100 text-blue-950 border-blue-400 font-bold",
     dotColor: "bg-blue-600",
-    description: "First touch sent. Active 3-day follow-up clock begins.",
-    defaultFollowUpDays: 3,
+    description: "Stage 1: Greeting message sent. Strict 2-day follow-up clock begins.",
+    defaultFollowUpDays: 2,
   },
   {
     id: "no_reply",
@@ -47,19 +47,30 @@ export const UNIFIED_STATUSES: UnifiedStatusConfig[] = [
     categoryLabel: "Outreach & Cold",
     badgeClass: "bg-rose-100 text-rose-950 border-rose-300 font-bold",
     dotColor: "bg-rose-500",
-    description: "No answer on initial touch. Next value-add touch is due.",
-    defaultFollowUpDays: 3,
+    description: "No answer on touch. Next stage follow-up is due.",
+    defaultFollowUpDays: 2,
   },
   {
     id: "follow_up_sent",
-    label: "Follow-Up Sent",
-    shortLabel: "Follow-Up",
+    label: "Follow-Up 1 Sent (Value Check-in)",
+    shortLabel: "Follow-Up 1",
     category: "outreach",
     categoryLabel: "Outreach & Cold",
     badgeClass: "bg-teal-100 text-teal-950 border-teal-400 font-bold",
     dotColor: "bg-teal-600",
-    description: "Second or third observation touch dispatched.",
+    description: "Stage 2: Value check-in sent. Strict 3-day follow-up clock to audit offer begins.",
     defaultFollowUpDays: 3,
+  },
+  {
+    id: "audit_offered",
+    label: "Audit Offered (Stage 3)",
+    shortLabel: "Audit Offered",
+    category: "outreach",
+    categoryLabel: "Outreach & Cold",
+    badgeClass: "bg-amber-100 text-amber-950 border-amber-500 font-bold",
+    dotColor: "bg-amber-600",
+    description: "Stage 3: Outside-in audit offered. Strict 5-day follow-up clock to coffee/call begins.",
+    defaultFollowUpDays: 5,
   },
   {
     id: "voice_note_sent",
@@ -128,6 +139,17 @@ export const UNIFIED_STATUSES: UnifiedStatusConfig[] = [
     dotColor: "bg-teal-600",
     description: "Custom audit report delivered. Follow-up due within 2 days.",
     defaultFollowUpDays: 2,
+  },
+  {
+    id: "booking_link_sent",
+    label: "Booking Link Sent (Awaiting Confirmation)",
+    shortLabel: "Link Sent",
+    category: "conversation",
+    categoryLabel: "Conversations & Replies",
+    badgeClass: "bg-emerald-100 text-emerald-950 border-emerald-500 font-bold",
+    dotColor: "bg-emerald-600",
+    description: "Meeting booking link sent to prospect. Follow-up due in 3 days if unconfirmed.",
+    defaultFollowUpDays: 3,
   },
   {
     id: "portfolio_shared",
@@ -463,6 +485,10 @@ export function mapToDbPipelineStage(rawStatus?: string | null): string {
       return "No Reply";
     case "follow_up_sent":
       return "Follow-Up Sent";
+    case "audit_offered":
+      return "Audit Offered";
+    case "booking_link_sent":
+      return "Booking Link Sent";
     case "reply_received":
       return "Reply Received";
     case "warm_up":
@@ -521,10 +547,12 @@ export function mapToDbLeadStatus(rawStatus?: string | null): string {
     case "contacted":
     case "no_reply":
     case "follow_up_sent":
+    case "audit_offered":
     case "voice_note_sent":
     case "called":
     case "ready_for_call":
       return "Contacted";
+    case "booking_link_sent":
     case "reply_received":
     case "warm_up":
     case "opening_identified":
@@ -579,8 +607,11 @@ export function mapToOutreachStatus(rawStatus?: string | null): string {
       return "opening_identified";
     case "audit_requested":
       return "audit_requested";
+    case "audit_offered":
     case "audit_sent":
       return "audit_sent";
+    case "booking_link_sent":
+      return "meeting_booked";
     case "portfolio_shared":
       return "portfolio_shared";
     case "objection":

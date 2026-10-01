@@ -38,6 +38,7 @@ import {
   mapToOutreachStatus,
   getUnifiedStatus
 } from '@/lib/constants/statuses'
+import { resolveDateRange, isDateInRange } from '@/lib/date-utils'
 
 function getValidActivityType(channel: string): string {
   if (channel === 'email') return 'email_sent';
@@ -124,6 +125,22 @@ export async function logOutreach(data: {
       .single()
 
     if (actErr) return { data: null, error: actErr.message }
+
+    // Auto-schedule Follow-up 1 for exactly +2 days (Undeniable Cadence Delay)
+    const nextDueDate = new Date(createdAt)
+    nextDueDate.setDate(nextDueDate.getDate() + 2)
+    const nextDueDateStr = nextDueDate.toISOString().split('T')[0]
+
+    await supabase.from('follow_ups').insert({
+      company_id: companyId,
+      due_date: nextDueDateStr,
+      subject: 'Follow-up 1: Value Check-in',
+      description: 'Stage 2 follow-up. Value observation check-in after 2 days without reply.',
+      channel: data.channel || 'instagram_dm',
+      status: 'pending',
+      created_at: new Date().toISOString()
+    })
+
     revalidateAllCRMPages()
     return { data: { activityId: activity.id, companyId }, error: null }
   } catch (err) {
@@ -368,6 +385,13 @@ export async function updateOutreachEntry(activityId: string, update: {
         const d = new Date()
         d.setDate(d.getDate() + updAny.followUpDays)
         scheduledDueDate = d.toISOString().split('T')[0]
+      } else if (updAny.followUpDays !== null) {
+        const unifiedConfig = getUnifiedStatus(status)
+        if (typeof unifiedConfig.defaultFollowUpDays === 'number' && unifiedConfig.defaultFollowUpDays > 0) {
+          const d = new Date()
+          d.setDate(d.getDate() + unifiedConfig.defaultFollowUpDays)
+          scheduledDueDate = d.toISOString().split('T')[0]
+        }
       }
 
       if (scheduledDueDate) {
@@ -537,8 +561,8 @@ export async function markLeadFollowedUp(activityOrCompanyId: string, companyIdH
     // 3. Update company in companies table
     if (companyId) {
       await supabase.from('companies').update({
-        status: 'contacted',
-        pipeline_stage: 'Contacted',
+        status: 'follow_up_sent',
+        pipeline_stage: 'Follow-Up Sent',
         updated_at: now
       }).eq('id', companyId)
 
@@ -546,8 +570,23 @@ export async function markLeadFollowedUp(activityOrCompanyId: string, companyIdH
       await supabase.from('follow_ups').update({
         status: 'completed',
         completed_at: now,
-        notes: notes || 'Follow-up completed'
+        notes: notes || 'Follow-up 1 (Value Check-in) completed'
       }).eq('company_id', companyId).eq('status', 'pending')
+
+      // 5. Auto-schedule Stage 3: Audit Offer for exactly +3 days (Undeniable Cadence Delay)
+      const auditDueDate = new Date()
+      auditDueDate.setDate(auditDueDate.getDate() + 3)
+      const auditDueDateStr = auditDueDate.toISOString().split('T')[0]
+
+      await supabase.from('follow_ups').insert({
+        company_id: companyId,
+        due_date: auditDueDateStr,
+        subject: 'Follow-up 2: Audit Offer',
+        description: 'Stage 3 follow-up. Offer outside-in business audit ("we looked into their business and prepared an audit and if they would be open to it").',
+        channel: channel || 'instagram_dm',
+        status: 'pending',
+        created_at: now
+      })
     }
 
     revalidateAllCRMPages()
@@ -569,18 +608,12 @@ export async function getOutreachLeads(
       .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent'])
       .order('created_at', { ascending: false })
 
-    if (dateFilter === 'today') {
-      const today = new Date(); today.setHours(0, 0, 0, 0)
-      query = query.gte('created_at', today.toISOString())
-    } else if (dateFilter === 'week') {
-      const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7)
-      query = query.gte('created_at', weekAgo.toISOString())
-    } else if (dateFilter !== 'all' && dateFilter.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      const startDate = new Date(dateFilter)
-      startDate.setHours(0, 0, 0, 0)
-      const endDate = new Date(dateFilter)
-      endDate.setHours(23, 59, 59, 999)
-      query = query.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString())
+    const range = resolveDateRange(dateFilter)
+    if (range.startDate) {
+      query = query.gte('created_at', `${range.startDate}T00:00:00.000Z`)
+    }
+    if (range.endDate) {
+      query = query.lte('created_at', `${range.endDate}T23:59:59.999Z`)
     }
 
     const { data, error } = await query.limit(500)
@@ -689,36 +722,32 @@ export async function getAllLeadsForPipeline(
         ? co.email
         : (contact.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(contact.email).trim()) ? contact.email : null)
 
-      let channel: OutreachChannel = 'cold_call'
+      let channel: OutreachChannel = 'linkedin'
       const coSrc = (co.lead_source || '').toLowerCase()
       if (coSrc.includes('instagram') || rJson.target_channel === 'instagram_dm') {
         channel = 'instagram_dm'
-      } else if ((coSrc.includes('linkedin') || rJson.target_channel === 'linkedin') && liUrl) {
+      } else if (coSrc.includes('linkedin') || rJson.target_channel === 'linkedin' || liUrl) {
         channel = 'linkedin'
       } else if (coSrc.includes('whatsapp') || rJson.target_channel === 'whatsapp') {
         channel = 'whatsapp'
       } else if (rJson.target_channel && ['whatsapp', 'instagram_dm', 'linkedin', 'email', 'cold_call'].includes(rJson.target_channel)) {
-        if (rJson.target_channel === 'linkedin' && !liUrl) {
-          channel = igHandle ? 'instagram_dm' : hasPhone ? 'whatsapp' : 'cold_call'
-        } else {
-          channel = rJson.target_channel
-        }
+        channel = rJson.target_channel === 'cold_call' ? 'linkedin' : rJson.target_channel
       } else if (igHandle) {
         channel = 'instagram_dm'
-      } else if (hasPhone) {
-        channel = 'whatsapp'
       } else if (liUrl) {
         channel = 'linkedin'
+      } else if (hasPhone) {
+        channel = 'whatsapp'
       } else if (validEmail) {
         channel = 'email'
       } else {
-        channel = 'cold_call'
+        channel = 'linkedin'
       }
 
       let handle = co.company_name
       if (channel === 'instagram_dm' && igHandle) handle = igHandle
-      else if ((channel === 'whatsapp' || channel === 'cold_call') && phone) handle = phone
-      else if (channel === 'linkedin' && liUrl) handle = liUrl
+      else if ((channel === 'whatsapp') && phone) handle = phone
+      else if (channel === 'linkedin') handle = liUrl || co.company_name
       else if (channel === 'email' && validEmail) handle = validEmail
 
       const specificObs = rJson.specific_observation || rJson.staged_sequence?.touch_1?.specific_observation || co.draft_angle_reasoning || (co.notes && !co.notes.startsWith('{') ? co.notes : '') || 'Recent business growth & market positioning'
@@ -795,14 +824,14 @@ export async function getAllLeadsForPipeline(
 
       const actTitle = (act.title || '').toLowerCase()
       const hasValidLi = isValidLinkedInUrl(co.linkedin_url) || isValidLinkedInUrl(existingLead?.linkedin_url) || isValidLinkedInUrl(payload.profile_url) || isValidLinkedInUrl(payload.handle)
-      const channel: OutreachChannel = payload.channel || (
+      const channel: OutreachChannel = payload.channel === 'cold_call' ? 'linkedin' : (payload.channel || (
         act.activity_type === 'ig_dm' || actTitle.includes('instagram') ? 'instagram_dm' :
         act.activity_type === 'whatsapp_sent' || actTitle.includes('whatsapp') ? 'whatsapp' :
         act.activity_type === 'email_sent' || actTitle.includes('email') ? 'email' :
-        (actTitle.includes('linkedin') && hasValidLi) ? 'linkedin' :
+        (actTitle.includes('linkedin') || hasValidLi) ? 'linkedin' :
         (co.phone || existingLead?.phone) ? 'whatsapp' :
-        'cold_call'
-      )
+        'linkedin'
+      ))
       let rJson: any = {}
       try {
         if (co.research_json && typeof co.research_json === 'object') rJson = co.research_json
@@ -865,43 +894,27 @@ export async function getAllLeadsForPipeline(
     })
 
     let combined: OutreachLead[] = []
+    const range = resolveDateRange(dateFilter)
 
-    if (dateFilter === 'all') {
+    if (!range.startDate && !range.endDate) {
       combined = Array.from(leadMap.values())
     } else {
-      let targetDateStr: string | null = null
-      let isWeek = false
-
-      if (dateFilter === 'today') {
-        targetDateStr = new Date().toISOString().split('T')[0]
-      } else if (dateFilter === 'week') {
-        isWeek = true
-      } else if (dateFilter.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        targetDateStr = dateFilter
-      }
-
-      const weekAgo = new Date()
-      weekAgo.setDate(weekAgo.getDate() - 7)
-      weekAgo.setHours(0, 0, 0, 0)
-
       const matchedCompanyIds = new Set<string>()
 
-      // 1. Matches from logged activities on target date/week
+      // 1. Matches from logged activities in target date range
       ;(activities || []).forEach((act: any) => {
         if (!act.created_at) return
         let payload: any = {}
         try { payload = act.description ? JSON.parse(act.description) : {} } catch {}
 
-        const createdDate = act.created_at.split('T')[0]
+        const createdDate = act.created_at ? act.created_at.split('T')[0] : null
         const explicitDate = payload.outreach_date ? payload.outreach_date.split('T')[0] : null
         const updatedDate = payload.updated_at ? payload.updated_at.split('T')[0] : null
 
-        let isMatch = false
-        if (targetDateStr) {
-          isMatch = createdDate === targetDateStr || explicitDate === targetDateStr || updatedDate === targetDateStr
-        } else if (isWeek) {
-          isMatch = new Date(act.created_at).getTime() >= weekAgo.getTime()
-        }
+        const isMatch =
+          isDateInRange(createdDate, range.startDate, range.endDate) ||
+          (explicitDate && isDateInRange(explicitDate, range.startDate, range.endDate)) ||
+          (updatedDate && isDateInRange(updatedDate, range.startDate, range.endDate))
 
         if (isMatch) {
           const compId = act.company_id || act.id
@@ -911,17 +924,11 @@ export async function getAllLeadsForPipeline(
         }
       })
 
-      // 2. Matches from companies created or contacted on target date/week
+      // 2. Fallback only for purely staged leads with ZERO logged activities in CRM
       activeOutreachCompanies.forEach((co: any) => {
+        if (seenCompanyActivities.has(co.id)) return
         const coCreated = co.created_at ? co.created_at.split('T')[0] : null
-        const coDateAdded = co.date_added ? co.date_added.split('T')[0] : null
-        let isMatch = false
-        if (targetDateStr) {
-          isMatch = coCreated === targetDateStr || coDateAdded === targetDateStr
-        } else if (isWeek) {
-          isMatch = co.created_at ? new Date(co.created_at).getTime() >= weekAgo.getTime() : false
-        }
-        if (isMatch) {
+        if (coCreated && isDateInRange(coCreated, range.startDate, range.endDate)) {
           matchedCompanyIds.add(co.id)
         }
       })
@@ -960,10 +967,21 @@ export async function getChannelDailyBatch(
     const validActType = getValidActivityType(channel)
     const { data: touchedActs } = await supabase
       .from('activities')
-      .select('company_id')
+      .select('company_id, title, description')
       .in('activity_type', [validActType, 'ig_dm', 'outreach', 'outreach_sent'])
 
-    const touchedCompanyIds = new Set((touchedActs || []).map(a => a.company_id).filter(Boolean))
+    const touchedCompanyIds = new Set(
+      (touchedActs || [])
+        .filter(a => {
+          const t = (a.title || '').toLowerCase()
+          if (t.includes('opener staged') || t.includes('staged')) return false
+          const d = (a.description || '').toLowerCase()
+          if (d.includes('"gate_opener_staged"')) return false
+          return true
+        })
+        .map(a => a.company_id)
+        .filter(Boolean)
+    )
 
     // 2. Query companies eligible for this channel that HAVE NOT been touched yet
     let coQuery = supabase
@@ -988,6 +1006,10 @@ export async function getChannelDailyBatch(
     // Filter strictly out touched companies and filter by channel suitability
     const uncontacted = (companies || []).filter(c => {
       if (touchedCompanyIds.has(c.id)) return false
+      const st = (c.status || '').toLowerCase().trim()
+      const pst = (c.pipeline_stage || '').toLowerCase().trim()
+      if (st === 'contacted' || st === 'meeting_booked' || st === 'in_call_queue' || st === 'opportunity' || st === 'won' || st === 'lost' || st === 'dormant') return false
+      if (pst === 'contacted' || pst === 'replied' || pst === 'call ready' || pst === 'follow-up sent' || pst === 'meeting booked') return false
 
       let rJson: any = {}
       try {
@@ -1202,18 +1224,19 @@ export async function getOutreachCountsForMonth(year: number, month: number) {
       }
     })
 
+    // 2. Fallback only for purely staged companies with ZERO logged activities in CRM
+    const seenActivitiesCompIds = new Set((actRes.data || []).map((a: any) => a.company_id).filter(Boolean))
     ;(coRes.data || []).forEach((co: any) => {
+      if (seenActivitiesCompIds.has(co.id)) return
       if (co.lead_type === 'Dormant' || co.status === 'dormant' || co.status === 'lost') return
       const s = (co.status || '').toLowerCase().trim()
       const p = (co.pipeline_stage || '').toLowerCase().trim()
-      if (s === 'prospect' && (p === 'new' || p === 'raw' || p === 'prospect')) return
+      if (s === 'prospect' || s === 'new' || p === 'new' || p === 'raw' || p === 'prospect') return
 
       const createdDay = co.created_at ? co.created_at.split('T')[0] : null
-      const addedDay = co.date_added ? co.date_added.split('T')[0] : null
-      const day = createdDay || addedDay
-      if (day && day >= startDayStr && day <= endDayStr) {
-        if (!dateToCompanySet[day]) dateToCompanySet[day] = new Set()
-        dateToCompanySet[day].add(co.id)
+      if (createdDay && createdDay >= startDayStr && createdDay <= endDayStr) {
+        if (!dateToCompanySet[createdDay]) dateToCompanySet[createdDay] = new Set()
+        dateToCompanySet[createdDay].add(co.id)
       }
     })
 
