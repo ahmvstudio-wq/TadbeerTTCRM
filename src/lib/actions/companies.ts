@@ -230,7 +230,7 @@ export async function createCompany(data: {
   }
 }
 
-export async function updateCompany(id: string, data: { company_name?: string; industry?: string; website?: string; phone?: string; email?: string; country?: string; city?: string; employee_count?: number; notes?: string }) {
+export async function updateCompany(id: string, data: { company_name?: string; industry?: string; category?: string; website?: string; phone?: string; email?: string; country?: string; city?: string; employee_count?: number; notes?: string }) {
   try {
     await requireAuth()
     const { data: company, error } = await supabase

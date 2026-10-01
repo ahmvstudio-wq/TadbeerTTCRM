@@ -958,7 +958,8 @@ export async function getAllLeadsForPipeline(
 // ─── Get Dedicated Daily Batch per Channel (25 Contacts with 0 Contradictions) ───
 export async function getChannelDailyBatch(
   channel: OutreachChannel,
-  limit: number = 25
+  limit: number = 25,
+  industry?: string
 ) {
   try {
     await requireAuth()
@@ -1000,16 +1001,42 @@ export async function getChannelDailyBatch(
       coQuery = coQuery.not('email', 'is', null)
     }
 
-    const { data: companies, error: coErr } = await coQuery.limit(limit * 3)
+    const fetchLimit = industry && industry !== 'all' ? Math.max(limit * 10, 200) : limit * 4
+    const { data: companies, error: coErr } = await coQuery.limit(fetchLimit)
     if (coErr) return { data: [], totalAvailable: 0, error: coErr.message }
 
-    // Filter strictly out touched companies and filter by channel suitability
+    // Filter strictly out touched companies and filter by channel & industry suitability
     const uncontacted = (companies || []).filter(c => {
       if (touchedCompanyIds.has(c.id)) return false
       const st = (c.status || '').toLowerCase().trim()
       const pst = (c.pipeline_stage || '').toLowerCase().trim()
       if (st === 'contacted' || st === 'meeting_booked' || st === 'in_call_queue' || st === 'opportunity' || st === 'won' || st === 'lost' || st === 'dormant') return false
       if (pst === 'contacted' || pst === 'replied' || pst === 'call ready' || pst === 'follow-up sent' || pst === 'meeting booked') return false
+
+      if (industry && industry !== 'all') {
+        const cat = (c.category || '').toLowerCase().trim()
+        const ind = (c.industry || '').toLowerCase().trim()
+        const targetInd = industry.toLowerCase().trim()
+        let match = cat === targetInd || ind === targetInd
+        if (!match) {
+          if (targetInd === 'aesthetic_clinics') {
+            match = ind.includes('aesthetic') || ind.includes('derma') || ind.includes('clinic') || ind.includes('skin') || ind.includes('cosmetic')
+          } else if (targetInd === 'dental_clinics') {
+            match = ind.includes('dental') || ind.includes('teeth') || ind.includes('dentist')
+          } else if (targetInd === 'social_commerce_dtc') {
+            match = ind.includes('perfume') || ind.includes('oud') || ind.includes('fragrance') || ind.includes('retail') || ind.includes('boutique') || ind.includes('clothing') || ind.includes('fashion') || ind.includes('cafe') || ind.includes('dtc')
+          } else if (targetInd === 'training_education') {
+            match = ind.includes('training') || ind.includes('education') || ind.includes('institute') || ind.includes('academy') || ind.includes('course')
+          } else if (targetInd === 'hospitality_fnb') {
+            match = ind.includes('hotel') || ind.includes('resort') || ind.includes('restaurant') || ind.includes('dining') || ind.includes('hospitality') || ind.includes('f&b')
+          } else if (targetInd === 'general') {
+            match = true
+          } else {
+            match = ind.includes(targetInd)
+          }
+        }
+        if (!match) return false
+      }
 
       let rJson: any = {}
       try {
@@ -1161,6 +1188,21 @@ export async function markChannelTouchSent(data: {
       status: 'contacted',
       updated_at: createdAt,
     }).eq('id', data.company_id)
+
+    // 4. Auto-schedule Follow-up 1 for exactly +2 days (Strict Cadence Delay)
+    const nextDueDate = new Date(createdAt)
+    nextDueDate.setDate(nextDueDate.getDate() + 2)
+    const nextDueDateStr = nextDueDate.toISOString().split('T')[0]
+
+    await supabase.from('follow_ups').insert({
+      company_id: data.company_id,
+      due_date: nextDueDateStr,
+      subject: 'Follow-up 1: Value Check-in',
+      description: 'Stage 2 follow-up. Value observation check-in after 2 days without reply.',
+      channel: data.channel || 'instagram_dm',
+      status: 'pending',
+      created_at: createdAt
+    })
 
     revalidateAllCRMPages()
     return { data: { activityId: act.id, companyId: data.company_id }, error: null }

@@ -113,6 +113,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
   const [powerHourChannel, setPowerHourChannel] = useState<OutreachChannel>('instagram_dm');
   const [powerHourLeads, setPowerHourLeads] = useState<OutreachLead[]>([]);
   const [loadingChannel, setLoadingChannel] = useState<string | null>(null);
+  const [selectedIndustry, setSelectedIndustry] = useState<string>('all');
 
   useEffect(() => {
     async function loadBatch() {
@@ -127,13 +128,14 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
   const handleLaunchChannelPowerHour = async (channel: OutreachChannel) => {
     setLoadingChannel(channel);
     try {
-      const res = await getChannelDailyBatch(channel, 25);
+      const res = await getChannelDailyBatch(channel, 25, selectedIndustry);
       if (res.data && res.data.length > 0) {
         setPowerHourLeads(res.data);
         setPowerHourChannel(channel);
         setPowerHourOpen(true);
       } else {
-        alert(`No uncontacted leads currently available for ${CHANNEL_CONFIG[channel]?.label || channel}. All leads on this channel have been contacted or need new list imports!`);
+        const indLabel = selectedIndustry !== 'all' ? ` for the selected industry` : '';
+        alert(`No uncontacted leads currently available for ${CHANNEL_CONFIG[channel]?.label || channel}${indLabel}. All leads on this channel have been contacted or need new list imports!`);
       }
     } catch (err: any) {
       console.error(err);
@@ -422,13 +424,35 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
                 Ready leads with prepared messages. No duplicates.
               </p>
             </div>
-            <Link
-              href="/outreach"
-              className="text-xs font-bold text-[#0f343c] hover:text-[#091f24] flex items-center gap-1 transition-colors self-start sm:self-auto group"
-            >
-              View All Outreach
-              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-            </Link>
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Industry Selector */}
+              <div className="flex items-center gap-1.5 bg-white border border-neutral-200 rounded-xl px-2.5 py-1.5 shadow-2xs">
+                <Filter className="h-3.5 w-3.5 text-neutral-500" />
+                <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider">Industry:</span>
+                <select
+                  value={selectedIndustry}
+                  onChange={(e) => setSelectedIndustry(e.target.value)}
+                  className="bg-transparent text-xs font-bold text-neutral-900 focus:outline-none cursor-pointer"
+                  title="Filter outreach batches by industry"
+                >
+                  <option value="all">All Industries</option>
+                  <option value="aesthetic_clinics">🩺 Aesthetic & Derma</option>
+                  <option value="dental_clinics">🦷 Dental Clinics</option>
+                  <option value="social_commerce_dtc">🛍️ DTC & Commerce</option>
+                  <option value="hospitality_fnb">☕ Hospitality & F&B</option>
+                  <option value="training_education">🎓 Training & Education</option>
+                  <option value="general">🏢 General SME</option>
+                </select>
+              </div>
+
+              <Link
+                href="/outreach"
+                className="text-xs font-bold text-[#0f343c] hover:text-[#091f24] flex items-center gap-1 transition-colors self-start sm:self-auto group"
+              >
+                View All Outreach
+                <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            </div>
           </div>
 
           {/* 4 Digital Channel Cards */}

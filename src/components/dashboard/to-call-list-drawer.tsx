@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Phone,
   MessageCircle,
@@ -39,6 +39,32 @@ export function ToCallListDrawer({
   const [leads, setLeads] = useState<Company[]>(initialLeads);
   const [loadingMore, setLoadingMore] = useState(false);
   const [calledIds, setCalledIds] = useState<Set<string>>(new Set());
+  const [drawerIndustry, setDrawerIndustry] = useState<string>("all");
+
+  const filteredLeads = useMemo(() => {
+    if (drawerIndustry === "all") return leads;
+    return leads.filter((l) => {
+      const ind = (l.industry || "").toLowerCase();
+      const cat = ((l as any).category || "").toLowerCase();
+      if (cat === drawerIndustry) return true;
+      if (drawerIndustry === "aesthetic_clinics") {
+        return ind.includes("aesthetic") || ind.includes("derma") || ind.includes("clinic") || ind.includes("skin") || ind.includes("cosmetic");
+      }
+      if (drawerIndustry === "dental_clinics") {
+        return ind.includes("dental") || ind.includes("teeth") || ind.includes("dentist");
+      }
+      if (drawerIndustry === "social_commerce_dtc") {
+        return ind.includes("perfume") || ind.includes("oud") || ind.includes("retail") || ind.includes("boutique") || ind.includes("clothing") || ind.includes("cafe");
+      }
+      if (drawerIndustry === "training_education") {
+        return ind.includes("training") || ind.includes("education") || ind.includes("institute");
+      }
+      if (drawerIndustry === "hospitality_fnb") {
+        return ind.includes("hotel") || ind.includes("restaurant") || ind.includes("dining") || ind.includes("hospitality");
+      }
+      return ind.includes(drawerIndustry);
+    });
+  }, [leads, drawerIndustry]);
 
   useEffect(() => {
     setLeads(initialLeads);
@@ -146,23 +172,46 @@ export function ToCallListDrawer({
           )}
         </div>
 
+        {/* Industry Filter Toolbar */}
+        <div className="px-6 py-2.5 bg-white border-b border-slate-200 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Industry:</span>
+            <select
+              value={drawerIndustry}
+              onChange={(e) => setDrawerIndustry(e.target.value)}
+              className="text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 focus:outline-none cursor-pointer"
+            >
+              <option value="all">All Industries ({leads.length})</option>
+              <option value="aesthetic_clinics">🩺 Aesthetic & Derma</option>
+              <option value="dental_clinics">🦷 Dental Clinics</option>
+              <option value="social_commerce_dtc">🛍️ DTC & Commerce</option>
+              <option value="hospitality_fnb">☕ Hospitality & F&B</option>
+              <option value="training_education">🎓 Training & Education</option>
+              <option value="general">🏢 General SME</option>
+            </select>
+          </div>
+          <span className="text-xs text-slate-400 font-mono">
+            Showing {filteredLeads.length} leads
+          </span>
+        </div>
+
         {/* Lead List Body */}
         <div className="flex-1 overflow-y-auto p-5 space-y-3">
-          {leads.length === 0 ? (
+          {filteredLeads.length === 0 ? (
             <div className="py-12 text-center text-slate-400 font-medium space-y-3">
               <Phone className="h-10 w-10 mx-auto text-slate-300 stroke-1" />
-              <p>No call leads currently assigned to today&apos;s batch.</p>
+              <p>No call leads matching &quot;{drawerIndustry}&quot; in today&apos;s batch.</p>
               <Button
                 onClick={handleLoadMore}
                 disabled={loadingMore}
                 className="h-9 text-xs font-bold bg-[#174E59] text-white rounded-xl"
               >
                 {loadingMore ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Plus className="h-3.5 w-3.5 mr-1.5" />}
-                Fetch Today&apos;s 20 Verified Leads
+                Fetch More Leads
               </Button>
             </div>
           ) : (
-            leads.map((lead, idx) => {
+            filteredLeads.map((lead, idx) => {
               const isCalled = calledIds.has(lead.id);
               const primaryContact = ((lead as any).contacts || []).find((c: any) => c.is_primary) || (lead as any).contacts?.[0];
               const phoneNum = lead.phone || primaryContact?.phone || primaryContact?.whatsapp || "";

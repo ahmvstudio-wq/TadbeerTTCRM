@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import {
   X, Check, ArrowRight, ExternalLink, MessageCircle, Phone, Mail,
-  Copy, FileText, ShieldCheck, ChevronLeft, ChevronRight, Zap, Building2, User
+  Copy, FileText, ShieldCheck, ChevronLeft, ChevronRight, Zap, Building2, User,
+  RotateCcw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,8 @@ import {
   type OutreachLead, type OutreachChannel, type SectorCategory
 } from "@/lib/types/outreach";
 import { markChannelTouchSent } from "@/lib/actions/ig-dm";
+import { buildDeterministicSequence } from "@/lib/outreach-playbook";
+import { updateCompany } from "@/lib/actions/companies";
 
 interface PowerHourModalProps {
   isOpen: boolean;
@@ -34,20 +37,44 @@ export function PowerHourModal({
   const [sending, setSending] = useState(false);
   const [sentIds, setSentIds] = useState<Set<string>>(new Set());
 
+  const currentLead = leads[currentIndex] || leads[0];
+  const channelCfg = CHANNEL_CONFIG[channel] || CHANNEL_CONFIG.whatsapp;
+  
+  const [currentSector, setCurrentSector] = useState<SectorCategory>('general');
+  const [editedMessage, setEditedMessage] = useState<string>('');
+
   useEffect(() => {
     setCurrentIndex(0);
     setSentIds(new Set());
   }, [leads, channel]);
 
-  if (!isOpen || leads.length === 0) return null;
+  // Synchronize sector and editedMessage whenever current lead changes
+  useEffect(() => {
+    if (currentLead) {
+      const sec = (currentLead.sector || 'general') as SectorCategory;
+      setCurrentSector(sec);
+      const existing = getCleanDraftMessage(currentLead);
+      if (existing && existing.trim().length > 10) {
+        setEditedMessage(existing);
+      } else {
+        const obs = currentLead.specific_observation || getCleanObservation(currentLead) || 'your business operations in Muscat';
+        const seq = buildDeterministicSequence(
+          currentLead.company_name,
+          currentLead.contact_name || 'there',
+          sec,
+          obs,
+          channel
+        );
+        const initialMsg = channel === 'cold_call' ? (seq.cold_call_script?.opener || seq.touch_1.message) : seq.touch_1.message;
+        setEditedMessage(initialMsg);
+      }
+    }
+  }, [currentLead?.id, currentIndex, channel]);
 
-  const currentLead = leads[currentIndex] || leads[0];
-  const channelCfg = CHANNEL_CONFIG[channel] || CHANNEL_CONFIG.whatsapp;
-  const sector = (currentLead?.sector || 'general') as SectorCategory;
-  const sectorCfg = SECTOR_CONFIG[sector] || SECTOR_CONFIG.general;
+  if (!isOpen || leads.length === 0 || !currentLead) return null;
 
+  const sectorCfg = SECTOR_CONFIG[currentSector] || SECTOR_CONFIG.general;
   const staged = currentLead?.staged_sequence;
-  const openerMessage = getCleanDraftMessage(currentLead);
   const observation = getCleanObservation(currentLead);
   const contactName = currentLead?.contact_name || 'Owner/Manager';
 
@@ -64,7 +91,7 @@ export function PowerHourModal({
   }
   const phone = rawPhone || null;
   const waDigits = phone ? formatWhatsAppNumber(phone) : '';
-  const waUrl = waDigits ? `https://wa.me/${waDigits}?text=${encodeURIComponent(openerMessage)}` : null;
+  const waUrl = waDigits ? `https://wa.me/${waDigits}?text=${encodeURIComponent(editedMessage)}` : null;
 
   // 2. Instagram Handle & URL Extraction (Strictly preserves dots e.g. @tephra.om)
   let rawIg = currentLead?.instagram_handle;
@@ -116,14 +143,54 @@ export function PowerHourModal({
       ? (phone ? formatPhoneNumberForDisplay(phone) : currentLead.handle || 'No phone')
       : (channel === 'linkedin' ? (cleanLi || 'No LinkedIn profile') : (email || currentLead.handle || 'No contact')));
 
+  // Switch Industry & regenerate playbook template
+  const handleSectorChange = async (newSector: SectorCategory) => {
+    setCurrentSector(newSector);
+    const obs = observation || currentLead.specific_observation || 'your business growth in Muscat';
+    const seq = buildDeterministicSequence(
+      currentLead.company_name,
+      contactName,
+      newSector,
+      obs,
+      channel
+    );
+    const newMsg = channel === 'cold_call' ? (seq.cold_call_script?.opener || seq.touch_1.message) : seq.touch_1.message;
+    setEditedMessage(newMsg);
+
+    try {
+      await updateCompany(currentLead.company_id, {
+        industry: SECTOR_CONFIG[newSector].label,
+        category: newSector,
+      });
+      currentLead.sector = newSector;
+      currentLead.industry = SECTOR_CONFIG[newSector].label;
+    } catch (e) {
+      console.warn("Could not persist company sector change:", e);
+    }
+  };
+
+  // Reset to original sector template
+  const handleResetToTemplate = () => {
+    const obs = observation || currentLead.specific_observation || 'your business growth in Muscat';
+    const seq = buildDeterministicSequence(
+      currentLead.company_name,
+      contactName,
+      currentSector,
+      obs,
+      channel
+    );
+    const newMsg = channel === 'cold_call' ? (seq.cold_call_script?.opener || seq.touch_1.message) : seq.touch_1.message;
+    setEditedMessage(newMsg);
+  };
+
   const handleCopyMessage = () => {
-    navigator.clipboard.writeText(openerMessage);
+    navigator.clipboard.writeText(editedMessage);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleLaunchEmail = (client: EmailClientType = 'gmail') => {
-    navigator.clipboard.writeText(openerMessage);
+    navigator.clipboard.writeText(editedMessage);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
 
@@ -134,13 +201,13 @@ export function PowerHourModal({
         companyName: currentLead.company_name,
         prospectName: contactName,
         subject: `Observation regarding ${currentLead.company_name}`,
-        body: openerMessage,
+        body: editedMessage,
       });
     }
   };
 
   const handleLaunchAndCopy = () => {
-    navigator.clipboard.writeText(openerMessage);
+    navigator.clipboard.writeText(editedMessage);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
 
@@ -168,7 +235,7 @@ export function PowerHourModal({
       await markChannelTouchSent({
         company_id: currentLead.company_id,
         channel,
-        message: openerMessage,
+        message: editedMessage,
         handle: currentLead.handle,
         observation,
       });
@@ -191,6 +258,8 @@ export function PowerHourModal({
 
   const completedCount = sentIds.size;
   const progressPct = Math.round((completedCount / leads.length) * 100);
+  const wordCount = editedMessage.trim() ? editedMessage.trim().split(/\s+/).length : 0;
+  const charCount = editedMessage.length;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -217,7 +286,7 @@ export function PowerHourModal({
           
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
@@ -235,15 +304,30 @@ export function PowerHourModal({
         <div className="p-6 overflow-y-auto space-y-5 flex-1">
           
           {/* Company & Persona Info */}
-          <div className="bg-slate-50 dark:bg-slate-800/60 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/60 flex items-start justify-between">
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
+          <div className="bg-slate-50 dark:bg-slate-800/60 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/60 flex items-start justify-between gap-4">
+            <div className="space-y-2 flex-1">
+              <div className="flex items-center gap-2.5 flex-wrap">
                 <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
                   {currentLead.company_name}
                 </h3>
-                <Badge variant="outline" className="text-xs font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 border-teal-200 dark:border-teal-800">
-                  {sectorCfg.emoji} {sectorCfg.label}
-                </Badge>
+                
+                {/* Interactive Industry Selector */}
+                <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1 shadow-2xs">
+                  <span className="text-xs">{sectorCfg.emoji || '🏢'}</span>
+                  <select
+                    value={currentSector}
+                    onChange={(e) => handleSectorChange(e.target.value as SectorCategory)}
+                    className="bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer pr-1"
+                    title="Change industry to update playbook templates and company profile"
+                  >
+                    <option value="aesthetic_clinics">🩺 Aesthetic & Derma Clinics</option>
+                    <option value="dental_clinics">🦷 Dental Clinics</option>
+                    <option value="social_commerce_dtc">🛍️ Social-Commerce & DTC</option>
+                    <option value="hospitality_fnb">☕ Hospitality & Premium F&B</option>
+                    <option value="training_education">🎓 Training & Education</option>
+                    <option value="general">🏢 General SME</option>
+                  </select>
+                </div>
               </div>
               <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
                 <span className="flex items-center gap-1 font-semibold">
@@ -258,21 +342,21 @@ export function PowerHourModal({
             </div>
 
             {/* Quick Navigation Arrows */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 shrink-0">
               <button
                 disabled={currentIndex === 0}
                 onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
-                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 transition"
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 transition cursor-pointer"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <span className="text-xs font-bold text-slate-500 px-1">
+              <span className="text-xs font-bold text-slate-500 px-1 font-mono">
                 {currentIndex + 1}/{leads.length}
               </span>
               <button
                 disabled={currentIndex >= leads.length - 1}
                 onClick={() => setCurrentIndex(prev => Math.min(leads.length - 1, prev + 1))}
-                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 transition"
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 transition cursor-pointer"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
@@ -287,23 +371,46 @@ export function PowerHourModal({
             </div>
           </div>
 
-          {/* Formatted Warm Gate-Opener Message */}
+          {/* Interactive Message Editor */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Warm Gate-Opener (Zero-Pitch Human Opener)
-              </label>
-              <button
-                onClick={handleCopyMessage}
-                className="text-xs font-semibold text-teal-600 hover:text-teal-700 flex items-center gap-1 transition"
-              >
-                {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
-                {copied ? "Copied!" : "Copy Text"}
-              </button>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Outreach Message Editor
+                </label>
+                <span className="text-[10px] font-mono text-slate-400">
+                  ({wordCount} words • {charCount} chars)
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleResetToTemplate}
+                  className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                  title="Reset to official sector playbook template"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  Reset to Template
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCopyMessage}
+                  className="text-[11px] font-semibold text-teal-600 hover:text-teal-700 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-950/50 border border-teal-200 dark:border-teal-800 transition cursor-pointer"
+                >
+                  {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copied ? "Copied!" : "Copy Text"}
+                </button>
+              </div>
             </div>
 
-            <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 font-sans text-sm leading-relaxed text-slate-800 dark:text-slate-200 select-all whitespace-pre-line">
-              {openerMessage}
+            <div className="relative">
+              <textarea
+                value={editedMessage}
+                onChange={(e) => setEditedMessage(e.target.value)}
+                rows={5}
+                className="w-full bg-slate-50/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 focus:bg-white dark:focus:bg-slate-850 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 font-sans text-sm leading-relaxed text-slate-900 dark:text-slate-100 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 focus:outline-none transition-all resize-y shadow-inner-xs"
+                placeholder="Type or personalize your message..."
+              />
             </div>
           </div>
 
