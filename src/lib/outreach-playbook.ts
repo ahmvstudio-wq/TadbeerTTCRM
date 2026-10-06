@@ -137,18 +137,22 @@ export function getCategoryPlaybook(categoryKey: string): CategoryPlaybook {
   return TTT_CATEGORY_PLAYBOOKS[categoryKey as SectorCategory] || TTT_CATEGORY_PLAYBOOKS.general
 }
 
-export async function normalizeCategory(catStr?: string | null): Promise<SectorCategory> {
-  if (!catStr || typeof catStr !== 'string') return 'general'
-  const cleaned = catStr.toLowerCase().trim()
-  if (!cleaned || cleaned === 'null' || cleaned === 'undefined') return 'general'
+export function normalizeCategorySync(catStr?: string | null, companyName?: string | null): SectorCategory {
+  const combined = `${catStr || ''} ${companyName || ''}`.toLowerCase().trim()
+  if (!combined || combined === 'null' || combined === 'undefined') return 'general'
 
-  if (cleaned.includes('dental') || cleaned.includes('teeth') || cleaned.includes('dentist')) return 'dental_clinics'
-  if (cleaned.includes('aesthetic') || cleaned.includes('derma') || cleaned.includes('cosmetic') || cleaned.includes('clinic') || cleaned.includes('skin')) return 'aesthetic_clinics'
-  if (cleaned.includes('perfume') || cleaned.includes('oud') || cleaned.includes('fragrance') || cleaned.includes('boutique') || cleaned.includes('fashion') || cleaned.includes('clothing') || cleaned.includes('retail') || cleaned.includes('dtc') || cleaned.includes('coffee') || cleaned.includes('cafe')) return 'social_commerce_dtc'
-  if (cleaned.includes('training') || cleaned.includes('education') || cleaned.includes('institute') || cleaned.includes('academy') || cleaned.includes('course') || cleaned.includes('school')) return 'training_education'
-  if (cleaned.includes('hotel') || cleaned.includes('resort') || cleaned.includes('restaurant') || cleaned.includes('hospitality') || cleaned.includes('dining') || cleaned.includes('cafe') || cleaned.includes('f&b')) return 'hospitality_fnb'
+  // Exact matching for enum keys
+  if (combined.includes('aesthetic_clinics') || combined.includes('aesthetic') || combined.includes('derma') || combined.includes('cosmetic') || combined.includes('skin') || combined.includes('laser') || combined.includes('plastic surg')) return 'aesthetic_clinics'
+  if (combined.includes('dental_clinics') || combined.includes('dental') || combined.includes('teeth') || combined.includes('dentist') || combined.includes('orthodont')) return 'dental_clinics'
+  if (combined.includes('social_commerce_dtc') || combined.includes('perfume') || combined.includes('oud') || combined.includes('fragrance') || combined.includes('scent') || combined.includes('boutique') || combined.includes('fashion') || combined.includes('clothing') || combined.includes('apparel') || combined.includes('abaya') || combined.includes('retail') || combined.includes('dtc') || combined.includes('e-commerce') || combined.includes('ecommerce') || combined.includes('jewelry') || combined.includes('jewellery') || combined.includes('shop') || combined.includes('store')) return 'social_commerce_dtc'
+  if (combined.includes('training_education') || combined.includes('training') || combined.includes('education') || combined.includes('institute') || combined.includes('academy') || combined.includes('course') || combined.includes('school') || combined.includes('college') || combined.includes('university') || combined.includes('tutor') || combined.includes('learning')) return 'training_education'
+  if (combined.includes('hospitality_fnb') || combined.includes('hotel') || combined.includes('resort') || combined.includes('restaurant') || combined.includes('hospitality') || combined.includes('dining') || combined.includes('cafe') || combined.includes('café') || combined.includes('coffee') || combined.includes('roastery') || combined.includes('bistro') || combined.includes('bakery') || combined.includes('f&b')) return 'hospitality_fnb'
 
   return 'general'
+}
+
+export async function normalizeCategory(catStr?: string | null): Promise<SectorCategory> {
+  return normalizeCategorySync(catStr)
 }
 
 export function buildDeterministicSequence(
@@ -188,6 +192,12 @@ export function buildDeterministicSequence(
       message: fill(playbook.audit_offer_template),
       day_delay: CADENCE_DELAYS.FOLLOWUP_1_TO_AUDIT_OFFER, // 3 days
       is_final_touch: false,
+    },
+    touch_4: {
+      channel,
+      message: fill(playbook.cold_call_framework.close_coffee),
+      day_delay: CADENCE_DELAYS.AUDIT_OFFER_TO_COFFEE_CALL, // 5 days
+      is_final_touch: true,
     },
     cold_call_script: {
       opener: fill(playbook.cold_call_framework.opener),

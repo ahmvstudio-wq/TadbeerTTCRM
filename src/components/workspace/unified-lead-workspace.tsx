@@ -35,6 +35,7 @@ import { getCleanIndustry, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { UNIFIED_STATUSES, getUnifiedStatus, mapToDbCompanyStatus } from "@/lib/constants/statuses";
 import { StatusFollowUpModal } from "@/components/status/status-follow-up-modal";
+import { CRMCache } from "@/lib/cache/crm-cache";
 
 export const TEAM_MEMBERS = [
   { id: "Ramij", name: "Ramij (Sales Lead)", role: "bd_rep" },
@@ -56,14 +57,17 @@ export function UnifiedLeadWorkspace({
   currentUser = "Ramij",
   initialTab
 }: UnifiedLeadWorkspaceProps) {
-  const [loading, setLoading] = useState(true);
-  const [company, setCompany] = useState<Company | null>(null);
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [preparations, setPreparations] = useState<OutreachPreparation[]>([]);
-  const [followUps, setFollowUps] = useState<FollowUp[]>([]);
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [touches, setTouches] = useState<any[]>([]);
+  const cleanId = String(companyId || '').replace(/^staged-/, '').trim();
+  const cachedInitial = CRMCache.get<any>(`company-${cleanId}`);
+
+  const [loading, setLoading] = useState(() => !cachedInitial);
+  const [company, setCompany] = useState<Company | null>(() => cachedInitial || null);
+  const [contacts, setContacts] = useState<Contact[]>(() => cachedInitial?.contacts || []);
+  const [activities, setActivities] = useState<Activity[]>(() => cachedInitial?.activities || []);
+  const [preparations, setPreparations] = useState<OutreachPreparation[]>(() => cachedInitial?.preparations || []);
+  const [followUps, setFollowUps] = useState<FollowUp[]>(() => cachedInitial?.follow_ups || []);
+  const [meetings, setMeetings] = useState<Meeting[]>(() => cachedInitial?.meetings || []);
+  const [touches, setTouches] = useState<any[]>(() => cachedInitial?.outreach_touches || []);
 
   const [activeTab, setActiveTab] = useState<"overview" | "research" | "history" | "scripts" | "tasks" | "meeting_docs">(initialTab || "overview");
 
@@ -75,54 +79,69 @@ export function UnifiedLeadWorkspace({
 
   // Edit states
   const [editingOverview, setEditingOverview] = useState(false);
-  const [companyName, setCompanyName] = useState("");
-  const [industry, setIndustry] = useState("");
-  const [website, setWebsite] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [country, setCountry] = useState("");
-  const [city, setCity] = useState("");
-  const [notes, setNotes] = useState("");
+  const [companyName, setCompanyName] = useState(() => cachedInitial?.company_name || "");
+  const [industry, setIndustry] = useState(() => cachedInitial?.industry || "");
+  const [website, setWebsite] = useState(() => cachedInitial?.website || "");
+  const [phone, setPhone] = useState(() => cachedInitial?.phone || "");
+  const [email, setEmail] = useState(() => cachedInitial?.email || "");
+  const [country, setCountry] = useState(() => cachedInitial?.country || "");
+  const [city, setCity] = useState(() => cachedInitial?.city || "");
+  const [notes, setNotes] = useState(() => cachedInitial?.notes || "");
 
-  const [contactName, setContactName] = useState("");
-  const [contactTitle, setContactTitle] = useState("");
-  const [contactWhatsapp, setContactWhatsapp] = useState("");
-  const [contactLinkedin, setContactLinkedin] = useState("");
+  const initialPrimary = (cachedInitial?.contacts || []).find((c: Contact) => c.is_primary) || cachedInitial?.contacts?.[0];
+  const [contactName, setContactName] = useState(() => initialPrimary?.full_name || "");
+  const [contactTitle, setContactTitle] = useState(() => initialPrimary?.title || "");
+  const [contactWhatsapp, setContactWhatsapp] = useState(() => initialPrimary?.whatsapp || "");
+  const [contactLinkedin, setContactLinkedin] = useState(() => initialPrimary?.linkedin_url || "");
 
   const [saving, setSaving] = useState(false);
   const [followUpModalOpen, setFollowUpModalOpen] = useState(false);
 
+  const applyCompanyData = (data: any) => {
+    setCompany(data);
+    setContacts(data.contacts || []);
+    setActivities(data.activities || []);
+    setPreparations(data.preparations || []);
+    setFollowUps(data.follow_ups || []);
+    setMeetings(data.meetings || []);
+    setTouches(data.outreach_touches || []);
+
+    setCompanyName(data.company_name || "");
+    setIndustry(data.industry || "");
+    setWebsite(data.website || "");
+    setPhone(data.phone || "");
+    setEmail(data.email || "");
+    setCountry(data.country || "");
+    setCity(data.city || "");
+    setNotes(data.notes || "");
+
+    const primary = (data.contacts || []).find((c: Contact) => c.is_primary) || data.contacts?.[0];
+    if (primary) {
+      setContactName(primary.full_name || "");
+      setContactTitle(primary.title || "");
+      setContactWhatsapp(primary.whatsapp || "");
+      setContactLinkedin(primary.linkedin_url || "");
+    }
+  };
+
   const fetchLeadData = async (silent = false) => {
-    if (!silent) setLoading(true);
+    const targetCleanId = String(companyId || '').replace(/^staged-/, '').trim();
+    const cacheKey = `company-${targetCleanId}`;
+    const cached = CRMCache.get<any>(cacheKey);
+
+    if (cached && !silent) {
+      applyCompanyData(cached);
+      setLoading(false);
+    } else if (!silent && !cached) {
+      setLoading(true);
+    }
+
     try {
-      const cleanId = String(companyId || '').replace(/^staged-/, '').trim();
-      const res = await getCompany(cleanId);
+      const res = await getCompany(targetCleanId);
       if (res.data) {
         const data = res.data;
-        setCompany(data);
-        setContacts(data.contacts || []);
-        setActivities(data.activities || []);
-        setPreparations(data.preparations || []);
-        setFollowUps(data.follow_ups || []);
-        setMeetings(data.meetings || []);
-        setTouches(data.outreach_touches || []);
-
-        setCompanyName(data.company_name || "");
-        setIndustry(data.industry || "");
-        setWebsite(data.website || "");
-        setPhone(data.phone || "");
-        setEmail(data.email || "");
-        setCountry(data.country || "");
-        setCity(data.city || "");
-        setNotes(data.notes || "");
-
-        const primary = (data.contacts || []).find((c: Contact) => c.is_primary) || data.contacts[0];
-        if (primary) {
-          setContactName(primary.full_name || "");
-          setContactTitle(primary.title || "");
-          setContactWhatsapp(primary.whatsapp || "");
-          setContactLinkedin(primary.linkedin_url || "");
-        }
+        CRMCache.set(cacheKey, data);
+        applyCompanyData(data);
       }
     } catch (err) {
       console.error("Failed to load lead details:", err);
@@ -149,11 +168,48 @@ export function UnifiedLeadWorkspace({
     return () => window.removeEventListener("lead-updated", handleLeadUpdated);
   }, [companyId]);
 
-  if (loading || !company) {
+  if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 space-y-3 bg-white rounded-xl border border-neutral-200">
-        <Loader2 className="h-6 w-6 animate-spin text-neutral-400" />
-        <p className="text-xs text-neutral-400">Loading workspace...</p>
+      <div className="relative flex flex-col items-center justify-center p-16 space-y-3 bg-white dark:bg-slate-900 rounded-3xl border border-neutral-200 dark:border-slate-800 shadow-2xl">
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 text-neutral-400 hover:text-black dark:hover:text-white rounded-xl hover:bg-neutral-100 dark:hover:bg-slate-800 transition cursor-pointer"
+            title="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        )}
+        <Loader2 className="h-7 w-7 animate-spin text-teal-600 dark:text-teal-400" />
+        <p className="text-xs font-semibold text-neutral-500 dark:text-slate-400">Loading workspace...</p>
+      </div>
+    );
+  }
+
+  if (!company) {
+    return (
+      <div className="relative flex flex-col items-center justify-center p-16 space-y-4 bg-white dark:bg-slate-900 rounded-3xl border border-neutral-200 dark:border-slate-800 shadow-2xl text-center">
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 text-neutral-400 hover:text-black dark:hover:text-white rounded-xl hover:bg-neutral-100 dark:hover:bg-slate-800 transition cursor-pointer"
+            title="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        )}
+        <AlertTriangle className="h-10 w-10 text-amber-500" />
+        <div>
+          <h3 className="text-base font-bold text-neutral-900 dark:text-white">Prospect Details Unavailable</h3>
+          <p className="text-xs text-neutral-500 dark:text-slate-400 mt-1">
+            The requested prospect could not be loaded or may have been deleted.
+          </p>
+        </div>
+        {onClose && (
+          <Button onClick={onClose} className="bg-neutral-900 text-white rounded-xl text-xs font-bold px-5">
+            Close Workspace
+          </Button>
+        )}
       </div>
     );
   }

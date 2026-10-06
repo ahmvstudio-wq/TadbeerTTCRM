@@ -70,7 +70,7 @@ export function TopNavbar() {
     const timer = setTimeout(async () => {
       if (searchQuery.trim().length >= 2) {
         setIsSearching(true);
-        const res = await getCompanies({ search: searchQuery });
+        const res = await getCompanies({ search: searchQuery, limit: 12 });
         if (res.data) {
           setSearchResults(res.data as any[]);
           setShowDropdown(true);

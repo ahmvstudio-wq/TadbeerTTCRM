@@ -7,15 +7,7 @@ import { revalidatePath } from 'next/cache'
 const supabase = getSupabaseAdminClient()
 
 function revalidateAllCRMPages() {
-  try {
-    revalidatePath('/outreach')
-    revalidatePath('/daily-cadence')
-    revalidatePath('/dashboard')
-    revalidatePath('/prospects')
-    revalidatePath('/pipeline')
-  } catch (e) {
-    // ignore in non-request contexts
-  }
+  // Client components maintain instant state via optimistic UI and CustomEvents.
 }
 
 // ─── Outreach Touches ───────────────────────────────────────────────

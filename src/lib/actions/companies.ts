@@ -11,22 +11,12 @@ import {
   getUnifiedStatus
 } from '@/lib/constants/statuses'
 import { revalidatePath } from 'next/cache'
+import { getServerCached, setServerCached, invalidateServerCache } from '@/lib/cache/server-cache'
 
 const supabase = getSupabaseAdminClient()
 
 function revalidateAllCRMPages() {
-  try {
-    revalidatePath('/outreach')
-    revalidatePath('/daily-cadence')
-    revalidatePath('/dashboard')
-    revalidatePath('/prospects')
-    revalidatePath('/pipeline')
-    revalidatePath('/meetings')
-    revalidatePath('/calls')
-    revalidatePath('/follow-ups')
-  } catch (e) {
-    // ignore in non-request contexts
-  }
+  invalidateServerCache()
 }
 
 
@@ -46,6 +36,10 @@ export async function getCompanies(filters?: CompanyFilters) {
   try {
     await requireAuth()
     
+    const cacheKey = `companies-list-${JSON.stringify(filters || {})}`
+    const cached = getServerCached<any[]>(cacheKey, 20000)
+    if (cached) return { data: cached, error: null }
+
     let query = supabase
       .from('companies')
       .select('*, contacts(*)')
@@ -92,6 +86,28 @@ export async function getCompanies(filters?: CompanyFilters) {
 
     const { data, error } = await query
     if (error) return { data: null, error: error.message }
+    setServerCached(cacheKey, data)
+    return { data, error: null }
+  } catch (error) {
+    return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
+  }
+}
+
+export async function getCompaniesLookup() {
+  try {
+    await requireAuth()
+    const cacheKey = 'companies-lookup'
+    const cached = getServerCached<any[]>(cacheKey, 60000)
+    if (cached) return { data: cached, error: null }
+
+    const { data, error } = await supabase
+      .from('companies')
+      .select('id, company_name')
+      .order('company_name', { ascending: true })
+      .limit(1000)
+
+    if (error) return { data: null, error: error.message }
+    setServerCached(cacheKey, data)
     return { data, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -354,13 +370,26 @@ export async function updateCompanyStatus(
     }
 
     if (scheduledDueDate) {
+      // Complete any previous pending follow-ups to prevent duplicates
+      await supabase.from('follow_ups').update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        notes: 'Superceded by status update follow-up'
+      }).eq('company_id', cleanId).eq('status', 'pending')
+
       const followUpSubject = options?.followUpNote || `Follow up with ${company.company_name} (${unified.label})`
+      const rawChannel = options?.followUpChannel || 'call'
+      const dbChannel = (rawChannel === 'instagram_dm' || rawChannel === 'instagram')
+        ? 'whatsapp'
+        : (['whatsapp', 'call', 'email', 'linkedin', 'meeting'].includes(rawChannel) ? rawChannel : 'call')
+      const channelTag = (rawChannel === 'instagram_dm' || rawChannel === 'instagram') ? ' [Channel: Instagram DM]' : ''
+
       await supabase.from('follow_ups').insert({
         company_id: cleanId,
         due_date: scheduledDueDate,
         subject: followUpSubject,
-        description: `Scheduled during status update to ${unified.label}`,
-        channel: options?.followUpChannel || 'call',
+        description: `Scheduled during status update to ${unified.label}.${channelTag}`,
+        channel: dbChannel,
         status: 'pending',
         created_at: new Date().toISOString()
       })
@@ -524,13 +553,18 @@ export async function triggerBatchDraftGeneration() {
 export async function assignCompanyLead(id: string, assigned_to: string | null) {
   try {
     await requireAuth()
-    const isUuid = assigned_to && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(assigned_to)
-    const updatePayload: any = {
-      assigned_bdm: assigned_to || null,
-      updated_at: new Date().toISOString()
+    if (assigned_to !== null && assigned_to !== undefined && assigned_to !== "") {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(assigned_to)
+      if (!isUuid) {
+        return { data: null, error: "Invalid user ID format for assignment. Must be a valid UUID." }
+      }
     }
-    if (isUuid) {
-      updatePayload.assigned_to = assigned_to
+
+    const targetUserId = assigned_to || null
+    const updatePayload: Record<string, any> = {
+      assigned_to: targetUserId,
+      assigned_bdm: targetUserId,
+      updated_at: new Date().toISOString()
     }
 
     const { data: company, error } = await supabase

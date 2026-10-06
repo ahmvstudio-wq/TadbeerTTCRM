@@ -37,10 +37,11 @@ import {
   updateOpportunityStage,
 } from "@/lib/actions/opportunities";
 import { deleteOpportunity } from "@/lib/actions/delete";
-import { getCompanies } from "@/lib/actions/companies";
+import { getCompaniesLookup } from "@/lib/actions/companies";
 import { OPPORTUNITY_STAGES } from "@/lib/constants";
 import { formatCurrency } from "@/lib/utils";
 import { useUnifiedLead } from "@/context/unified-lead-context";
+import { CRMCache } from "@/lib/cache/crm-cache";
 
 const STAGE_CONFIGS: Record<
   string,
@@ -101,9 +102,9 @@ const KANBAN_STAGES = [
 
 export default function PipelinePage() {
   const { openLead } = useUnifiedLead();
-  const [opportunities, setOpportunities] = useState<any[]>([]);
-  const [companies, setCompanies] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [opportunities, setOpportunities] = useState<any[]>(() => CRMCache.get<any[]>("pipeline-opportunities") || []);
+  const [companies, setCompanies] = useState<any[]>(() => CRMCache.get<any[]>("companies-lookup") || []);
+  const [loading, setLoading] = useState(() => !CRMCache.get("pipeline-opportunities"));
   const [viewMode, setViewMode] = useState<"board" | "table">("board");
   const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [toast, setToast] = useState<{
@@ -127,10 +128,26 @@ export default function PipelinePage() {
   const [pageSize, setPageSize] = useState(25);
 
   const fetchData = async (silent = false) => {
-    if (!silent) setLoading(true);
-    const [oRes, cRes] = await Promise.all([getOpportunities(), getCompanies()]);
-    if (oRes.data) setOpportunities(oRes.data);
-    if (cRes.data) setCompanies(cRes.data);
+    const cachedOpps = CRMCache.get<any[]>("pipeline-opportunities");
+    const cachedCos = CRMCache.get<any[]>("companies-lookup");
+
+    if (cachedOpps && !silent) {
+      setOpportunities(cachedOpps);
+      if (cachedCos) setCompanies(cachedCos);
+      setLoading(false);
+    } else if (!silent && !cachedOpps) {
+      setLoading(true);
+    }
+
+    const [oRes, cRes] = await Promise.all([getOpportunities(), getCompaniesLookup()]);
+    if (oRes.data) {
+      setOpportunities(oRes.data);
+      CRMCache.set("pipeline-opportunities", oRes.data);
+    }
+    if (cRes.data) {
+      setCompanies(cRes.data);
+      CRMCache.set("companies-lookup", cRes.data);
+    }
     if (!silent) setLoading(false);
   };
 

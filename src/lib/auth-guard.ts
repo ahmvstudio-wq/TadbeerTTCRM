@@ -80,32 +80,20 @@ export async function requireAuth(): Promise<{ email: string; role: string }> {
   try {
     const cookieStore = await cookies();
     const sessionToken = cookieStore.get("tadbeer-session")?.value;
-    const legacyAuth = cookieStore.get("tadbeer-auth")?.value;
-    const userEmail = cookieStore.get("tadbeer-user-email")?.value;
-    const sbAccessToken = cookieStore.get("sb-access-token")?.value;
-    const hasSbAuthToken = cookieStore.getAll().some((c) => c.name.includes("auth-token"));
 
     const verifiedUser = await verifySessionToken(sessionToken);
     if (verifiedUser) {
       return verifiedUser;
     }
 
-    // Grace check for legacy admin session or Supabase session tokens
-    if (legacyAuth === "true" || sbAccessToken || hasSbAuthToken) {
-      return { email: userEmail || "operation@tadbeertt.com", role: "admin" };
-    }
-
-    if ((process.env.NODE_ENV as string) === "development") {
-      return { email: userEmail || "operation@tadbeertt.com", role: "admin" };
-    }
-  } catch (cookieErr: any) {
-    if (process.env.CRM_TEST_MODE === "true" || (process.env.NODE_ENV as string) !== "production") {
+    // Explicit test mode bypass only if explicitly configured in environment
+    if (process.env.CRM_TEST_MODE === "true" && process.env.NODE_ENV !== "production") {
       return { email: "operation@tadbeertt.com", role: "admin" };
     }
-  }
-
-  if (process.env.CRM_TEST_MODE === "true" || (process.env.NODE_ENV as string) !== "production") {
-    return { email: "operation@tadbeertt.com", role: "admin" };
+  } catch (cookieErr: any) {
+    if (process.env.CRM_TEST_MODE === "true" && process.env.NODE_ENV !== "production") {
+      return { email: "operation@tadbeertt.com", role: "admin" };
+    }
   }
 
   throw new Error("Unauthorized: Active authenticated session required.");

@@ -48,6 +48,7 @@ import { DMEmailTemplateModal } from "@/components/outreach/dm-email-template-mo
 import { ShareProgressModal, isHumanReply } from "@/components/cadence/share-progress-modal";
 import { OutreachAnalyticsDashboard } from "@/components/cadence/outreach-analytics-dashboard";
 import { useUnifiedLead } from "@/context/unified-lead-context";
+import { CRMCache } from "@/lib/cache/crm-cache";
 
 const CHANNELS: OutreachChannel[] = [
   "instagram_dm", "linkedin", "whatsapp", "cold_call", "referral", "email", "event", "walk_in"
@@ -72,9 +73,10 @@ export default function DailyCadencePage() {
   const [currentMonth, setCurrentMonth] = useState(today.getMonth() + 1); // 1-indexed
   const [selectedDate, setSelectedDate] = useState(() => today.toISOString().split("T")[0]);
 
-  const [dailyCounts, setDailyCounts] = useState<Record<string, number>>({});
-  const [leads, setLeads] = useState<OutreachLead[]>([]);
-  const [loading, setLoading] = useState(true);
+  const initialDateStr = today.toISOString().split("T")[0];
+  const [dailyCounts, setDailyCounts] = useState<Record<string, number>>(() => CRMCache.get<Record<string, number>>(`cadence-counts-${today.getFullYear()}-${today.getMonth() + 1}`) || {});
+  const [leads, setLeads] = useState<OutreachLead[]>(() => CRMCache.get<OutreachLead[]>(`cadence-leads-${initialDateStr}`) || []);
+  const [loading, setLoading] = useState(() => !CRMCache.get(`cadence-leads-${initialDateStr}`));
   const [channelFilter, setChannelFilter] = useState<OutreachChannel | "all">("all");
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -109,10 +111,17 @@ export default function DailyCadencePage() {
     }
   };
 
-  // Fetch month counts
+  // Fetch month counts with SWR memory caching
   const fetchMonthCounts = useCallback(async () => {
+    const cacheKey = `cadence-counts-${currentYear}-${currentMonth}`;
+    const cached = CRMCache.get<Record<string, number>>(cacheKey);
+    if (cached) setDailyCounts(cached);
+
     const res = await getOutreachCountsForMonth(currentYear, currentMonth);
-    setDailyCounts(res.data || {});
+    if (res.data) {
+      setDailyCounts(res.data);
+      CRMCache.set(cacheKey, res.data);
+    }
   }, [currentYear, currentMonth]);
 
   // If user opens the page without an explicit ?date in URL and today has no leads,
@@ -138,15 +147,26 @@ export default function DailyCadencePage() {
     }
   }, [dailyCounts]);
 
-  // Fetch leads for selected date (always fetch all channels to ensure complete operational metrics and share report fidelity)
+  // Fetch leads for selected date with SWR memory caching
   const fetchDateLeads = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
+    const cacheKey = `cadence-leads-${selectedDate}`;
+    const cached = CRMCache.get<OutreachLead[]>(cacheKey);
+
+    if (cached && !silent) {
+      setLeads(cached);
+      setLoading(false);
+    } else if (!silent && !cached) {
+      setLoading(true);
+    }
+
     const res = await getAllLeadsForPipeline(selectedDate, undefined);
     if (res.error && (res.error.includes("Unauthorized") || res.error.includes("session"))) {
       window.location.href = "/login";
       return;
     }
-    setLeads((res.data as OutreachLead[]) || []);
+    const fresh = (res.data as OutreachLead[]) || [];
+    setLeads(fresh);
+    CRMCache.set(cacheKey, fresh);
     if (!silent) setLoading(false);
   }, [selectedDate]);
 

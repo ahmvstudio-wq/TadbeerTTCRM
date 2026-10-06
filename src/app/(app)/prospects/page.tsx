@@ -1,7 +1,7 @@
 "use client";
 // Clean CRM UI
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import {
   Search, Plus, Building2, Phone, Mail, ExternalLink, Upload,
@@ -28,6 +28,7 @@ import { deleteCompany } from "@/lib/actions/delete";
 import { bulkImportCompanies } from "@/lib/actions/import";
 import { exportToCsv } from "@/lib/export-csv";
 import { useUnifiedLead } from "@/context/unified-lead-context";
+import { CRMCache } from "@/lib/cache/crm-cache";
 import { extractInstagramUrl as sharedExtractInstagramUrl } from "@/components/workspace/contact-channels-grid";
 import { getCleanIndustry } from "@/lib/utils";
 import { Moon, Archive, RotateCcw } from "lucide-react";
@@ -108,9 +109,9 @@ export default function ProspectsPage() {
   const [channelFilter, setChannelFilter] = useState("all");
   const [leadSegment, setLeadSegment] = useState<"all" | "new" | "database">("all");
   const [showDormant, setShowDormant] = useState(false);
-  const [prospects, setProspects] = useState<any[]>([]);
+  const [prospects, setProspects] = useState<any[]>(() => CRMCache.get<any[]>("prospects-all") || []);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !CRMCache.get("prospects-all"));
   const [error, setError] = useState<string | null>(null);
   const [csvOpen, setCsvOpen] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -129,7 +130,15 @@ export default function ProspectsPage() {
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
 
   const fetchProspects = useCallback(async (searchVal?: string, statusVal?: string, isRetry = false, silent = false) => {
-    if (!silent) setLoading(true);
+    const cacheKey = (!searchVal && !statusVal) ? "prospects-all" : `prospects-${searchVal || ""}-${statusVal || ""}`;
+    const cached = CRMCache.get<any[]>(cacheKey);
+
+    if (cached && !isRetry && !silent) {
+      setProspects(cached);
+      setLoading(false);
+    } else if (!silent && !cached) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const result = await getCompanies({ search: searchVal || undefined, status: statusVal || undefined });
@@ -139,25 +148,39 @@ export default function ProspectsPage() {
           return;
         }
         setError(result.error);
-        setProspects([]);
+        if (!cached) setProspects([]);
       } else {
-        setProspects(result.data || []);
+        const freshData = result.data || [];
+        setProspects(freshData);
+        CRMCache.set(cacheKey, freshData);
       }
     } catch (err) {
       if (!isRetry && err instanceof TypeError) {
         setTimeout(() => fetchProspects(searchVal, statusVal, true, silent), 1500);
         return;
       }
-      setError("Connection error. Please check the server is running and click Retry.");
-      setProspects([]);
+      if (!cached) {
+        setError("Connection error. Please check the server is running and click Retry.");
+        setProspects([]);
+      }
     }
     finally { 
       if (!silent) setLoading(false); 
     }
   }, []);
 
-  useEffect(() => { fetchProspects(undefined, undefined, false, false); }, [fetchProspects]);
-  useEffect(() => { const t = setTimeout(() => fetchProspects(search, statusFilter, false, false), 300); return () => clearTimeout(t); }, [search, statusFilter, fetchProspects]);
+  const isFirstMount = useRef(true);
+  useEffect(() => {
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      fetchProspects(search, statusFilter, false, false);
+      return;
+    }
+    const t = setTimeout(() => fetchProspects(search, statusFilter, false, false), 300);
+    return () => clearTimeout(t);
+  }, [search, statusFilter, fetchProspects]);
+
+  const updateDebounceRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
     const handleLeadUpdated = (e: any) => {
       const detail = e?.detail;
@@ -176,10 +199,16 @@ export default function ProspectsPage() {
         }));
       }
 
-      fetchProspects(search, statusFilter, false, true);
+      if (updateDebounceRef.current) clearTimeout(updateDebounceRef.current);
+      updateDebounceRef.current = setTimeout(() => {
+        fetchProspects(search, statusFilter, false, true);
+      }, 600);
     };
     window.addEventListener("lead-updated", handleLeadUpdated);
-    return () => window.removeEventListener("lead-updated", handleLeadUpdated);
+    return () => {
+      window.removeEventListener("lead-updated", handleLeadUpdated);
+      if (updateDebounceRef.current) clearTimeout(updateDebounceRef.current);
+    };
   }, [fetchProspects, search, statusFilter]);
 
   const handleImport = async (data: Record<string, string>[], channel?: any) => {
@@ -1150,15 +1179,15 @@ export default function ProspectsPage() {
       ) : viewMode === 'table' ? (
 
         /* ── CATEGORIZED TABLE VIEW ──────────────────────────────────────── */
-        <div className="bg-white/85 backdrop-blur-xl rounded-2xl border border-black/[0.06] shadow-glass overflow-hidden">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse font-sans">
               <thead>
-                <tr className="bg-[#f5f5f7]/80 border-b border-black/[0.05] text-[10px] font-mono font-medium text-[#6b7280] uppercase tracking-wider">
+                <tr className="bg-slate-100/90 border-b border-slate-200 text-[11px] font-mono font-bold text-slate-700 uppercase tracking-wider">
                   <th className="py-3.5 px-4 w-10">
                     <input
                       type="checkbox"
-                      checked={selectedIds.length === sortedProspects.length}
+                      checked={selectedIds.length === sortedProspects.length && sortedProspects.length > 0}
                       onChange={(e) => setSelectedIds(e.target.checked ? sortedProspects.map(p => p.id) : [])}
                       className="h-3.5 w-3.5 rounded border-neutral-300 text-black focus:ring-black cursor-pointer"
                     />
@@ -1171,7 +1200,7 @@ export default function ProspectsPage() {
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-100 text-xs font-medium">
+              <tbody className="divide-y divide-slate-100 text-xs font-medium">
                 {paginatedProspects.map((prospect) => {
                   const contact = prospect.contacts?.[0];
                   const primaryName = contact?.full_name || prospect.company_name;
@@ -1226,7 +1255,7 @@ export default function ProspectsPage() {
                                 </span>
                               )}
                             </div>
-                            <p className="text-[11px] text-neutral-500 truncate mt-0.5">
+                            <p className="text-[11px] text-slate-600 font-medium truncate mt-0.5">
                               {titleSub ? `${titleSub} @ ` : ''}{companySub}
                             </p>
                           </div>
@@ -1250,16 +1279,16 @@ export default function ProspectsPage() {
 
                       {/* Industry */}
                       <td className="py-3.5 px-4 hidden md:table-cell">
-                        <span className="text-neutral-700 text-xs font-semibold truncate block max-w-[160px]">
+                        <span className="text-slate-800 text-xs font-bold truncate block max-w-[160px]">
                           {getCleanIndustry(prospect)}
                         </span>
-                        <span className="text-[10px] text-neutral-400 font-mono block">
+                        <span className="text-[10px] text-slate-500 font-mono block">
                           {[prospect.city, prospect.country].filter(Boolean).join(", ") || 'Oman'}
                         </span>
                       </td>
 
                       {/* Date Added */}
-                      <td className="py-3.5 px-4 hidden lg:table-cell font-mono text-[11px] text-neutral-500">
+                      <td className="py-3.5 px-4 hidden lg:table-cell font-mono text-[11px] font-semibold text-slate-600">
                         {addedDate}
                       </td>
 
@@ -1367,8 +1396,12 @@ export default function ProspectsPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 w-7 p-0 rounded text-neutral-400 hover:text-black"
-                            onClick={() => openDrawer(prospect)}
+                            className="h-7 w-7 p-0 rounded text-slate-500 hover:text-black cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDrawer(prospect);
+                            }}
+                            title="Open lead details"
                           >
                             <ChevronRight className="h-4 w-4" />
                           </Button>

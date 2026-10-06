@@ -534,6 +534,7 @@ let inMemoryDailyLogs: LinkedInDailyLog[] = [DEFAULT_23_JULY_DAILY_LOG];
 // ── Fetch all LinkedIn prospects ─────────────────────────────────────────────
 export async function getLinkedInProspects(): Promise<{ data: LinkedInProspect[] | null; error: string | null }> {
   try {
+    await requireAuth();
     const { data, error } = await supabase
       .from('linkedin_prospects')
       .select('*')
@@ -568,6 +569,7 @@ export async function getLinkedInProspects(): Promise<{ data: LinkedInProspect[]
 // ── Create or Update (Deduplicate) LinkedIn prospect ─────────────────────────
 export async function createOrUpdateLinkedInProspect(prospect: Partial<LinkedInProspect>): Promise<{ data: LinkedInProspect | null; error: string | null }> {
   try {
+    await requireAuth();
     const { data: allProspects } = await getLinkedInProspects()
     const existingList = allProspects || inMemoryProspects
 
@@ -664,6 +666,7 @@ export async function createOrUpdateLinkedInProspect(prospect: Partial<LinkedInP
 // ── Add Timeline Activity ───────────────────────────────────────────────────
 export async function addTimelineActivity(prospectId: string, activity: Omit<TimelineActivity, 'id'>): Promise<{ error: string | null }> {
   try {
+    await requireAuth()
     const { data: prospects } = await getLinkedInProspects()
     const target = prospects?.find(p => p.id === prospectId)
     if (!target) return { error: 'Prospect not found' }
@@ -692,61 +695,87 @@ export async function addTimelineActivity(prospectId: string, activity: Omit<Tim
 
 // ── Update Connection Status ─────────────────────────────────────────────────
 export async function updateConnectionStatus(id: string, connection_status: ConnectionStatus) {
-  const { error } = await supabase
-    .from('linkedin_prospects')
-    .update({ connection_status, updated_at: new Date().toISOString() })
-    .eq('id', id)
+  try {
+    await requireAuth()
+    const { error } = await supabase
+      .from('linkedin_prospects')
+      .update({ connection_status, updated_at: new Date().toISOString() })
+      .eq('id', id)
 
-  inMemoryProspects = inMemoryProspects.map(p => p.id === id ? { ...p, connection_status } : p)
-  return { error: error ? error.message : null }
+    inMemoryProspects = inMemoryProspects.map(p => p.id === id ? { ...p, connection_status } : p)
+    return { error: error ? error.message : null }
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : String(err) }
+  }
 }
 
 // ── Update Message Status ────────────────────────────────────────────────────
 export async function updateMessageStatus(id: string, message_status: MessageStatus) {
-  const { error } = await supabase
-    .from('linkedin_prospects')
-    .update({ message_status, updated_at: new Date().toISOString() })
-    .eq('id', id)
+  try {
+    await requireAuth()
+    const { error } = await supabase
+      .from('linkedin_prospects')
+      .update({ message_status, updated_at: new Date().toISOString() })
+      .eq('id', id)
 
-  inMemoryProspects = inMemoryProspects.map(p => p.id === id ? { ...p, message_status } : p)
-  return { error: error ? error.message : null }
+    inMemoryProspects = inMemoryProspects.map(p => p.id === id ? { ...p, message_status } : p)
+    return { error: error ? error.message : null }
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : String(err) }
+  }
 }
 
 // ── Update Prospect Priority ─────────────────────────────────────────────────
 export async function updateProspectPriority(id: string, priority: string) {
-  const { error } = await supabase
-    .from('linkedin_prospects')
-    .update({ priority, updated_at: new Date().toISOString() })
-    .eq('id', id)
+  try {
+    await requireAuth()
+    const { error } = await supabase
+      .from('linkedin_prospects')
+      .update({ priority, updated_at: new Date().toISOString() })
+      .eq('id', id)
 
-  inMemoryProspects = inMemoryProspects.map(p => p.id === id ? { ...p, priority } : p)
-  return { error: error ? error.message : null }
+    inMemoryProspects = inMemoryProspects.map(p => p.id === id ? { ...p, priority } : p)
+    return { error: error ? error.message : null }
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : String(err) }
+  }
 }
 
 // ── Update Notes ─────────────────────────────────────────────────────────────
 export async function updateProspectNotes(id: string, notes: string) {
-  const { error } = await supabase
-    .from('linkedin_prospects')
-    .update({ notes, updated_at: new Date().toISOString() })
-    .eq('id', id)
+  try {
+    await requireAuth()
+    const { error } = await supabase
+      .from('linkedin_prospects')
+      .update({ notes, updated_at: new Date().toISOString() })
+      .eq('id', id)
 
-  inMemoryProspects = inMemoryProspects.map(p => p.id === id ? { ...p, notes } : p)
-  return { error: error ? error.message : null }
+    inMemoryProspects = inMemoryProspects.map(p => p.id === id ? { ...p, notes } : p)
+    return { error: error ? error.message : null }
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : String(err) }
+  }
 }
 
 // ── Delete Prospect ──────────────────────────────────────────────────────────
 export async function deleteLinkedInProspect(id: string) {
-  const { error } = await supabase
-    .from('linkedin_prospects')
-    .delete()
-    .eq('id', id)
+  try {
+    await requireAuth()
+    const { error } = await supabase
+      .from('linkedin_prospects')
+      .delete()
+      .eq('id', id)
 
-  inMemoryProspects = inMemoryProspects.filter(p => p.id !== id)
-  return { error: error ? error.message : null }
+    inMemoryProspects = inMemoryProspects.filter(p => p.id !== id)
+    return { error: error ? error.message : null }
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : String(err) }
+  }
 }
 
 // ── Seed Initial Prospects ────────────────────────────────────────────────────
 export async function seedLinkedInProspects() {
+  await requireAuth()
   const now = new Date().toISOString()
   
   // Combine 23 July entries with previous seed entries (deduplicating Walid Merabbi)
@@ -917,6 +946,7 @@ export async function seedLinkedInProspects() {
 // ── Fetch Daily Logs ─────────────────────────────────────────────────────────
 export async function getLinkedInDailyLogs(): Promise<{ data: LinkedInDailyLog[] | null; error: string | null }> {
   try {
+    await requireAuth()
     const { data, error } = await supabase
       .from('linkedin_daily_logs')
       .select('*')
@@ -948,6 +978,7 @@ export async function getLinkedInDailyLogs(): Promise<{ data: LinkedInDailyLog[]
 // ── Create or Update Daily Log ───────────────────────────────────────────────
 export async function createOrUpdateDailyLog(log: LinkedInDailyLog): Promise<{ data: LinkedInDailyLog | null; error: string | null }> {
   try {
+    await requireAuth()
     inMemoryDailyLogs = [log, ...inMemoryDailyLogs.filter(l => l.date !== log.date)]
     const payload = {
       log_date: log.date,
@@ -1041,6 +1072,7 @@ export async function convertProspectToPipeline(prospectId: string) {
 
 export async function updateProspectBdStage(prospectId: string, stage: LinkedInBdStage) {
   try {
+    await requireAuth()
     inMemoryProspects = inMemoryProspects.map(p => p.id === prospectId ? { ...p, bd_stage: stage } : p);
     const { error } = await supabase.from('linkedin_prospects').update({ bd_stage: stage, updated_at: new Date().toISOString() }).eq('id', prospectId);
     return { error: error ? error.message : null };
@@ -1051,6 +1083,7 @@ export async function updateProspectBdStage(prospectId: string, stage: LinkedInB
 
 export async function updateProspectTier(prospectId: string, tier: 'Tier 1' | 'Tier 2' | 'Tier 3') {
   try {
+    await requireAuth()
     inMemoryProspects = inMemoryProspects.map(p => p.id === prospectId ? { ...p, tier } : p);
     const { error } = await supabase.from('linkedin_prospects').update({ tier, updated_at: new Date().toISOString() }).eq('id', prospectId);
     return { error: error ? error.message : null };
@@ -1061,6 +1094,7 @@ export async function updateProspectTier(prospectId: string, tier: 'Tier 1' | 'T
 
 export async function updateTadbeerAngle(prospectId: string, angle: string) {
   try {
+    await requireAuth()
     inMemoryProspects = inMemoryProspects.map(p => p.id === prospectId ? { ...p, tadbeer_angle: angle } : p);
     const { error } = await supabase.from('linkedin_prospects').update({ tadbeer_angle: angle, updated_at: new Date().toISOString() }).eq('id', prospectId);
     return { error: error ? error.message : null };
@@ -1073,6 +1107,7 @@ export async function updateTadbeerAngle(prospectId: string, angle: string) {
 // ── Sync Main CRM Contacts to LinkedIn Prospects ─────────────────────────────
 export async function syncCRMContactsToLinkedIn() {
   try {
+    await requireAuth()
     // 1. Fetch contacts with LinkedIn URLs from main CRM
     const { data: contacts, error: contactsError } = await supabase
       .from('contacts')

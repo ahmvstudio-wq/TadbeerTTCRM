@@ -3,14 +3,21 @@
 import { requireAuth } from '@/lib/auth-guard'
 import { getSupabaseAdminClient } from '@/lib/supabase/config'
 import { getAllLeadsForPipeline } from '@/lib/actions/ig-dm'
+import { getServerCached, setServerCached, invalidateServerCache } from '@/lib/cache/server-cache'
 
 import { resolveDateRange, isDateInRange, type ResolvedDateRange } from '@/lib/date-utils'
 
 const supabase = getSupabaseAdminClient()
 
-export async function getDashboardStats(dateFilter: string = 'all') {
+export async function getDashboardStats(dateFilter: string = 'all', preloadedLeads?: any[]) {
   try {
     await requireAuth()
+
+    const cacheKey = `dashboard-stats-${dateFilter}`
+    if (!preloadedLeads) {
+      const cached = getServerCached<any>(cacheKey, 20000)
+      if (cached) return { data: cached, error: null }
+    }
 
     const range = resolveDateRange(dateFilter)
     const isFiltered = Boolean(range.startDate && range.endDate)
@@ -34,7 +41,7 @@ export async function getDashboardStats(dateFilter: string = 'all') {
       supabase.from('opportunities').select('id, estimated_value, probability, stage, created_at').range(0, 4999),
       supabase.from('activities').select('id, metadata, created_at').eq('activity_type', 'note').contains('metadata', { is_audit: true }).range(0, 4999),
       supabase.from('activities').select('id, activity_type, created_at, company_id, description').range(0, 4999),
-      getAllLeadsForPipeline(dateFilter)
+      preloadedLeads ? Promise.resolve({ data: preloadedLeads, error: null }) : getAllLeadsForPipeline(dateFilter)
     ])
 
     if (companiesResult.error) {
@@ -227,6 +234,7 @@ export async function getDashboardStats(dateFilter: string = 'all') {
       }
     })
 
+    setServerCached(cacheKey, stats)
     return { data: stats, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
@@ -236,6 +244,10 @@ export async function getDashboardStats(dateFilter: string = 'all') {
 export async function getRecentActivity(limit: number = 20) {
   try {
     await requireAuth()
+
+    const cacheKey = `recent-activity-${limit}`
+    const cached = getServerCached<any[]>(cacheKey, 15000)
+    if (cached) return { data: cached, error: null }
 
     const { data, error } = await supabase
       .from('activities')
@@ -258,6 +270,7 @@ export async function getRecentActivity(limit: number = 20) {
       user_avatar: (activity.users as any)?.avatar_url
     })) || []
 
+    setServerCached(cacheKey, activities)
     return { data: activities, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }

@@ -4,24 +4,12 @@ import { getSupabaseAdminClient } from '@/lib/supabase/config'
 import { requireAuth } from '@/lib/auth-guard'
 import { revalidatePath } from 'next/cache'
 import { CADENCE_DELAYS, calculateNextDueDate, TTT_CATEGORY_PLAYBOOKS, normalizeCategory } from '@/lib/outreach-playbook'
-import { extractInstagramUrl } from '@/components/workspace/contact-channels-grid'
-import { formatWhatsAppNumber } from '@/lib/utils'
+import { formatWhatsAppNumber, extractInstagramUrl } from '@/lib/utils'
 
 const supabase = getSupabaseAdminClient()
 
 function revalidateAllCRMPages() {
-  try {
-    revalidatePath('/follow-ups')
-    revalidatePath('/outreach')
-    revalidatePath('/daily-cadence')
-    revalidatePath('/dashboard')
-    revalidatePath('/prospects')
-    revalidatePath('/pipeline')
-    revalidatePath('/meetings')
-    revalidatePath('/calls')
-  } catch {
-    // safe fallback
-  }
+  // Client components maintain instant state via optimistic UI and CustomEvents.
 }
 
 export interface CadenceFollowUpItem {
@@ -545,6 +533,24 @@ export async function createFollowUp(data: {
   try {
     await requireAuth()
 
+    const rawChannel = data.channel || 'call'
+    const dbChannel = (rawChannel === 'instagram_dm' || rawChannel === 'instagram')
+      ? 'whatsapp'
+      : (['whatsapp', 'call', 'email', 'linkedin', 'meeting'].includes(rawChannel) ? rawChannel : 'call')
+    const channelTag = (rawChannel === 'instagram_dm' || rawChannel === 'instagram') ? ' [Channel: Instagram DM]' : ''
+    const description = (data.description || '') + channelTag
+
+    // Auto-complete older pending follow-ups for this company to prevent duplicates
+    await supabase
+      .from('follow_ups')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        notes: 'Superceded by newly scheduled follow-up'
+      })
+      .eq('company_id', data.company_id)
+      .eq('status', 'pending')
+
     const { data: followUp, error } = await supabase
       .from('follow_ups')
       .insert({
@@ -553,8 +559,8 @@ export async function createFollowUp(data: {
         due_date: data.due_date,
         due_time: data.due_time,
         subject: data.subject,
-        description: data.description,
-        channel: data.channel || 'call',
+        description: description || null,
+        channel: dbChannel,
         status: 'pending',
         created_at: new Date().toISOString()
       })

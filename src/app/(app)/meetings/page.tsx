@@ -12,8 +12,9 @@ import { Select } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { getMeetings, bookMeeting, updateMeetingStatus } from "@/lib/actions/meetings";
 import { deleteMeeting } from "@/lib/actions/delete";
-import { getCompanies } from "@/lib/actions/companies";
+import { getCompaniesLookup } from "@/lib/actions/companies";
 import { useUnifiedLead } from "@/context/unified-lead-context";
+import { CRMCache } from "@/lib/cache/crm-cache";
 
 const STATUS_COLORS: Record<string, string> = {
   scheduled: "bg-purple-100 text-purple-700 border-purple-200",
@@ -24,22 +25,38 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function MeetingsPage() {
   const { openLead } = useUnifiedLead();
-  const [meetings, setMeetings] = useState<any[]>([]);
-  const [companies, setCompanies] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [meetings, setMeetings] = useState<any[]>(() => CRMCache.get<any[]>("meetings-all") || []);
+  const [companies, setCompanies] = useState<any[]>(() => CRMCache.get<any[]>("companies-lookup") || []);
+  const [loading, setLoading] = useState(() => !CRMCache.get("meetings-all"));
   const [bookDialogOpen, setBookDialogOpen] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [newMeeting, setNewMeeting] = useState({ title: "", company_id: "", contact_name: "", date: "", duration: 30, location: "", description: "" });
 
   const fetchData = async (silent = false) => {
-    if (!silent) setLoading(true);
-    const [mRes, cRes] = await Promise.all([getMeetings("all"), getCompanies()]);
+    const cachedMeetings = CRMCache.get<any[]>("meetings-all");
+    const cachedCos = CRMCache.get<any[]>("companies-lookup");
+
+    if (cachedMeetings && !silent) {
+      setMeetings(cachedMeetings);
+      if (cachedCos) setCompanies(cachedCos);
+      setLoading(false);
+    } else if (!silent && !cachedMeetings) {
+      setLoading(true);
+    }
+
+    const [mRes, cRes] = await Promise.all([getMeetings("all"), getCompaniesLookup()]);
     if ((mRes.error && mRes.error.includes("Unauthorized")) || (cRes.error && cRes.error.includes("Unauthorized"))) {
       window.location.href = "/login";
       return;
     }
-    if (mRes.data) setMeetings(mRes.data);
-    if (cRes.data) setCompanies(cRes.data);
+    if (mRes.data) {
+      setMeetings(mRes.data);
+      CRMCache.set("meetings-all", mRes.data);
+    }
+    if (cRes.data) {
+      setCompanies(cRes.data);
+      CRMCache.set("companies-lookup", cRes.data);
+    }
     if (!silent) setLoading(false);
   };
 

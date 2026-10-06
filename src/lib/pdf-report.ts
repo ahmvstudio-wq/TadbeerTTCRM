@@ -135,7 +135,7 @@ export function generateLeadsReport(leads: any[], leadTypeMap: Record<string, st
       { label: "Meetings Booked", value: statusCounts["Meeting Booked"] || 0 },
       { label: "Proposals Sent", value: statusCounts["Proposal Sent"] || 0 },
       { label: "Won", value: statusCounts["Won"] || 0 },
-      { label: "Pipeline Value", value: `OMR ${leads.reduce((s, l) => s + (l.est_deal_value || 0), 0).toLocaleString()}` },
+      { label: "Pipeline Value", value: `OMR ${leads.reduce((s, l) => s + (Number(l.est_deal_value) || 0), 0).toLocaleString()}` },
     ],
     sections: [
       {

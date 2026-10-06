@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Plus, X, ChevronDown, ChevronUp, Phone, MessageCircle,
   Loader2, Trash2, CheckCircle2, RefreshCw, Moon, Send,
@@ -33,6 +33,7 @@ import { useUnifiedLead } from "@/context/unified-lead-context";
 import { UnifiedStatusBadge } from "@/components/status/unified-status-badge";
 import { UNIFIED_STATUSES, getUnifiedStatus } from "@/lib/constants/statuses";
 import { DateRangeFilter } from "@/components/ui/date-range-filter";
+import { CRMCache } from "@/lib/cache/crm-cache";
 
 // ─── Channel Icon Renderer ────────────────────────────────────────────────────
 function ChannelIcon({ channel, size = 14 }: { channel: OutreachChannel; size?: number }) {
@@ -120,8 +121,8 @@ const SECTORS: SectorCategory[] = [
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function OutreachPipelinePage() {
-  const [leads, setLeads] = useState<OutreachLead[]>([]);
-  const [initialLoading, setInitialLoading] = useState(true);
+  const [leads, setLeads] = useState<OutreachLead[]>(() => CRMCache.get<OutreachLead[]>("outreach-all-all") || []);
+  const [initialLoading, setInitialLoading] = useState(() => !CRMCache.get("outreach-all-all"));
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [channelFilter, setChannelFilter] = useState<OutreachChannel | "all">("all");
   const [sectorFilter, setSectorFilter] = useState<SectorCategory | "all">("all");
@@ -162,32 +163,69 @@ export default function OutreachPipelinePage() {
   const [bulkUpdating, setBulkUpdating] = useState(false);
 
   const fetchLeads = useCallback(async (isSilent = false) => {
-    if (!isSilent) setInitialLoading(true);
+    const cacheKey = `outreach-${dateFilter}-${channelFilter}`;
+    const cached = CRMCache.get<OutreachLead[]>(cacheKey);
+
+    if (cached && !isSilent) {
+      setLeads(cached);
+      setInitialLoading(false);
+    } else if (!isSilent && !cached) {
+      setInitialLoading(true);
+    }
+
     const result = await getAllLeadsForPipeline(
       dateFilter,
       channelFilter === "all" ? undefined : channelFilter
     );
-    if (result.error && (result.error.includes("Unauthorized") || result.error.includes("session"))) {
+    if (result.error && typeof result.error === "string" && (result.error.includes("Unauthorized") || result.error.includes("session"))) {
       window.location.href = "/login";
       return;
     }
-    setLeads((result.data as OutreachLead[]) || []);
+    const freshData = (result.data as OutreachLead[]) || [];
+    setLeads(freshData);
+    CRMCache.set(cacheKey, freshData);
     setInitialLoading(false);
   }, [dateFilter, channelFilter]);
 
   useEffect(() => { fetchLeads(false); }, [fetchLeads]);
 
+  const outreachDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
   const handleSilentUpdate = useCallback(() => {
-    fetchLeads(true);
+    if (outreachDebounceRef.current) clearTimeout(outreachDebounceRef.current);
+    outreachDebounceRef.current = setTimeout(() => {
+      fetchLeads(true);
+    }, 500);
   }, [fetchLeads]);
 
   useEffect(() => {
-    const handleLeadUpdated = () => {
-      fetchLeads(true);
+    const handleLeadUpdated = (e: any) => {
+      const detail = e?.detail;
+      if (detail?.companyId && detail.status) {
+        setLeads(prev => prev.map(l => {
+          if (l.company_id === detail.companyId || l.id === detail.companyId || l.id === `staged-${detail.companyId}`) {
+            return {
+              ...l,
+              status: detail.status,
+              stage: detail.status,
+              statuses: detail.statuses || l.statuses,
+            };
+          }
+          return l;
+        }));
+      }
+
+      if (outreachDebounceRef.current) clearTimeout(outreachDebounceRef.current);
+      outreachDebounceRef.current = setTimeout(() => {
+        fetchLeads(true);
+      }, 600);
     };
     if (typeof window !== "undefined") {
       window.addEventListener("lead-updated", handleLeadUpdated);
-      return () => window.removeEventListener("lead-updated", handleLeadUpdated);
+      return () => {
+        window.removeEventListener("lead-updated", handleLeadUpdated);
+        if (outreachDebounceRef.current) clearTimeout(outreachDebounceRef.current);
+      };
     }
   }, [fetchLeads]);
 
@@ -312,8 +350,8 @@ export default function OutreachPipelinePage() {
 
   const handleLaunchPowerHour = () => {
     const ch = channelFilter === "all" ? "instagram_dm" : channelFilter;
-    const batch = filteredLeads.filter(l => l.channel === ch || channelFilter === "all").slice(0, 25);
-    setPowerHourLeads(batch.length > 0 ? batch : filteredLeads.slice(0, 25));
+    const channelLeads = leads.filter(l => channelFilter === "all" ? true : l.channel === ch);
+    setPowerHourLeads(channelLeads.length > 0 ? channelLeads : leads);
     setPowerHourChannel(ch);
     setPowerHourOpen(true);
   };
@@ -1042,6 +1080,7 @@ export default function OutreachPipelinePage() {
         }}
         channel={powerHourChannel}
         leads={powerHourLeads}
+        initialSector={sectorFilter !== "all" ? (sectorFilter as SectorCategory) : "all"}
         onLeadSent={(sentId) => {
           setPowerHourLeads(prev => prev.filter(l => l.id !== sentId));
           handleSilentUpdate();

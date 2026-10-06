@@ -41,6 +41,7 @@ import {
   type CadenceFollowUpItem
 } from "@/lib/actions/followups";
 import { cn } from "@/lib/utils";
+import { CRMCache } from "@/lib/cache/crm-cache";
 
 // ─── Channel Icon Helper ───────────────────────────────────────────────────────
 function ChannelBadge({ channel }: { channel: string }) {
@@ -137,8 +138,13 @@ function CadenceStageStepper({ currentStage }: { currentStage: number }) {
 
 export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: CadenceFollowUpItem[] }) {
   const { openLead } = useUnifiedLead();
-  const [items, setItems] = useState<CadenceFollowUpItem[]>(initialItems);
-  const [loading, setLoading] = useState(false);
+  
+  const cachedItems = useMemo(() => {
+    return initialItems.length > 0 ? initialItems : (CRMCache.get<CadenceFollowUpItem[]>("followups-cadence") || []);
+  }, [initialItems]);
+
+  const [items, setItems] = useState<CadenceFollowUpItem[]>(cachedItems);
+  const [loading, setLoading] = useState<boolean>(() => cachedItems.length === 0);
   const [activeTab, setActiveTab] = useState<"today" | "overdue" | "upcoming" | "all">("today");
   const [searchQuery, setSearchQuery] = useState("");
   const [channelFilter, setChannelFilter] = useState<string>("all");
@@ -158,28 +164,43 @@ export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: C
   const [meetingDate, setMeetingDate] = useState("");
   const [recordingReply, setRecordingReply] = useState(false);
 
-  // Load Cadence Follow-ups
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  // Load Cadence Follow-ups with silent background support
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent && !CRMCache.get("followups-cadence")) setLoading(true);
     try {
       const res = await getCadenceFollowUps();
       if (res.error) {
-        addToast("error", `Failed to load follow-ups: ${res.error}`);
+        if (!silent) addToast("error", `Failed to load follow-ups: ${res.error}`);
       } else {
-        setItems(res.data || []);
+        const fresh = res.data || [];
+        setItems(fresh);
+        CRMCache.set("followups-cadence", fresh);
       }
     } catch (err: any) {
-      addToast("error", err.message || "Failed to load cadence follow-ups");
+      if (!silent) addToast("error", err.message || "Failed to load cadence follow-ups");
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (initialItems.length === 0) {
-      loadData();
+    if (initialItems.length > 0) {
+      CRMCache.set("followups-cadence", initialItems);
     }
-  }, [initialItems.length, loadData]);
+    if (cachedItems.length === 0 || CRMCache.isStale("followups-cadence", 60000)) {
+      loadData(cachedItems.length > 0);
+    }
+  }, [initialItems, cachedItems.length, loadData]);
+
+  useEffect(() => {
+    const handleLeadUpdated = () => {
+      loadData(true);
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("lead-updated", handleLeadUpdated);
+      return () => window.removeEventListener("lead-updated", handleLeadUpdated);
+    }
+  }, [loadData]);
 
   // Derived metrics
   const todayCount = useMemo(() => items.filter((i) => i.is_today).length, [items]);
@@ -322,7 +343,7 @@ export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: C
               <Button
                 variant="outline"
                 size="sm"
-                onClick={loadData}
+                onClick={() => loadData(false)}
                 disabled={loading}
                 className="gap-1.5 text-xs text-neutral-600 hover:text-black border-neutral-200 hover:bg-neutral-50 cursor-pointer"
               >

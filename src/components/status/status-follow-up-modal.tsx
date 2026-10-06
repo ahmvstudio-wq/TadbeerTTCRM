@@ -150,74 +150,91 @@ export function StatusFollowUpModal({
   }, [selectedCategory, searchQuery]);
 
   const handleSave = async () => {
-    setSaving(true);
     const targetStatusConfig = getUnifiedStatus(primaryStatus || selectedStatuses[0]);
     const targetDueDate = currentFollowUp.dateStr;
+    const noteText = followUpNote || `Follow up with ${companyName} (${targetStatusConfig.label})`;
 
+    // 1. Instant Optimistic UI Update (0ms perceived latency)
+    if (onSuccess) {
+      onSuccess(targetStatusConfig.id, targetDueDate, selectedStatuses);
+    }
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("lead-updated", {
+          detail: {
+            source: "status_followup_modal",
+            companyId,
+            activityId,
+            status: targetStatusConfig.id,
+            statuses: selectedStatuses,
+            followUpDate: targetDueDate,
+          },
+        })
+      );
+    }
+
+    if (targetDueDate) {
+      addToast(
+        "success",
+        `Status updated (${selectedStatuses.length} tags) & follow-up scheduled for ${currentFollowUp.label}!`
+      );
+    } else {
+      addToast("success", `Status updated (${selectedStatuses.length} tags)`);
+    }
+
+    // Immediately close modal so user can proceed without waiting
+    onClose();
+
+    // 2. Perform server sync in the background
     try {
-      // 1. Update company and schedule follow up
       if (activityId) {
         await updateOutreachStatus(activityId, {
           status: targetStatusConfig.id as any,
           statuses: selectedStatuses,
           followUpDate: targetDueDate,
-          followUpNote: followUpNote || `Follow up with ${companyName} (${targetStatusConfig.label})`,
+          followUpNote: noteText,
+          followUpChannel,
+        });
+      } else {
+        await updateLeadStatusAndScheduleFollowUp({
+          companyId,
+          activityId,
+          status: targetStatusConfig.id,
+          followUpDate: targetDueDate,
+          followUpNote: noteText,
           followUpChannel,
         });
       }
-
-      await updateLeadStatusAndScheduleFollowUp({
-        companyId,
-        activityId,
-        status: targetStatusConfig.id,
-        followUpDate: targetDueDate,
-        followUpNote: followUpNote || `Follow up with ${companyName} (${targetStatusConfig.label})`,
-        followUpChannel,
-      });
-
-      // Dispatch real-time event across the window
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(
-          new CustomEvent("lead-updated", {
-            detail: {
-              source: "status_followup_modal",
-              companyId,
-              status: targetStatusConfig.id,
-              statuses: selectedStatuses,
-              followUpDate: targetDueDate,
-            },
-          })
-        );
-      }
-
-      if (targetDueDate) {
-        addToast(
-          "success",
-          `Status updated (${selectedStatuses.length} tags) & follow-up scheduled for ${currentFollowUp.label}!`
-        );
-      } else {
-        addToast("success", `Status updated (${selectedStatuses.length} tags)`);
-      }
-
-      if (onSuccess) {
-        onSuccess(targetStatusConfig.id, targetDueDate, selectedStatuses);
-      }
-
-      onClose();
     } catch (err: any) {
-      console.error("Failed to update status and schedule follow up:", err);
-      addToast("error", err?.message || "Failed to update status");
-    } finally {
-      setSaving(false);
+      console.error("Failed to sync status update to server:", err);
+      addToast("error", err?.message || "Failed to sync status update to server");
     }
   };
+
+  // ESC listener and body scroll locking
+  useEffect(() => {
+    if (!isOpen) return;
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150 cursor-pointer"
+      onClick={onClose}
+    >
       <div 
-        className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden text-slate-900"
+        className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden text-slate-900 cursor-default"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Header ──────────────────────────────────────────────────────── */}

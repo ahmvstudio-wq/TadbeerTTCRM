@@ -5,18 +5,7 @@ import { requireAuth } from '@/lib/auth-guard'
 import { revalidatePath } from 'next/cache'
 
 function revalidateAllCRMPages() {
-  try {
-    revalidatePath('/outreach')
-    revalidatePath('/daily-cadence')
-    revalidatePath('/dashboard')
-    revalidatePath('/prospects')
-    revalidatePath('/pipeline')
-    revalidatePath('/meetings')
-    revalidatePath('/calls')
-    revalidatePath('/follow-ups')
-  } catch (e) {
-    // ignore in non-request contexts
-  }
+  // Client components maintain instant state via optimistic UI and CustomEvents.
 }
 
 export async function getOpportunities(filter?: { stage?: string }) {
@@ -125,20 +114,14 @@ export async function updateOpportunityStage(id: string, stage: string) {
     await requireAuth()
     const supabase = await createClient()
 
-    let query = supabase.from('opportunities').select('*')
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
-
-    if (isUuid) {
-      query = query.eq('id', id)
-    } else {
-      query = query.ilike('title', `%${id}%`).order('created_at', { ascending: false }).limit(1)
-    }
-
-    const { data: fetchResult, error: fetchError } = await query
-    const opportunity = fetchResult?.[0]
+    const { data: opportunity, error: fetchError } = await supabase
+      .from('opportunities')
+      .select('*')
+      .eq('id', id)
+      .single()
 
     if (fetchError || !opportunity) {
-      return { data: null, error: fetchError?.message || `Opportunity not found matching: ${id}` }
+      return { data: null, error: fetchError?.message || `Opportunity not found for ID: ${id}` }
     }
 
     const stageProbabilities: Record<string, number> = {

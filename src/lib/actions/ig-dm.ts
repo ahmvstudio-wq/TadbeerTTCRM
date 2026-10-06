@@ -3,22 +3,12 @@
 import { getSupabaseAdminClient } from '@/lib/supabase/config'
 import { requireAuth } from '@/lib/auth-guard'
 import { revalidatePath } from 'next/cache'
+import { getServerCached, setServerCached, invalidateServerCache } from '@/lib/cache/server-cache'
 
 const supabase = getSupabaseAdminClient()
 
 function revalidateAllCRMPages() {
-  try {
-    revalidatePath('/outreach')
-    revalidatePath('/daily-cadence')
-    revalidatePath('/dashboard')
-    revalidatePath('/prospects')
-    revalidatePath('/pipeline')
-    revalidatePath('/meetings')
-    revalidatePath('/calls')
-    revalidatePath('/follow-ups')
-  } catch {
-    // safe fallback in case called outside request context
-  }
+  invalidateServerCache()
 }
 
 import {
@@ -31,6 +21,7 @@ import {
   TEMPLATE_LABELS
 } from "../types/outreach"
 import { isValidLinkedInUrl } from '@/lib/utils'
+import { normalizeCategorySync } from '@/lib/outreach-playbook'
 import {
   mapToDbLeadStatus,
   mapToDbCompanyStatus,
@@ -45,6 +36,26 @@ function getValidActivityType(channel: string): string {
   if (channel === 'whatsapp') return 'whatsapp_sent';
   if (channel === 'instagram_dm' || channel === 'linkedin') return 'outreach_sent';
   return 'call_made';
+}
+
+function toSafeFollowUpChannel(ch?: string): 'whatsapp' | 'call' | 'email' | 'linkedin' {
+  if (!ch) return 'whatsapp';
+  const lower = ch.toLowerCase();
+  if (lower === 'call' || lower === 'phone') return 'call';
+  if (lower === 'email') return 'email';
+  if (lower === 'linkedin') return 'linkedin';
+  return 'whatsapp';
+}
+
+function parseSafeOutreachDate(dateStr?: string | null): string {
+  if (!dateStr) return new Date().toISOString();
+  try {
+    const d = new Date(dateStr.includes('T') ? dateStr : `${dateStr}T12:00:00.000Z`);
+    if (isNaN(d.getTime())) return new Date().toISOString();
+    return d.toISOString();
+  } catch {
+    return new Date().toISOString();
+  }
 }
 
 // ─── Log outreach ─────────────────────────────────────────────────────────────
@@ -131,12 +142,22 @@ export async function logOutreach(data: {
     nextDueDate.setDate(nextDueDate.getDate() + 2)
     const nextDueDateStr = nextDueDate.toISOString().split('T')[0]
 
+    // Complete any previous pending follow-ups to prevent duplicates
+    await supabase.from('follow_ups').update({
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+      notes: 'Superceded by Stage 1 outreach touch'
+    }).eq('company_id', companyId).eq('status', 'pending')
+
+    const dbChannel = toSafeFollowUpChannel(data.channel)
+    const channelTag = String(data.channel || '').toLowerCase().includes('instagram') ? ' [Channel: Instagram DM]' : ''
+
     await supabase.from('follow_ups').insert({
       company_id: companyId,
       due_date: nextDueDateStr,
       subject: 'Follow-up 1: Value Check-in',
-      description: 'Stage 2 follow-up. Value observation check-in after 2 days without reply.',
-      channel: data.channel || 'instagram_dm',
+      description: `Stage 2 follow-up. Value observation check-in after 2 days without reply.${channelTag}`,
+      channel: dbChannel,
       status: 'pending',
       created_at: new Date().toISOString()
     })
@@ -297,7 +318,7 @@ export async function updateOutreachEntry(activityId: string, update: {
     }
 
     if (update.outreach_date) {
-      dbPayload.created_at = new Date(update.outreach_date + 'T12:00:00.000Z').toISOString()
+      dbPayload.created_at = parseSafeOutreachDate(update.outreach_date)
     } else if (update.status === 'follow_up_sent' || update.status === 'called') {
       dbPayload.created_at = new Date().toISOString()
     }
@@ -311,9 +332,7 @@ export async function updateOutreachEntry(activityId: string, update: {
       if (actUpdateErr) return { error: actUpdateErr.message }
     } else if (companyId) {
       // Create new activity row for this company
-      const createdAt = update.outreach_date
-        ? new Date(update.outreach_date + 'T12:00:00.000Z').toISOString()
-        : new Date().toISOString()
+      const createdAt = parseSafeOutreachDate(update.outreach_date)
 
       const { data: newAct, error: actInsertErr } = await supabase
         .from('activities')
@@ -395,13 +414,24 @@ export async function updateOutreachEntry(activityId: string, update: {
       }
 
       if (scheduledDueDate) {
+        // Complete any previous pending follow-ups to prevent duplicates
+        await supabase.from('follow_ups').update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          notes: 'Superceded by status update follow-up'
+        }).eq('company_id', companyId).eq('status', 'pending')
+
         const followUpSubject = updAny.followUpNote || `Follow up on ${status.replace(/_/g, ' ')}`
+        const rawChannel = updAny.followUpChannel || channel || 'call'
+        const dbChannel = toSafeFollowUpChannel(rawChannel)
+        const channelTag = (rawChannel === 'instagram_dm' || rawChannel === 'instagram') ? ' [Channel: Instagram DM]' : ''
+
         await supabase.from('follow_ups').insert({
           company_id: companyId,
           due_date: scheduledDueDate,
           subject: followUpSubject,
-          description: `Scheduled during status update to ${status}`,
-          channel: updAny.followUpChannel || channel || 'call',
+          description: `Scheduled during status update to ${status}.${channelTag}`,
+          channel: dbChannel,
           status: 'pending',
           created_at: new Date().toISOString()
         })
@@ -578,12 +608,15 @@ export async function markLeadFollowedUp(activityOrCompanyId: string, companyIdH
       auditDueDate.setDate(auditDueDate.getDate() + 3)
       const auditDueDateStr = auditDueDate.toISOString().split('T')[0]
 
+      const dbChannel = toSafeFollowUpChannel(channel)
+      const channelTag = String(channel || '').toLowerCase().includes('instagram') ? ' [Channel: Instagram DM]' : ''
+
       await supabase.from('follow_ups').insert({
         company_id: companyId,
         due_date: auditDueDateStr,
         subject: 'Follow-up 2: Audit Offer',
-        description: 'Stage 3 follow-up. Offer outside-in business audit ("we looked into their business and prepared an audit and if they would be open to it").',
-        channel: channel || 'instagram_dm',
+        description: `Stage 3 follow-up. Offer outside-in business audit ("we looked into their business and prepared an audit and if they would be open to it").${channelTag}`,
+        channel: dbChannel,
         status: 'pending',
         created_at: now
       })
@@ -667,25 +700,46 @@ export async function getAllLeadsForPipeline(
   try {
     await requireAuth()
 
-    // 1. Fetch activities with company joins
-    const { data: activities, error: actErr } = await supabase
+    const cacheKey = `pipeline-leads-${dateFilter}-${channelFilter || 'all'}`
+    const cached = getServerCached<OutreachLead[]>(cacheKey, 20000)
+    if (cached) {
+      return { data: cached, error: null }
+    }
+
+    // 1. Fetch activities and active outreach companies concurrently with Promise.all
+    const range = resolveDateRange(dateFilter)
+
+    let actQuery = supabase
       .from('activities')
-      .select('*, companies(id, company_name, industry, phone, notes, research_json, category, draft_message, status, pipeline_stage)')
+      .select('id, company_id, description, activity_type, title, created_at, companies(id, company_name, industry, phone, notes, research_json, category, draft_message, status, pipeline_stage)')
       .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent', 'status_changed'])
       .order('created_at', { ascending: false })
       .range(0, 4999)
 
+    if (range.startDate && range.endDate) {
+      actQuery = actQuery
+        .gte('created_at', `${range.startDate}T00:00:00.000Z`)
+        .lte('created_at', `${range.endDate}T23:59:59.999Z`)
+    } else if (range.startDate) {
+      actQuery = actQuery.gte('created_at', `${range.startDate}T00:00:00.000Z`)
+    }
+
+    const coQuery = supabase
+      .from('companies')
+      .select('id, company_name, industry, category, phone, email, linkedin_url, lead_source, lead_type, lead_folder, status, pipeline_stage, notes, research_json, draft_message, draft_angle_reasoning, created_at, updated_at, contacts(id, full_name, title, phone, whatsapp, email, linkedin_url, is_primary)')
+      .not('status', 'in', '("dormant","lost")')
+      .not('lead_type', 'eq', 'Dormant')
+      .order('created_at', { ascending: false })
+      .range(0, 4999)
+
+    const [{ data: activities, error: actErr }, { data: allCompanies, error: coErr }] = await Promise.all([
+      actQuery,
+      coQuery
+    ])
+
     if (actErr) {
       console.warn("Activities query warning:", actErr.message)
     }
-
-    // 2. Fetch companies that have entered the active outreach lifecycle (excluding raw uncontacted prospects and dormant)
-    const { data: allCompanies, error: coErr } = await supabase
-      .from('companies')
-      .select('*, contacts(*)')
-      .range(0, 4999)
-      .order('created_at', { ascending: false })
-
     if (coErr) {
       console.warn("Companies query warning:", coErr.message)
     }
@@ -894,7 +948,6 @@ export async function getAllLeadsForPipeline(
     })
 
     let combined: OutreachLead[] = []
-    const range = resolveDateRange(dateFilter)
 
     if (!range.startDate && !range.endDate) {
       combined = Array.from(leadMap.values())
@@ -949,6 +1002,7 @@ export async function getAllLeadsForPipeline(
     // Exclude dormant / snoozed leads from active outreach pipelines
     combined = combined.filter(l => l.status !== 'not_now_snoozed' && l.stage !== 'not_now_snoozed')
 
+    setServerCached(cacheKey, combined)
     return { data: combined, error: null }
   } catch (err) {
     return { data: null, error: (err as Error).message }
@@ -965,19 +1019,33 @@ export async function getChannelDailyBatch(
     await requireAuth()
 
     // 1. Find all company IDs that ALREADY had an outreach activity logged on this channel
-    const validActType = getValidActivityType(channel)
+    let channelActTypes: string[] = []
+    if (channel === 'whatsapp') channelActTypes = ['whatsapp_sent']
+    else if (channel === 'instagram_dm') channelActTypes = ['ig_dm']
+    else if (channel === 'linkedin') channelActTypes = ['linkedin_sent']
+    else if (channel === 'cold_call') channelActTypes = ['call_made']
+    else if (channel === 'email') channelActTypes = ['email_sent']
+    else channelActTypes = [getValidActivityType(channel)]
+
     const { data: touchedActs } = await supabase
       .from('activities')
-      .select('company_id, title, description')
-      .in('activity_type', [validActType, 'ig_dm', 'outreach', 'outreach_sent'])
+      .select('company_id, title, description, activity_type')
+      .in('activity_type', [...channelActTypes, 'outreach_sent'])
 
     const touchedCompanyIds = new Set(
       (touchedActs || [])
         .filter(a => {
           const t = (a.title || '').toLowerCase()
-          if (t.includes('opener staged') || t.includes('staged')) return false
           const d = (a.description || '').toLowerCase()
+          if (t.includes('opener staged') || t.includes('staged')) return false
           if (d.includes('"gate_opener_staged"')) return false
+          if (a.activity_type === 'outreach_sent') {
+            if (channel === 'instagram_dm') return t.includes('instagram') || d.includes('instagram') || (!t.includes('linkedin') && !t.includes('whatsapp') && !t.includes('call'))
+            if (channel === 'linkedin') return t.includes('linkedin') || d.includes('linkedin')
+            if (channel === 'whatsapp') return t.includes('whatsapp') || d.includes('whatsapp')
+            if (channel === 'cold_call') return t.includes('call') || d.includes('call')
+            return false
+          }
           return true
         })
         .map(a => a.company_id)
@@ -991,9 +1059,7 @@ export async function getChannelDailyBatch(
       .not('status', 'in', '("won","lost","archived")')
       .order('created_at', { ascending: false })
 
-    if (channel === 'instagram_dm') {
-      coQuery = coQuery.or('notes.ilike.%instagram%,notes.ilike.%@%')
-    } else if (channel === 'whatsapp' || channel === 'cold_call') {
+    if (channel === 'whatsapp' || channel === 'cold_call') {
       coQuery = coQuery.not('phone', 'is', null)
     } else if (channel === 'linkedin') {
       coQuery = coQuery.not('linkedin_url', 'is', null)
@@ -1001,8 +1067,7 @@ export async function getChannelDailyBatch(
       coQuery = coQuery.not('email', 'is', null)
     }
 
-    const fetchLimit = industry && industry !== 'all' ? Math.max(limit * 10, 200) : limit * 4
-    const { data: companies, error: coErr } = await coQuery.limit(fetchLimit)
+    const { data: companies, error: coErr } = await coQuery.limit(1000)
     if (coErr) return { data: [], totalAvailable: 0, error: coErr.message }
 
     // Filter strictly out touched companies and filter by channel & industry suitability
@@ -1019,21 +1084,8 @@ export async function getChannelDailyBatch(
         const targetInd = industry.toLowerCase().trim()
         let match = cat === targetInd || ind === targetInd
         if (!match) {
-          if (targetInd === 'aesthetic_clinics') {
-            match = ind.includes('aesthetic') || ind.includes('derma') || ind.includes('clinic') || ind.includes('skin') || ind.includes('cosmetic')
-          } else if (targetInd === 'dental_clinics') {
-            match = ind.includes('dental') || ind.includes('teeth') || ind.includes('dentist')
-          } else if (targetInd === 'social_commerce_dtc') {
-            match = ind.includes('perfume') || ind.includes('oud') || ind.includes('fragrance') || ind.includes('retail') || ind.includes('boutique') || ind.includes('clothing') || ind.includes('fashion') || ind.includes('cafe') || ind.includes('dtc')
-          } else if (targetInd === 'training_education') {
-            match = ind.includes('training') || ind.includes('education') || ind.includes('institute') || ind.includes('academy') || ind.includes('course')
-          } else if (targetInd === 'hospitality_fnb') {
-            match = ind.includes('hotel') || ind.includes('resort') || ind.includes('restaurant') || ind.includes('dining') || ind.includes('hospitality') || ind.includes('f&b')
-          } else if (targetInd === 'general') {
-            match = true
-          } else {
-            match = ind.includes(targetInd)
-          }
+          const norm = normalizeCategorySync(c.category || c.industry, c.company_name)
+          match = norm === targetInd
         }
         if (!match) return false
       }
@@ -1064,7 +1116,26 @@ export async function getChannelDailyBatch(
       return true
     })
 
-    const mapped: OutreachLead[] = uncontacted.slice(0, limit).map(c => {
+    let selectedBatch: any[] = []
+    if (industry && industry !== 'all') {
+      selectedBatch = uncontacted.slice(0, Math.max(limit, 50))
+    } else {
+      // Balanced distribution across sectors so Power Hour modal has leads in every sector tab
+      const bySector: Record<string, any[]> = {}
+      for (const c of uncontacted) {
+        const sec = normalizeCategorySync(c.category || c.industry, c.company_name)
+        if (!bySector[sec]) bySector[sec] = []
+        bySector[sec].push(c)
+      }
+      const balanced: any[] = []
+      const sectors = ['social_commerce_dtc', 'aesthetic_clinics', 'hospitality_fnb', 'training_education', 'dental_clinics', 'general']
+      for (const s of sectors) {
+        balanced.push(...(bySector[s] || []).slice(0, 25))
+      }
+      selectedBatch = balanced.length > 0 ? balanced : uncontacted.slice(0, 100)
+    }
+
+    const mapped: OutreachLead[] = selectedBatch.map(c => {
       const contact = c.contacts?.[0] || {}
       let rJson: any = {}
       try {
@@ -1194,12 +1265,22 @@ export async function markChannelTouchSent(data: {
     nextDueDate.setDate(nextDueDate.getDate() + 2)
     const nextDueDateStr = nextDueDate.toISOString().split('T')[0]
 
+    // Complete any previous pending follow-ups to prevent duplicates
+    await supabase.from('follow_ups').update({
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+      notes: 'Superceded by Stage 1 outreach touch'
+    }).eq('company_id', data.company_id).eq('status', 'pending')
+
+    const dbChannel = toSafeFollowUpChannel(data.channel)
+    const channelTag = String(data.channel || '').toLowerCase().includes('instagram') ? ' [Channel: Instagram DM]' : ''
+
     await supabase.from('follow_ups').insert({
       company_id: data.company_id,
       due_date: nextDueDateStr,
       subject: 'Follow-up 1: Value Check-in',
-      description: 'Stage 2 follow-up. Value observation check-in after 2 days without reply.',
-      channel: data.channel || 'instagram_dm',
+      description: `Stage 2 follow-up. Value observation check-in after 2 days without reply.${channelTag}`,
+      channel: dbChannel,
       status: 'pending',
       created_at: createdAt
     })

@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { Company, Contact } from "@/lib/types/database";
 import { addCompanyActivity, updateCompany, upsertCompanyContact } from "@/lib/actions/companies";
-import { formatWhatsAppNumber, formatPhoneNumberForDisplay, getCleanDraftMessage, getCleanObservation, isValidLinkedInUrl } from "@/lib/utils";
+import { formatWhatsAppNumber, formatPhoneNumberForDisplay, getCleanDraftMessage, getCleanObservation, isValidLinkedInUrl, extractInstagramUrl } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -31,78 +31,7 @@ interface ContactChannelsGridProps {
   onEditContact?: () => void;
 }
 
-export function extractInstagramUrl(input: any): string {
-  if (!input) return "";
-
-  // 0. Direct check if input has research_json or root fields
-  if (typeof input === "object") {
-    try {
-      if (input.research_json?.instagram_url) {
-        return input.research_json.instagram_url;
-      }
-      if (input.research_json?.instagram_handle) {
-        const clean = String(input.research_json.instagram_handle).replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^\/+/, '').replace(/\/+$/, '').replace(/^@+/, '').trim();
-        if (clean) return `https://www.instagram.com/${clean}/`;
-      }
-      if (input.instagram_url) {
-        return input.instagram_url;
-      }
-      if (input.instagram_handle) {
-        const clean = String(input.instagram_handle).replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^\/+/, '').replace(/\/+$/, '').replace(/^@+/, '').trim();
-        if (clean) return `https://www.instagram.com/${clean}/`;
-      }
-      if (input.industry && typeof input.industry === 'string') {
-        const indTrim = input.industry.trim();
-        if (indTrim.startsWith('@') || indTrim.toLowerCase().includes('instagram.com/')) {
-          const clean = indTrim.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^\/+/, '').replace(/\/+$/, '').replace(/^@+/, '').trim();
-          if (clean && !clean.includes(' ')) return `https://www.instagram.com/${clean}/`;
-        }
-      }
-      if (input.notes && (input.notes.startsWith('{') || input.notes.startsWith('['))) {
-        const parsed = JSON.parse(input.notes);
-        if (parsed.instagram_url) return parsed.instagram_url;
-        if (parsed.instagram_handle) {
-          const clean = String(parsed.instagram_handle).replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^\/+/, '').replace(/\/+$/, '').replace(/^@+/, '').trim();
-          if (clean) return `https://www.instagram.com/${clean}/`;
-        }
-      }
-    } catch {}
-  }
-
-  const textToScan = typeof input === "object"
-    ? `${input.industry || ""} ${input.company_name || ""} ${input.website || ""} ${input.notes || ""} ${input.pain_point || ""} ${JSON.stringify(input.research_json || {})} ${(input.contacts || []).map((c: any) => `${c.notes || ''} ${c.full_name || ''} ${c.title || ''} ${c.instagram_url || ''}`).join(' ')}`
-    : String(input);
-
-  // 1. Direct http(s) Instagram URL anywhere in text
-  const directMatch = textToScan.match(/https?:\/\/(?:www\.)?instagram\.com\/[a-zA-Z0-9_.]+(?:\/[^\s\n"']*)?/i);
-  if (directMatch) {
-    return directMatch[0].trim().replace(/[,;)]$/, '');
-  }
-
-  // 2. Pattern: Instagram: @handle OR Instagram: handle OR Instagram: https://...
-  const handleMatch = textToScan.match(/Instagram:\s*@?([a-zA-Z0-9_./:]+)/i);
-  if (handleMatch && handleMatch[1]) {
-    const val = handleMatch[1].trim();
-    if (val.toLowerCase().startsWith("http")) {
-      return val;
-    }
-    const handle = val.replace(/^@/, '').replace(/\/$/, '');
-    if (handle && handle.length >= 2) {
-      return `https://www.instagram.com/${handle}/`;
-    }
-  }
-
-  // 3. Pattern: @handle in text
-  const atMatch = textToScan.match(/@([a-zA-Z0-9_.]+)/);
-  if (atMatch && atMatch[1]) {
-    const handle = atMatch[1].trim();
-    if (handle.length >= 3 && !['gmail', 'yahoo', 'hotmail', 'outlook', 'today', 'team', 'gmail.com'].includes(handle.toLowerCase())) {
-      return `https://www.instagram.com/${handle}/`;
-    }
-  }
-
-  return "";
-}
+export { extractInstagramUrl } from "@/lib/utils";
 
 export function ContactChannelsGrid({
   company,

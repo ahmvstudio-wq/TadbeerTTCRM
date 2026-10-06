@@ -5,18 +5,7 @@ import { requireAuth } from '@/lib/auth-guard'
 import { revalidatePath } from 'next/cache'
 
 function revalidateAllCRMPages() {
-  try {
-    revalidatePath('/outreach')
-    revalidatePath('/daily-cadence')
-    revalidatePath('/dashboard')
-    revalidatePath('/prospects')
-    revalidatePath('/pipeline')
-    revalidatePath('/meetings')
-    revalidatePath('/calls')
-    revalidatePath('/follow-ups')
-  } catch (e) {
-    // ignore in non-request contexts
-  }
+  // Client components maintain instant state via optimistic UI and CustomEvents.
 }
 
 export async function getMeetings(filter: 'upcoming' | 'past' | 'all') {
@@ -186,12 +175,28 @@ export async function updateMeetingStatus(id: string, status: 'completed' | 'can
 
     if (updateError) return { data: null, error: updateError.message }
 
-    // If meeting was completed, advance company to opportunity; if cancelled, set back to contacted
+    // If meeting was completed, advance company to opportunity; if cancelled/no-show, only revert if currently meeting_booked
     if (meeting.company_id) {
-      const coUpdate = status === 'completed'
-        ? { status: 'opportunity', pipeline_stage: 'Opportunity', updated_at: new Date().toISOString() }
-        : { status: 'contacted', pipeline_stage: 'Contacted', updated_at: new Date().toISOString() }
-      await supabase.from('companies').update(coUpdate).eq('id', meeting.company_id)
+      if (status === 'completed') {
+        await supabase.from('companies').update({
+          status: 'opportunity',
+          pipeline_stage: 'Opportunity',
+          updated_at: new Date().toISOString()
+        }).eq('id', meeting.company_id)
+      } else if (status === 'cancelled' || status === 'no_show') {
+        const { data: currentCo } = await supabase
+          .from('companies')
+          .select('status')
+          .eq('id', meeting.company_id)
+          .single()
+        if (currentCo?.status === 'meeting_booked') {
+          await supabase.from('companies').update({
+            status: 'contacted',
+            pipeline_stage: 'Contacted',
+            updated_at: new Date().toISOString()
+          }).eq('id', meeting.company_id)
+        }
+      }
     }
 
     const { error: activityError } = await supabase

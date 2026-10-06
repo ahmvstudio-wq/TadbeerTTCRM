@@ -16,11 +16,8 @@ export async function middleware(request: NextRequest) {
 
   // 2. Validate cryptographically signed session token
   const sessionToken = request.cookies.get("tadbeer-session")?.value;
-  const sbAccessToken = request.cookies.get("sb-access-token")?.value;
-  const sbAuthToken = request.cookies.getAll().find((c) => c.name.includes("auth-token"))?.value;
-
   const verifiedUser = await verifySessionToken(sessionToken);
-  const isAuthenticated = Boolean(verifiedUser || sbAccessToken || sbAuthToken);
+  const isAuthenticated = Boolean(verifiedUser);
 
   // 3. Protect internal API routes
   if (pathname.startsWith("/api")) {

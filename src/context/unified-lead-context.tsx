@@ -30,6 +30,23 @@ export function UnifiedLeadProvider({ children }: { children: React.ReactNode })
     setActiveInitialTab(null);
   };
 
+  // Lock background body scroll and listen for Escape key
+  React.useEffect(() => {
+    if (selectedLeadId) {
+      document.body.style.overflow = "hidden";
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") closeLead();
+      };
+      window.addEventListener("keydown", handleKeyDown);
+      return () => {
+        document.body.style.overflow = "";
+        window.removeEventListener("keydown", handleKeyDown);
+      };
+    } else {
+      document.body.style.overflow = "";
+    }
+  }, [selectedLeadId]);
+
   return (
     <UnifiedLeadContext.Provider value={{ openLead, closeLead, selectedLeadId, initialTab: activeInitialTab }}>
       {children}
@@ -41,7 +58,7 @@ export function UnifiedLeadProvider({ children }: { children: React.ReactNode })
           onClick={closeLead}
         >
           <div
-            className="w-full max-w-5xl my-auto shadow-2xl animate-in zoom-in-95 duration-200"
+            className="w-full max-w-5xl my-auto shadow-2xl animate-in zoom-in-95 duration-200 relative"
             onClick={(e) => e.stopPropagation()}
           >
             <UnifiedLeadWorkspace

@@ -463,8 +463,9 @@ export function mapToDbCompanyStatus(rawStatus?: string | null): string {
     case "won":
       return "won";
     case "lost":
-    case "dormant":
       return "lost";
+    case "dormant":
+      return "dormant";
     default:
       return "contacted";
   }

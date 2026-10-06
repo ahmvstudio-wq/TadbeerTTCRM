@@ -31,6 +31,7 @@ import { getChannelDailyBatch } from "@/lib/actions/ig-dm";
 import { type OutreachChannel, CHANNEL_CONFIG } from "@/lib/types/outreach";
 import { Badge } from "@/components/ui/badge";
 import { DateRangeFilter } from "@/components/ui/date-range-filter";
+import { CRMCache } from "@/lib/cache/crm-cache";
 
 // Semi-Circular Dark Teal Speedometer Gauge for Conversion Rate
 function TealGauge({ percentage = 0 }: { percentage?: number }) {
@@ -90,19 +91,25 @@ export interface DashboardInitialData {
   outreachLeads?: any[];
 }
 
-export function TealCRMDashboardClient({ initialData }: { initialData: DashboardInitialData }) {
+export function TealCRMDashboardClient({ initialData }: { initialData?: DashboardInitialData }) {
   const router = useRouter();
-  const [stats, setStats] = useState<any>(initialData.stats);
-  const [activity, setActivity] = useState<any[]>(initialData.activity);
-  const [companies, setCompanies] = useState<any[]>(initialData.companies);
-  const [calls, setCalls] = useState<any[]>(initialData.calls);
-  const [followUpsList, setFollowUpsList] = useState<any[]>(initialData.followUpsList);
-  const [meetingsList, setMeetingsList] = useState<any[]>(initialData.meetingsList);
-  const [opportunitiesList, setOpportunitiesList] = useState<any[]>(initialData.opportunitiesList);
-  const [linkedinProspects, setLinkedinProspects] = useState<any[]>(initialData.linkedinProspects);
-  const [outreachLeads, setOutreachLeads] = useState<any[]>(initialData.outreachLeads || []);
+
+  // Try retrieving cached dashboard state synchronously (0ms)
+  const cached = useMemo(() => {
+    return initialData || CRMCache.get<DashboardInitialData>("dashboard-data");
+  }, [initialData]);
+
+  const [stats, setStats] = useState<any>(cached?.stats || null);
+  const [activity, setActivity] = useState<any[]>(cached?.activity || []);
+  const [companies, setCompanies] = useState<any[]>(cached?.companies || []);
+  const [calls, setCalls] = useState<any[]>(cached?.calls || []);
+  const [followUpsList, setFollowUpsList] = useState<any[]>(cached?.followUpsList || []);
+  const [meetingsList, setMeetingsList] = useState<any[]>(cached?.meetingsList || []);
+  const [opportunitiesList, setOpportunitiesList] = useState<any[]>(cached?.opportunitiesList || []);
+  const [linkedinProspects, setLinkedinProspects] = useState<any[]>(cached?.linkedinProspects || []);
+  const [outreachLeads, setOutreachLeads] = useState<any[]>(cached?.outreachLeads || []);
   const { openLead } = useUnifiedLead();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(() => !cached?.stats);
   const [generatingBatch, setGeneratingBatch] = useState(false);
   const [dailyBatchLeads, setDailyBatchLeads] = useState<any[]>([]);
   const [isToCallDrawerOpen, setIsToCallDrawerOpen] = useState(false);
@@ -114,6 +121,13 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
   const [powerHourLeads, setPowerHourLeads] = useState<OutreachLead[]>([]);
   const [loadingChannel, setLoadingChannel] = useState<string | null>(null);
   const [selectedIndustry, setSelectedIndustry] = useState<string>('all');
+
+  // Save initialData to cache if provided
+  useEffect(() => {
+    if (initialData?.stats) {
+      CRMCache.set("dashboard-data", initialData);
+    }
+  }, [initialData]);
 
   useEffect(() => {
     async function loadBatch() {
@@ -128,7 +142,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
   const handleLaunchChannelPowerHour = async (channel: OutreachChannel) => {
     setLoadingChannel(channel);
     try {
-      const res = await getChannelDailyBatch(channel, 25, selectedIndustry);
+      const res = await getChannelDailyBatch(channel, 50, selectedIndustry);
       if (res.data && res.data.length > 0) {
         setPowerHourLeads(res.data);
         setPowerHourChannel(channel);
@@ -159,14 +173,24 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
 
   const handleDateFilterChange = async (newVal: string) => {
     setDateFilter(newVal);
-    setLoading(true);
+    const filterCacheKey = `dashboard-filter-${newVal}`;
+    const cachedFilter = CRMCache.get<{ stats: any; outreachLeads: any[] }>(filterCacheKey);
+
+    if (cachedFilter) {
+      setStats(cachedFilter.stats);
+      setOutreachLeads(cachedFilter.outreachLeads);
+      if (!CRMCache.isStale(filterCacheKey, 45000)) return;
+    } else {
+      setLoading(true);
+    }
+
     try {
-      const [statsRes, outreachRes] = await Promise.all([
-        getDashboardStats(newVal),
-        getAllLeadsForPipeline(newVal)
-      ]);
+      const outreachRes = await getAllLeadsForPipeline(newVal);
+      const leads = outreachRes.data || [];
+      const statsRes = await getDashboardStats(newVal, leads);
       if (statsRes.data) setStats(statsRes.data);
-      if (outreachRes.data) setOutreachLeads(outreachRes.data);
+      setOutreachLeads(leads);
+      CRMCache.set(filterCacheKey, { stats: statsRes.data, outreachLeads: leads });
     } catch (err) {
       console.error("Dashboard date filter update error:", err);
     } finally {
@@ -174,28 +198,69 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
     }
   };
 
-  const refreshDashboardData = useCallback(async () => {
+  const refreshDashboardData = useCallback(async (silent = false) => {
+    if (!silent && !CRMCache.get("dashboard-data")) setLoading(true);
     try {
-      const [statsRes, compRes, fuRes, meetingsRes, outreachRes] = await Promise.all([
-        getDashboardStats(dateFilter),
-        getCompanies(),
+      const outreachRes = await getAllLeadsForPipeline(dateFilter);
+      const leads = outreachRes.data || [];
+
+      const cachedCompanies = CRMCache.get<any[]>("prospects-all");
+      const [statsRes, compRes, actRes, callsRes, fuRes, meetingsRes, oppsRes, liRes] = await Promise.all([
+        getDashboardStats(dateFilter, leads),
+        cachedCompanies ? Promise.resolve({ data: cachedCompanies, error: null }) : getCompanies(),
+        getRecentActivity(15),
+        getCallQueue(),
         getFollowUps("pending"),
         getMeetings("upcoming"),
-        getAllLeadsForPipeline(dateFilter)
+        getOpportunities(),
+        getLinkedInProspects(),
       ]);
+
+      const freshData: DashboardInitialData = {
+        stats: statsRes.data || null,
+        activity: actRes.data || [],
+        companies: compRes.data || [],
+        calls: callsRes.data || [],
+        followUpsList: fuRes.data || [],
+        meetingsList: meetingsRes.data || [],
+        opportunitiesList: oppsRes.data || [],
+        linkedinProspects: liRes.data || [],
+        outreachLeads: leads,
+      };
+
       if (statsRes.data) setStats(statsRes.data);
-      if (compRes.data) setCompanies(compRes.data);
+      if (actRes.data) setActivity(actRes.data);
+      if (compRes.data) {
+        setCompanies(compRes.data);
+        CRMCache.set("prospects-all", compRes.data);
+      }
+      if (callsRes.data) setCalls(callsRes.data);
       if (fuRes.data) setFollowUpsList(fuRes.data);
       if (meetingsRes.data) setMeetingsList(meetingsRes.data);
-      if (outreachRes.data) setOutreachLeads(outreachRes.data);
+      if (oppsRes.data) setOpportunitiesList(oppsRes.data);
+      if (liRes.data) setLinkedinProspects(liRes.data);
+      setOutreachLeads(leads);
+
+      if (dateFilter === "all") {
+        CRMCache.set("dashboard-data", freshData);
+      }
     } catch (err) {
       console.error("Dashboard silent refresh error:", err);
+    } finally {
+      setLoading(false);
     }
   }, [dateFilter]);
 
+  // Initial SWR check on mount: if stale or empty, refresh silently in background
+  useEffect(() => {
+    if (!cached?.stats || CRMCache.isStale("dashboard-data", 60000)) {
+      refreshDashboardData(Boolean(cached?.stats));
+    }
+  }, [refreshDashboardData, cached?.stats]);
+
   useEffect(() => {
     const handleLeadUpdated = () => {
-      refreshDashboardData();
+      refreshDashboardData(true);
     };
     if (typeof window !== "undefined") {
       window.addEventListener("lead-updated", handleLeadUpdated);
@@ -316,6 +381,25 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
       { label: "4. Meetings Booked", count: booked, pct: Math.round((booked / total) * 100), color: "bg-[#257584]", textColor: "text-[#257584]" },
     ];
   }, [companies, totalProspects, meetingsBooked, inOutreachCount, stats]);
+
+  if (loading && !stats) {
+    return (
+      <div className="min-h-screen bg-transparent p-3 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto font-sans">
+        <div className="h-16 bg-white/80 rounded-2xl border border-black/[0.06] animate-pulse flex items-center px-6">
+          <div className="h-4 w-44 bg-black/10 rounded-md" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="h-28 bg-white/80 rounded-2xl border border-black/[0.06] animate-pulse p-4 flex flex-col justify-between">
+              <div className="h-3 w-20 bg-black/10 rounded" />
+              <div className="h-7 w-28 bg-black/15 rounded" />
+            </div>
+          ))}
+        </div>
+        <div className="h-96 bg-white/80 rounded-3xl border border-black/[0.06] animate-pulse" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-transparent p-3 sm:p-6 lg:p-8 space-y-5 font-sans max-w-7xl mx-auto">
@@ -996,6 +1080,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData: Dashboard
         onClose={() => setPowerHourOpen(false)}
         channel={powerHourChannel}
         leads={powerHourLeads}
+        initialSector={selectedIndustry !== 'all' ? (selectedIndustry as any) : 'all'}
         onLeadSent={(sentId) => {
           setPowerHourLeads(prev => prev.filter(l => l.id !== sentId));
         }}

@@ -48,8 +48,9 @@ import {
   type AuditPdf,
   type CreateAuditInput
 } from "@/lib/actions/audits";
-import { getCompanies } from "@/lib/actions/companies";
+import { getCompaniesLookup } from "@/lib/actions/companies";
 import { useUnifiedLead } from "@/context/unified-lead-context";
+import { CRMCache } from "@/lib/cache/crm-cache";
 
 const AUDIT_TYPES: AuditType[] = [
   "Business / Operations",
@@ -90,9 +91,12 @@ export default function AuditsPage() {
   const router = useRouter();
   const { openLead } = useUnifiedLead();
 
-  const [audits, setAudits] = useState<AuditRecord[]>([]);
-  const [companies, setCompanies] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cachedAudits = CRMCache.get<AuditRecord[]>("audits-list");
+  const cachedCompanies = CRMCache.get<any[]>("companies-lookup");
+
+  const [audits, setAudits] = useState<AuditRecord[]>(cachedAudits || []);
+  const [companies, setCompanies] = useState<any[]>(cachedCompanies || []);
+  const [loading, setLoading] = useState<boolean>(() => !cachedAudits);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | AuditStatus>("all");
 
@@ -110,24 +114,34 @@ export default function AuditsPage() {
 
   // Fetch audits & companies silently or with spinner
   const loadData = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
+    if (!silent && !CRMCache.get("audits-list")) setLoading(true);
     try {
-      const [auditsRes, companiesRes] = await Promise.all([getAudits(), getCompanies()]);
-      if (auditsRes.data) setAudits(auditsRes.data);
-      if (companiesRes.data) setCompanies(companiesRes.data);
+      const cachedLookup = CRMCache.get<any[]>("companies-lookup");
+      const [auditsRes, companiesRes] = await Promise.all([
+        getAudits(),
+        cachedLookup ? Promise.resolve({ data: cachedLookup, error: null }) : getCompaniesLookup()
+      ]);
+      if (auditsRes.data) {
+        setAudits(auditsRes.data);
+        CRMCache.set("audits-list", auditsRes.data);
+      }
+      if (companiesRes.data) {
+        setCompanies(companiesRes.data);
+        CRMCache.set("companies-lookup", companiesRes.data);
+      }
     } catch (err) {
       console.error("Failed to load audits:", err);
     } finally {
-      if (!silent) setLoading(false);
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadData(false);
+    loadData(Boolean(cachedAudits));
     const handleLeadUpdated = () => loadData(true);
     window.addEventListener("lead-updated", handleLeadUpdated);
     return () => window.removeEventListener("lead-updated", handleLeadUpdated);
-  }, [loadData]);
+  }, [loadData, cachedAudits]);
 
   // Counts
   const counts = useMemo(() => {

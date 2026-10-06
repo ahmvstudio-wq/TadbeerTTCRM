@@ -11,16 +11,7 @@ import { revalidatePath } from 'next/cache'
 const supabase = getSupabaseAdminClient()
 
 function revalidateAllCRMPages() {
-  try {
-    revalidatePath('/outreach')
-    revalidatePath('/daily-cadence')
-    revalidatePath('/dashboard')
-    revalidatePath('/companies')
-    revalidatePath('/prospects')
-    revalidatePath('/ig-dm')
-  } catch (e) {
-    // Non-fatal if called outside request context
-  }
+  // Client components maintain instant state via optimistic UI and CustomEvents.
 }
 
 function getValidActivityType(channel: string): string {
