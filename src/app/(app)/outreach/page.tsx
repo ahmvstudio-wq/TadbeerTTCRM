@@ -1840,10 +1840,10 @@ const SUPABASE_TARGET_SECTIONS: {
 }[] = [
   {
     tableName: "companies",
-    tableBadge: "Supabase DB: companies",
+    tableBadge: "Company Profile",
     title: "1. Company / Business Profile",
     fields: [
-      { key: "company_name",     label: "Company Name",           dbCol: "companies.company_name", desc: "Default: 'Unnamed Prospect #[Row]'" },
+      { key: "company_name",     label: "Company Name",           dbCol: "companies.company_name", desc: "Default: Empty or Unnamed" },
       { key: "industry",         label: "Industry / Sector",       dbCol: "companies.industry",     desc: "Default: 'General'" },
       { key: "phone",            label: "Main Office Phone",       dbCol: "companies.phone",        desc: "Main company phone" },
       { key: "website",          label: "Company Website",         dbCol: "companies.website",      desc: "Domain or URL" },
@@ -1853,7 +1853,7 @@ const SUPABASE_TARGET_SECTIONS: {
   },
   {
     tableName: "contacts",
-    tableBadge: "Supabase DB: contacts",
+    tableBadge: "Contact Person",
     title: "2. Primary Contact Person",
     fields: [
       { key: "contact_name",     label: "Contact Person Name",     dbCol: "contacts.full_name",     desc: "Default: Representative" },
@@ -1863,7 +1863,7 @@ const SUPABASE_TARGET_SECTIONS: {
   },
   {
     tableName: "activities",
-    tableBadge: "Supabase DB: activities",
+    tableBadge: "Activity Details",
     title: "3. Outreach Activity & Log Details",
     fields: [
       { key: "handle",           label: "Social Handle / DM Link", dbCol: "activities.handle",      desc: "Instagram handle or phone" },
@@ -2258,7 +2258,7 @@ function LogModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () =
               <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5">
                 <FileText className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                 <p className="text-xs text-amber-900 font-medium leading-relaxed">
-                  <strong className="font-extrabold">Supabase Backend Pairing:</strong> Each dropdown maps your CSV columns directly to Supabase database tables (<code className="bg-amber-100 px-1 rounded text-[11px] font-mono font-bold">companies</code>, <code className="bg-amber-100 px-1 rounded text-[11px] font-mono font-bold">contacts</code>, and <code className="bg-amber-100 px-1 rounded text-[11px] font-mono font-bold">activities</code>). None are mandatory.
+                  <strong className="font-extrabold">Field Mapping:</strong> Each dropdown maps your CSV columns to the corresponding CRM fields. All fields are optional.
                 </p>
               </div>
 
@@ -2384,7 +2384,7 @@ function LogModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () =
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Table className="h-4 w-4 text-slate-700" />
-                      <h4 className="text-xs font-black text-slate-900">Live Preview Across Supabase Tables (First 3 Rows)</h4>
+                      <h4 className="text-xs font-black text-slate-900">Live Preview (First 3 Rows)</h4>
                     </div>
                     <span className="text-[10px] font-bold text-slate-500">Row 1 - {Math.min(3, csvRows.length)} of {csvRows.length}</span>
                   </div>
@@ -2394,10 +2394,10 @@ function LogModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () =
                       <thead className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold">
                         <tr>
                           <th className="p-2 border-r border-slate-200">#</th>
-                          <th className="p-2 border-r border-slate-200">companies.company_name</th>
-                          <th className="p-2 border-r border-slate-200">contacts.full_name</th>
-                          <th className="p-2 border-r border-slate-200">activities.handle / phone</th>
-                          <th className="p-2">activities.notes</th>
+                          <th className="p-2 border-r border-slate-200">Company Name</th>
+                          <th className="p-2 border-r border-slate-200">Contact Person</th>
+                          <th className="p-2 border-r border-slate-200">Handle / Phone</th>
+                          <th className="p-2">Notes / Message</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-slate-800">
@@ -2409,8 +2409,8 @@ function LogModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () =
                             return '';
                           };
 
-                          const coName = getPreviewVal('company_name') || `Prospect #${i + 1}`;
-                          const contactName = getPreviewVal('contact_name') || `${coName} Rep`;
+                          const coName = getPreviewVal('company_name') || getPreviewVal('contact_name') || 'Unnamed Lead';
+                          const contactName = getPreviewVal('contact_name') || 'Representative';
                           const handleVal = getPreviewVal('handle') || getPreviewVal('phone') || '-';
                           const noteVal = getPreviewVal('notes') || '-';
                           const indVal = getPreviewVal('industry') || 'General';

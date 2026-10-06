@@ -1411,11 +1411,18 @@ export async function importCSVOutreach(data: {
       return { count: 0, error: "No rows provided for import" }
     }
 
+    const getRowCompanyName = (r: MappedCSVRow, idx: number): string => {
+      if (r.company_name?.trim()) return r.company_name.trim();
+      if (r.contact_name?.trim()) return r.contact_name.trim();
+      if (r.handle?.trim()) return r.handle.trim().replace(/^@/, '');
+      return `Lead ${idx + 1}`;
+    };
+
     // 1. Gather all unique company names to resolve or create
     const companyNames = Array.from(
       new Set(
         data.rows
-          .map((r, i) => r.company_name?.trim() || `Prospect #${i + 1}`)
+          .map((r, i) => getRowCompanyName(r, i))
           .filter(Boolean)
       )
     )
@@ -1441,7 +1448,7 @@ export async function importCSVOutreach(data: {
     if (missingNames.length > 0) {
       const newCompaniesPayload = missingNames.map(name => {
         const sampleRow = data.rows.find(
-          (r, i) => (r.company_name?.trim() || `Prospect #${i + 1}`).toLowerCase().trim() === name.toLowerCase().trim()
+          (r, i) => getRowCompanyName(r, i).toLowerCase().trim() === name.toLowerCase().trim()
         )
         return {
           company_name: name,
@@ -1489,7 +1496,7 @@ export async function importCSVOutreach(data: {
     // 4. Create primary contacts in Supabase `contacts` table
     const contactsPayload: any[] = []
     data.rows.forEach((row, idx) => {
-      const rawName = row.company_name?.trim() || `Prospect #${idx + 1}`
+      const rawName = getRowCompanyName(row, idx)
       const companyId = companyMap.get(rawName.toLowerCase().trim())
       if (companyId && (row.contact_name || row.contact_title || row.contact_whatsapp || row.phone || row.email || row.linkedin_url)) {
         contactsPayload.push({
@@ -1512,7 +1519,7 @@ export async function importCSVOutreach(data: {
 
     // 5. Create activity logs in Supabase `activities` table
     const activityRecords = data.rows.map((row, idx) => {
-      const rawName = row.company_name?.trim() || `Prospect #${idx + 1}`
+      const rawName = getRowCompanyName(row, idx)
       const companyId = companyMap.get(rawName.toLowerCase().trim())
       const ch = (row.channel || data.defaultChannel) as OutreachChannel
       const st = (row.status || 'sent') as OutreachStatus

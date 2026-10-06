@@ -25,7 +25,7 @@ export const UNIFIED_STATUSES: UnifiedStatusConfig[] = [
     categoryLabel: "Outreach & Cold",
     badgeClass: "bg-slate-200 text-slate-900 border-slate-400 font-bold",
     dotColor: "bg-slate-500",
-    description: "New account in directory, ready for initial gate-opener research & outreach.",
+    description: "New account in directory, ready for initial research & outreach.",
     defaultFollowUpDays: null,
   },
   {
@@ -36,7 +36,7 @@ export const UNIFIED_STATUSES: UnifiedStatusConfig[] = [
     categoryLabel: "Outreach & Cold",
     badgeClass: "bg-blue-100 text-blue-950 border-blue-400 font-bold",
     dotColor: "bg-blue-600",
-    description: "Stage 1: Greeting message sent. Strict 2-day follow-up clock begins.",
+    description: "Stage 1: Greeting message sent. Next follow-up scheduled in 2 days.",
     defaultFollowUpDays: 2,
   },
   {
@@ -58,7 +58,7 @@ export const UNIFIED_STATUSES: UnifiedStatusConfig[] = [
     categoryLabel: "Outreach & Cold",
     badgeClass: "bg-teal-100 text-teal-950 border-teal-400 font-bold",
     dotColor: "bg-teal-600",
-    description: "Stage 2: Value check-in sent. Strict 3-day follow-up clock to audit offer begins.",
+    description: "Stage 2: Value check-in sent. Audit offer scheduled in 3 days.",
     defaultFollowUpDays: 3,
   },
   {
@@ -69,7 +69,7 @@ export const UNIFIED_STATUSES: UnifiedStatusConfig[] = [
     categoryLabel: "Outreach & Cold",
     badgeClass: "bg-amber-100 text-amber-950 border-amber-500 font-bold",
     dotColor: "bg-amber-600",
-    description: "Stage 3: Outside-in audit offered. Strict 5-day follow-up clock to coffee/call begins.",
+    description: "Stage 3: Operational audit offered. Meeting follow-up scheduled in 5 days.",
     defaultFollowUpDays: 5,
   },
   {

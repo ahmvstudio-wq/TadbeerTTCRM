@@ -303,7 +303,7 @@ export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: C
       if (res.error) {
         addToast("error", `Failed to record reply: ${res.error}`);
       } else {
-        addToast("success", `Prospect branch updated: ${res.data?.pipelineStage}`);
+        addToast("success", `Status updated: ${res.data?.pipelineStage}`);
         setReplyModalItem(null);
         setReplyNotes("");
         setMeetingDate("");
@@ -330,12 +330,9 @@ export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: C
                 <h1 className="text-xl sm:text-2xl font-light text-neutral-900 tracking-tight font-display">
                   Follow-up Command Center
                 </h1>
-                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
-                  Strict 2d $\rightarrow$ 3d $\rightarrow$ 5d Delays
-                </Badge>
               </div>
               <p className="text-xs sm:text-sm text-neutral-500 font-light mt-1">
-                Zero tab switching. Direct 1-click execution across Instagram, LinkedIn, and WhatsApp without wandering.
+                Manage and execute upcoming outreach follow-ups across Instagram, LinkedIn, and WhatsApp.
               </p>
             </div>
 
@@ -353,11 +350,11 @@ export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: C
             </div>
           </div>
 
-          {/* ─── Undeniable Cadence Flow Banner ──────────────────────────────────── */}
+          {/* ─── Cadence Flow Banner ──────────────────────────────────── */}
           <div className="mt-5 p-3.5 rounded-2xl bg-neutral-50/80 border border-black/[0.04] flex flex-wrap items-center justify-between gap-3 text-xs text-neutral-600">
             <div className="flex items-center gap-2 font-medium text-neutral-900">
               <Sparkles className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-              <span>Mandatory Outreach Cadence:</span>
+              <span>Cadence Sequence:</span>
             </div>
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-[11px]">
               <span className="px-2 py-0.5 rounded-md bg-white border border-neutral-200 font-medium">
@@ -433,7 +430,7 @@ export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: C
               </div>
               <div className="flex items-baseline gap-2 mt-1">
                 <span className="text-2xl font-light font-display text-neutral-900">{upcomingCount}</span>
-                <span className="text-[10px] text-neutral-400 font-light">+2d, +3d, +5d delays</span>
+                <span className="text-[10px] text-neutral-400 font-light">Scheduled ahead</span>
               </div>
             </button>
 
@@ -514,7 +511,7 @@ export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: C
             <h3 className="text-base font-light text-neutral-900 font-display">Queue Cleared!</h3>
             <p className="text-xs text-neutral-500 font-light mt-1 max-w-md mx-auto">
               {activeTab === "today"
-                ? "No pending follow-ups due today. Check the Upcoming tab (+2d, +3d, +5d) or switch filters."
+                ? "No pending follow-ups due today. Check the Upcoming tab or switch filters."
                 : "No matching cadence follow-ups found for the selected filter."}
             </p>
             {activeTab !== "all" && (
@@ -702,7 +699,7 @@ export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: C
                           onClick={() => openLead(item.company_id)}
                           className="text-xs text-neutral-500 hover:text-black cursor-pointer"
                         >
-                          View Full Dossier
+                          View Lead Details
                         </Button>
                       </div>
 
@@ -739,7 +736,7 @@ export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: C
                           ) : (
                             <>
                               <Send className="h-3.5 w-3.5 mr-1.5" />
-                              Mark Sent $\rightarrow$ +{item.next_delay_days}d Delay
+                              Mark Sent & Advance
                             </>
                           )}
                         </Button>
@@ -877,10 +874,10 @@ export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: C
                   <XCircle className="h-4 w-4 text-rose-600 mt-0.5 shrink-0" />
                   <div>
                     <span className="text-xs font-semibold block">
-                      Explicit Boundary / Not Interested
+                      Not Interested / Opt Out
                     </span>
                     <span className="text-[11px] text-neutral-500 font-light">
-                      Prospect requested to stop contact or has strict external boundary. Marks dormant/lost.
+                      Prospect declined or requested to stop contact. Marks lead as dormant.
                     </span>
                   </div>
                 </button>
@@ -935,7 +932,7 @@ export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: C
                     Saving...
                   </>
                 ) : (
-                  "Confirm Branch"
+                  "Save Response"
                 )}
               </Button>
             </div>

@@ -19,11 +19,11 @@ interface CsvImportProps {
 
 const TARGET_CHANNELS: { key: OutreachChannel | 'all'; label: string; icon: string; requiredKey: string; hint: string }[] = [
   { key: 'all',            label: 'Multi-Channel (Auto-Detect)', icon: '', requiredKey: '',                 hint: 'Accepts all available credentials across channels.' },
-  { key: 'instagram_dm',   label: 'Instagram DM',              icon: '', requiredKey: 'instagram_handle', hint: 'Strictly requires Instagram @handle or profile URLs for DM campaigns.' },
-  { key: 'whatsapp',       label: 'WhatsApp',                  icon: '', requiredKey: 'phone',            hint: 'Strictly requires valid mobile / WhatsApp numbers (e.g. +968...).' },
-  { key: 'cold_call',      label: 'Cold Call',                 icon: '', requiredKey: 'phone',            hint: 'Strictly requires valid direct phone numbers and contact names.' },
-  { key: 'linkedin',       label: 'LinkedIn',                  icon: '', requiredKey: 'linkedin_url',     hint: 'Strictly requires LinkedIn profile or company URLs.' },
-  { key: 'email',          label: 'Direct Email',              icon: '', requiredKey: 'email',            hint: 'Strictly requires valid direct business email addresses.' },
+  { key: 'instagram_dm',   label: 'Instagram DM',              icon: '', requiredKey: 'instagram_handle', hint: 'Requires an Instagram @handle or profile URL.' },
+  { key: 'whatsapp',       label: 'WhatsApp',                  icon: '', requiredKey: 'phone',            hint: 'Requires a valid mobile or WhatsApp number (e.g. +968...).' },
+  { key: 'cold_call',      label: 'Cold Call',                 icon: '', requiredKey: 'phone',            hint: 'Requires a direct phone number and contact name.' },
+  { key: 'linkedin',       label: 'LinkedIn',                  icon: '', requiredKey: 'linkedin_url',     hint: 'Requires a LinkedIn profile or company URL.' },
+  { key: 'email',          label: 'Direct Email',              icon: '', requiredKey: 'email',            hint: 'Requires a valid business email address.' },
 ];
 
 export function CsvImport({
@@ -52,10 +52,10 @@ export function CsvImport({
         { key: "person_name", label: "Contact Person / Doctor / Founder Name", group: 'credentials' as const },
         
         // 2. Pre-Staged Messages & Touchpoints
-        { key: "touch_1_message", label: "Touch 1: DM Gate-Opener Message", group: 'messages' as const, note: "Auto-generated if skipped" },
+        { key: "touch_1_message", label: "Touch 1: Initial DM Message", group: 'messages' as const, note: "Auto-generated if skipped" },
         { key: "touch_2_message", label: "Touch 2: Value / Observation Follow-Up", group: 'messages' as const, note: "Auto-generated if skipped" },
-        { key: "touch_3_message", label: "Touch 3: Breakaway / Graceful Close", group: 'messages' as const, note: "Auto-generated if skipped" },
-        { key: "stage", label: "Initial Touchpoint Stage (e.g. gate_opener_staged)", group: 'messages' as const, note: "Defaults to Staged" },
+        { key: "touch_3_message", label: "Touch 3: Final Follow-Up", group: 'messages' as const, note: "Auto-generated if skipped" },
+        { key: "stage", label: "Initial Touchpoint Stage", group: 'messages' as const, note: "Defaults to Staged" },
 
         // 3. Context & Segmentation
         { key: "specific_observation", label: "Pre-Researched Observation Note", group: 'context' as const },
@@ -73,9 +73,9 @@ export function CsvImport({
         { key: "person_name", label: "Contact Person / Doctor / Founder Name", group: 'credentials' as const },
 
         // 2. Pre-Staged Messages & Touchpoints
-        { key: "touch_1_message", label: "Touch 1: WhatsApp Gate-Opener Message", group: 'messages' as const, note: "Auto-generated if skipped" },
+        { key: "touch_1_message", label: "Touch 1: Initial WhatsApp Message", group: 'messages' as const, note: "Auto-generated if skipped" },
         { key: "touch_2_message", label: "Touch 2: Market Observation Follow-Up", group: 'messages' as const, note: "Auto-generated if skipped" },
-        { key: "touch_3_message", label: "Touch 3: Breakaway / Graceful Close", group: 'messages' as const, note: "Auto-generated if skipped" },
+        { key: "touch_3_message", label: "Touch 3: Final Follow-Up", group: 'messages' as const, note: "Auto-generated if skipped" },
         { key: "stage", label: "Initial Touchpoint Stage", group: 'messages' as const, note: "Defaults to Staged" },
 
         // 3. Context & Segmentation

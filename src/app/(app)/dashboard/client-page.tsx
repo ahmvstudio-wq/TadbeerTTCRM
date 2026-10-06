@@ -375,7 +375,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData?: Dashboar
     const booked = meetingsBooked;
 
     return [
-      { label: "1. Total Database", count: totalProspects, pct: 100, color: "bg-slate-900", textColor: "text-slate-900" },
+      { label: "1. Total Prospects", count: totalProspects, pct: 100, color: "bg-slate-900", textColor: "text-slate-900" },
       { label: "2. Contacted", count: contacted, pct: Math.round((contacted / total) * 100), color: "bg-[#0f343c]", textColor: "text-slate-800" },
       { label: "3. Call Ready", count: ready, pct: Math.round((ready / total) * 100), color: "bg-[#174E59]", textColor: "text-[#174E59]" },
       { label: "4. Meetings Booked", count: booked, pct: Math.round((booked / total) * 100), color: "bg-[#257584]", textColor: "text-[#257584]" },
@@ -422,7 +422,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData?: Dashboar
             <p className="text-[11px] text-neutral-500 font-light font-body">
               {stats?.is_filtered
                 ? `Showing activity for ${stats?.filter_label} • KPI cards & funnel reflect this timeframe`
-                : "Real-time metrics & pipeline cadence • All time database view"}
+                : "Real-time metrics & pipeline cadence • All-time overview"}
             </p>
           </div>
         </div>
@@ -674,8 +674,8 @@ export function TealCRMDashboardClient({ initialData }: { initialData?: Dashboar
             <h3 className="text-3xl font-light text-black tracking-tight font-display">{totalProspects}</h3>
           </div>
           <div className="pt-2 border-t border-black/[0.04] flex items-center justify-between text-[10px] text-[#8a8d95] font-light font-body">
-            <span>{stats?.is_filtered ? (stats?.filter_label || "Selected Period") : "In Database"}</span>
-            <span className="text-black font-mono">{stats?.is_filtered ? `DB: ${stats?.total_database_all ?? companies.length}` : "All records"}</span>
+            <span>{stats?.is_filtered ? (stats?.filter_label || "Selected Period") : "Total Records"}</span>
+            <span className="text-black font-mono">{stats?.is_filtered ? `Total: ${stats?.total_database_all ?? companies.length}` : "All records"}</span>
           </div>
         </div>
 

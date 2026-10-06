@@ -21,7 +21,7 @@ export default function ProspectDetailPage() {
         </Link>
         <div>
           <h1 className="text-base font-extrabold text-slate-900">Prospect Profile & Workspace</h1>
-          <p className="text-xs text-slate-500 font-medium">Single source of truth for this company</p>
+          <p className="text-xs text-slate-500 font-medium">Company profile and outreach history</p>
         </div>
       </div>
 
