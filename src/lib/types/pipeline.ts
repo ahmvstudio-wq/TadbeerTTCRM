@@ -48,7 +48,7 @@ export interface PipelineLead {
   email: string | null;
   status: string;
   pipeline_stage_raw: string | null;
-  canonical_stage: PipelineStageKey;
+  canonical_stage: PipelineStageKey | "uncontacted";
   lead_status: string | null;
   assigned_to: string | null;
   assigned_bdm: string | null;
@@ -98,13 +98,14 @@ export interface PipelineLead {
 }
 
 export interface PipelineStageSummary {
-  stage: PipelineStageKey;
+  stage: PipelineStageKey | "uncontacted";
   count: number;
   totalValue: number;
 }
 
 export interface PipelineIntelligenceMetrics {
-  totalLeads: number;
+  totalActiveLeads: number;
+  uncontactedDirectoryCount: number;
   overdueCount: number;
   todayCount: number;
   upcomingCount: number;
@@ -115,7 +116,10 @@ export interface PipelineIntelligenceMetrics {
 }
 
 // ─── CANONICAL STAGE RESOLUTION ───────────────────────────────────────────────
-export function resolveCanonicalStage(company: any): PipelineStageKey {
+export function resolveCanonicalStage(
+  company: any,
+  hasActivity: boolean = false
+): PipelineStageKey | "uncontacted" {
   const rJson = company.research_json || {};
   if (rJson.pipeline_stage) {
     const raw = String(rJson.pipeline_stage).toLowerCase().trim();
@@ -197,8 +201,26 @@ export function resolveCanonicalStage(company: any): PipelineStageKey {
     return "meeting";
   }
 
-  // Default to outreach
-  return "outreach";
+  // Active Outreach check (Only leads with actual touches or outreach status)
+  const isOutreach =
+    hasActivity ||
+    dbStatus === "contacted" ||
+    dbStatus === "in_call_queue" ||
+    pStage.includes("contacted") ||
+    pStage.includes("follow-up") ||
+    pStage.includes("audit") ||
+    pStage.includes("warm-up") ||
+    pStage.includes("no reply") ||
+    pStage.includes("replied") ||
+    pStage.includes("call ready") ||
+    pStage.includes("opening");
+
+  if (isOutreach) {
+    return "outreach";
+  }
+
+  // Raw uncontacted directory lead
+  return "uncontacted";
 }
 
 // ─── STAGE LABELS & DB MAPPING ────────────────────────────────────────────────

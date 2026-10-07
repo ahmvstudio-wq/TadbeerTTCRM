@@ -95,9 +95,13 @@ export async function getPipelineOverview(): Promise<{
       .order("created_at", { ascending: false });
 
     const actMap = new Map<string, any>();
+    const contactedCoIds = new Set<string>();
     activities?.forEach((act) => {
       if (!actMap.has(act.company_id)) {
         actMap.set(act.company_id, act);
+      }
+      if (act.company_id) {
+        contactedCoIds.add(act.company_id);
       }
     });
 
@@ -113,6 +117,7 @@ export async function getPipelineOverview(): Promise<{
       lost: { stage: "lost", count: 0, totalValue: 0 },
     };
 
+    let uncontactedDirectoryCount = 0;
     let overdueCount = 0;
     let todayCount = 0;
     let upcomingCount = 0;
@@ -122,11 +127,17 @@ export async function getPipelineOverview(): Promise<{
     let needsActionCount = 0;
 
     for (const c of companies) {
-      const canonicalStage = resolveCanonicalStage(c);
+      const hasActivity = contactedCoIds.has(c.id);
+      const canonicalStage = resolveCanonicalStage(c, hasActivity);
       const rJson = c.research_json || {};
       const primaryContact = contactMap.get(c.id) || null;
       const pendingFu = fuMap.get(c.id) || null;
       const lastAct = actMap.get(c.id) || null;
+
+      if (canonicalStage === "uncontacted") {
+        uncontactedDirectoryCount++;
+        continue;
+      }
 
       // Calculate follow-up timing
       let isOverdue = false;
@@ -239,7 +250,8 @@ export async function getPipelineOverview(): Promise<{
       leads,
       stageSummaries,
       metrics: {
-        totalLeads: leads.length,
+        totalActiveLeads: leads.length,
+        uncontactedDirectoryCount,
         overdueCount,
         todayCount,
         upcomingCount,

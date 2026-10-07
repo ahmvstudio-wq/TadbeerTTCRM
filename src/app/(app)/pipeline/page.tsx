@@ -553,14 +553,14 @@ export default function PipelinePage() {
             <TrendingUp className="h-3 w-3 text-black" />
             <span>EXECUTIVE SALES PIPELINE</span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-light tracking-tight text-black font-display flex items-center gap-2.5">
+          <h1 className="text-xl sm:text-2xl font-light tracking-tight text-black font-display flex flex-wrap items-center gap-2.5">
             <span>Sales & Pipeline Visibility</span>
-            <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-neutral-100 text-neutral-800 border border-neutral-200">
-              {leads.length} Total Accounts
+            <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-300">
+              {leads.length} Active Pipeline Accounts
             </span>
           </h1>
           <p className="text-neutral-500 text-xs mt-0.5 font-light">
-            Instant stage-by-stage visibility from cold outreach to demo presentations, quotations, and closed contracts.
+            Instant stage-by-stage visibility across active outreach ({stageCounts.outreach || 0}), demos, proposals, negotiations, and closed contracts.
           </p>
         </div>
 
