@@ -104,6 +104,7 @@ export interface PipelineStageSummary {
 }
 
 export interface PipelineIntelligenceMetrics {
+  totalLeads?: number;
   totalActiveLeads: number;
   uncontactedDirectoryCount: number;
   overdueCount: number;

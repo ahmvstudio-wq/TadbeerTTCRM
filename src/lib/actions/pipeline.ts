@@ -49,6 +49,8 @@ export async function getPipelineOverview(): Promise<{
         },
         metrics: {
           totalLeads: 0,
+          totalActiveLeads: 0,
+          uncontactedDirectoryCount: 0,
           overdueCount: 0,
           todayCount: 0,
           upcomingCount: 0,
@@ -276,6 +278,8 @@ export async function getPipelineOverview(): Promise<{
       },
       metrics: {
         totalLeads: 0,
+        totalActiveLeads: 0,
+        uncontactedDirectoryCount: 0,
         overdueCount: 0,
         todayCount: 0,
         upcomingCount: 0,
