@@ -32,6 +32,7 @@ import { type OutreachChannel, CHANNEL_CONFIG } from "@/lib/types/outreach";
 import { Badge } from "@/components/ui/badge";
 import { DateRangeFilter } from "@/components/ui/date-range-filter";
 import { CRMCache } from "@/lib/cache/crm-cache";
+import { DashboardFollowUpsPanel } from "@/components/dashboard/dashboard-followups-panel";
 
 // Semi-Circular Dark Teal Speedometer Gauge for Conversion Rate
 function TealGauge({ percentage = 0 }: { percentage?: number }) {
@@ -867,137 +868,8 @@ export function TealCRMDashboardClient({ initialData }: { initialData?: Dashboar
 
 
 
-      {/* ── Middle Grid: Activity Timeline + Speedometer ───── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Left Column: Activity Timeline Graph */}
-        <div className="lg:col-span-8 bg-white/80 backdrop-blur-xl rounded-2xl p-5 sm:p-6 border border-black/[0.06] shadow-glass flex flex-col justify-between space-y-5">
-          
-          {/* Header */}
-          <div className="flex items-start justify-between flex-wrap gap-4 border-b border-black/[0.04] pb-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-black/[0.04] text-black border border-black/[0.06] uppercase tracking-wider flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3 text-black" /> ACTIVITY
-                </span>
-                <span className="text-xs font-mono font-light text-[#8a8d95]">DAILY ACTIVITY</span>
-              </div>
-              <h2 className="text-2xl font-light text-black font-display tracking-tight mt-1">
-                {totalProspects} <span className="text-xs font-light text-[#6b7280] font-body">Total Leads</span>
-              </h2>
-            </div>
-
-            {/* Toggle + Legend */}
-            <div className="flex flex-col items-end gap-2">
-              <div className="bg-[#f5f5f7] p-0.5 rounded-xl flex items-center gap-1 border border-black/[0.04] text-xs font-body">
-                <button
-                  onClick={() => setChartView("monthly")}
-                  className={cn(
-                    "px-3 py-1 rounded-lg transition-all cursor-pointer font-light text-xs",
-                    chartView === "monthly" ? "bg-white text-black shadow-xs font-normal" : "text-[#6b7280] hover:text-black"
-                  )}
-                >
-                  Weekly
-                </button>
-                <button
-                  onClick={() => setChartView("yearly")}
-                  className={cn(
-                    "px-3 py-1 rounded-lg transition-all cursor-pointer font-light text-xs",
-                    chartView === "yearly" ? "bg-white text-black shadow-xs font-normal" : "text-[#6b7280] hover:text-black"
-                  )}
-                >
-                  Monthly
-                </button>
-              </div>
-              <div className="flex items-center gap-3 text-[10px] font-mono font-light text-[#8a8d95] flex-wrap">
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-black" /> Leads
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-[#9ca3af]" /> Touches
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Bar & Curve Timeline Chart Graphic */}
-          <div className="pt-2 pb-1">
-            <div className="h-44 flex items-end justify-between gap-1.5 px-2 relative">
-              
-              {/* Horizontal Grid lines */}
-              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none text-[9px] font-mono text-neutral-300 font-bold">
-                <div className="border-b border-dashed border-black/[0.04] pb-1">HIGH</div>
-                <div className="border-b border-dashed border-black/[0.04] pb-1">MED</div>
-                <div className="border-b border-dashed border-black/[0.04] pb-1">BASE</div>
-                <div>0</div>
-              </div>
-
-              {monthlyBars.map((b, idx) => (
-                <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end z-10 group relative">
-                  
-                  {/* Active Month Floating Tooltip */}
-                  {b.count > 0 && (
-                    <div className="absolute -top-9 bg-black text-white font-mono font-medium text-[9px] px-2 py-0.5 rounded shadow-lg flex flex-col items-center z-20">
-                      <span>{b.count} leads</span>
-                    </div>
-                  )}
-
-                  {/* Dual Bar Graphic Stack */}
-                  <div className="w-full max-w-[24px] flex items-end justify-center gap-0.5 h-full">
-                    <div
-                      style={{ height: b.height }}
-                      className={cn(
-                        "w-full rounded-t-sm transition-all duration-500",
-                        b.count > 0 ? "bg-black group-hover:bg-neutral-800" : "bg-neutral-100"
-                      )}
-                    />
-                  </div>
-                  <span className={cn("text-[10px] font-mono mt-2", b.count > 0 ? "text-black font-medium" : "text-[#9ca3af]")}>
-                    {b.month}
-                  </span>
-                </div>
-              ))}
-
-            </div>
-          </div>
-
-        </div>
-
-        {/* Right Column: Speedometer Overview */}
-        <div className="lg:col-span-4 bg-white/80 backdrop-blur-xl rounded-2xl p-5 sm:p-6 border border-black/[0.06] shadow-glass flex flex-col justify-between">
-          
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-normal text-black uppercase tracking-wider font-display">Conversion Rate</h3>
-            <span className="text-[9px] font-mono font-medium px-2 py-0.5 bg-black/[0.04] rounded text-neutral-700 border border-black/[0.06]">ACTIVE</span>
-          </div>
-
-          {/* Speedometer Gauge Graphic */}
-          <div className="my-auto py-2">
-            <TealGauge percentage={conversionRate} />
-          </div>
-
-          {/* Bottom Metrics with Progress Bar */}
-          <div className="space-y-2.5 pt-3 border-t border-black/[0.04]">
-            <div className="flex items-center justify-between text-xs font-mono">
-              <div>
-                <p className="text-[10px] text-[#8a8d95] uppercase">Meetings</p>
-                <p className="text-sm font-medium text-black mt-0.5">{meetingsBooked} Booked</p>
-              </div>
-              <div className="text-right">
-                <p className="text-[10px] text-[#8a8d95] uppercase">Total: <span className="text-black font-medium">{totalProspects}</span></p>
-              </div>
-            </div>
-            <div className="h-1.5 w-full bg-neutral-100 rounded-full overflow-hidden p-0.5 border border-black/[0.04]">
-              <div
-                style={{ width: `${Math.min(100, Math.max(0, conversionRate))}%` }}
-                className="h-full bg-black rounded-full transition-all duration-500"
-              />
-            </div>
-          </div>
-
-        </div>
-
-      </div>
+      {/* ── Today's Follow-ups & Scheduled Tasks Action Panel ──────── */}
+      <DashboardFollowUpsPanel initialItems={followUpsList} companiesLookup={companies} />
 
       {/* ── Bottom Section: Workspaces Hub ───────────────── */}
       <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-5 sm:p-6 border border-black/[0.06] shadow-glass space-y-4">
