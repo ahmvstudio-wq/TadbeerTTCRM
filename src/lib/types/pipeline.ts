@@ -113,3 +113,142 @@ export interface PipelineIntelligenceMetrics {
   waitingProposalCount: number;
   needsActionCount: number;
 }
+
+// ─── CANONICAL STAGE RESOLUTION ───────────────────────────────────────────────
+export function resolveCanonicalStage(company: any): PipelineStageKey {
+  const rJson = company.research_json || {};
+  if (rJson.pipeline_stage) {
+    const raw = String(rJson.pipeline_stage).toLowerCase().trim();
+    if (
+      raw === "outreach" ||
+      raw === "meeting" ||
+      raw === "demo" ||
+      raw === "proposal" ||
+      raw === "follow_up" ||
+      raw === "won" ||
+      raw === "lost"
+    ) {
+      return raw as PipelineStageKey;
+    }
+  }
+
+  const pStage = String(company.pipeline_stage || "").toLowerCase();
+  const dbStatus = String(company.status || "").toLowerCase();
+  const leadStatus = String(company.lead_status || "").toLowerCase();
+
+  // Won check
+  if (dbStatus === "won" || leadStatus === "won" || pStage.includes("won")) {
+    return "won";
+  }
+
+  // Lost / Dormant check
+  if (
+    dbStatus === "lost" ||
+    leadStatus === "lost" ||
+    leadStatus === "archived" ||
+    dbStatus === "dormant" ||
+    pStage.includes("lost") ||
+    pStage.includes("dormant")
+  ) {
+    return "lost";
+  }
+
+  // Demo / Presentation check
+  if (
+    pStage.includes("demo") ||
+    pStage.includes("presentation") ||
+    rJson.demo_status === "in_progress" ||
+    rJson.demo_status === "required" ||
+    (rJson.demo_urls && rJson.demo_urls.length > 0)
+  ) {
+    return "demo";
+  }
+
+  // Proposal check
+  if (
+    pStage.includes("proposal") ||
+    pStage.includes("quotation") ||
+    pStage.includes("mou") ||
+    leadStatus.includes("proposal") ||
+    rJson.proposal_status === "sent" ||
+    rJson.proposal_status === "drafting"
+  ) {
+    return "proposal";
+  }
+
+  // Follow-up / Negotiation check
+  if (
+    pStage.includes("negotiation") ||
+    pStage.includes("follow-up") ||
+    leadStatus.includes("negotiation") ||
+    rJson.follow_up_status === "required" ||
+    rJson.follow_up_status === "waiting_response"
+  ) {
+    return "follow_up";
+  }
+
+  // Meeting check
+  if (
+    dbStatus === "meeting_booked" ||
+    leadStatus.includes("meeting") ||
+    pStage.includes("meeting") ||
+    pStage.includes("coffee")
+  ) {
+    return "meeting";
+  }
+
+  // Default to outreach
+  return "outreach";
+}
+
+// ─── STAGE LABELS & DB MAPPING ────────────────────────────────────────────────
+export function getDbMappingsForStage(stage: PipelineStageKey): {
+  status: "prospect" | "contacted" | "in_call_queue" | "meeting_booked" | "opportunity" | "won" | "lost";
+  pipeline_stage: string;
+  lead_status: "New" | "Contacted" | "Qualified" | "Meeting Booked" | "Proposal Sent" | "Negotiation" | "Won" | "Lost";
+} {
+  switch (stage) {
+    case "outreach":
+      return {
+        status: "contacted",
+        pipeline_stage: "Contacted",
+        lead_status: "Contacted",
+      };
+    case "meeting":
+      return {
+        status: "meeting_booked",
+        pipeline_stage: "Meeting Booked",
+        lead_status: "Meeting Booked",
+      };
+    case "demo":
+      return {
+        status: "meeting_booked",
+        pipeline_stage: "Demo / Presentation",
+        lead_status: "Qualified",
+      };
+    case "proposal":
+      return {
+        status: "opportunity",
+        pipeline_stage: "Proposal Sent",
+        lead_status: "Proposal Sent",
+      };
+    case "follow_up":
+      return {
+        status: "opportunity",
+        pipeline_stage: "Follow-up / Negotiation",
+        lead_status: "Negotiation",
+      };
+    case "won":
+      return {
+        status: "won",
+        pipeline_stage: "Won",
+        lead_status: "Won",
+      };
+    case "lost":
+      return {
+        status: "lost",
+        pipeline_stage: "Lost",
+        lead_status: "Lost",
+      };
+  }
+}
