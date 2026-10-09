@@ -23,6 +23,10 @@ const STATUS_COLORS: Record<string, string> = {
   no_show: "bg-amber-100 text-amber-700 border-amber-200",
 };
 
+export function MeetingsClient() {
+  return <MeetingsPage />;
+}
+
 export default function MeetingsPage() {
   const { openLead } = useUnifiedLead();
   const [meetings, setMeetings] = useState<any[]>(() => CRMCache.get<any[]>("meetings-all") || []);
@@ -31,6 +35,12 @@ export default function MeetingsPage() {
   const [bookDialogOpen, setBookDialogOpen] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [newMeeting, setNewMeeting] = useState({ title: "", company_id: "", contact_name: "", date: "", duration: 30, location: "", description: "" });
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.pathname === "/meetings") {
+      window.history.replaceState({}, "", "/pipeline?tab=meetings");
+    }
+  }, []);
 
   const fetchData = async (silent = false) => {
     const cachedMeetings = CRMCache.get<any[]>("meetings-all");

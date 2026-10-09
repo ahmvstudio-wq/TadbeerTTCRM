@@ -66,6 +66,10 @@ function normalizeStatus(s: string): string {
   return s;
 }
 
+export function DailyCadenceClient() {
+  return <DailyCadencePage />;
+}
+
 export default function DailyCadencePage() {
   const today = new Date();
   const [activeTab, setActiveTab] = useState<"analytics" | "calendar">("calendar");
@@ -81,6 +85,15 @@ export default function DailyCadencePage() {
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [cadenceSearch, setCadenceSearch] = useState("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.pathname === "/daily-cadence") {
+      const url = new URL(window.location.href);
+      const date = url.searchParams.get("date");
+      const target = date ? `/outreach?tab=cadence&date=${date}` : "/outreach?tab=cadence";
+      window.history.replaceState({}, "", target);
+    }
+  }, []);
 
   // Sync date with URL search params on mount
   useEffect(() => {

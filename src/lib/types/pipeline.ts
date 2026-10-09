@@ -181,14 +181,16 @@ export function resolveCanonicalStage(
     return "proposal";
   }
 
-  // Follow-up / Negotiation check
-  if (
+  // Follow-up / Negotiation check (Stage 5: Post-Proposal Negotiation & Closing)
+  // Only genuine opportunities where commercial negotiations are underway or a proposal is in follow-up
+  const isPostProposalNegotiation =
     pStage.includes("negotiation") ||
-    pStage.includes("follow-up") ||
     leadStatus.includes("negotiation") ||
-    rJson.follow_up_status === "required" ||
-    rJson.follow_up_status === "waiting_response"
-  ) {
+    (dbStatus === "opportunity" && (pStage.includes("follow-up") || pStage.includes("negotiat"))) ||
+    ((rJson.proposal_status || pStage.includes("proposal") || pStage.includes("quotation")) &&
+      (rJson.follow_up_status === "required" || rJson.follow_up_status === "waiting_response"));
+
+  if (isPostProposalNegotiation) {
     return "follow_up";
   }
 

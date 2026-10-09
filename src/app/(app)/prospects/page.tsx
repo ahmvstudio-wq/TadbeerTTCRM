@@ -760,7 +760,7 @@ export default function ProspectsPage() {
               <Plus className="h-3.5 w-3.5" />
               Add Prospect
             </Button>
-            <Link href="/daily-cadence">
+            <Link href="/outreach?tab=cadence">
               <Button className="bg-[#0f343c] hover:bg-[#091f24] text-white border border-[#16434d] text-xs font-mono font-bold h-8 rounded-lg px-3 transition-all cursor-pointer">
                 <PhoneCall className="h-3.5 w-3.5 mr-1.5 text-white" />Daily Cadence
               </Button>

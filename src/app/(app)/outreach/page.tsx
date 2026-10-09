@@ -6,8 +6,11 @@ import {
   Loader2, Trash2, CheckCircle2, RefreshCw, Moon, Send,
   Check, AlertTriangle, Mail, BookOpen, Globe,
   Upload, FileSpreadsheet, Table, Settings2, FileUp, FileText,
-  Calendar, FileCheck,
+  Calendar, FileCheck, Zap, Clock
 } from "lucide-react";
+import { ModuleSubNav, type SubNavTab } from "@/components/layout/module-sub-nav";
+import { DailyCadenceClient } from "@/app/(app)/daily-cadence/page";
+import { CadenceFollowUpsClient } from "@/app/(app)/follow-ups/client-page";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -133,15 +136,33 @@ export default function OutreachPipelinePage() {
   const [logOpen, setLogOpen] = useState(false);
   const [activeCard, setActiveCard] = useState<string | null>(null);
 
+  // Consolidated Module Tabs: Outreach Hub vs Daily Cadence vs Follow-ups
+  const [activeModuleTab, setActiveModuleTab] = useState<"tracker" | "cadence" | "followups">("tracker");
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const tab = params.get("tab");
-      if (tab === "followups" || tab === "follow-ups") setViewMode("followups");
-      else if (tab === "calls" || tab === "call") setViewMode("calls");
-      else if (tab === "kanban") setViewMode("kanban");
+      if (tab === "cadence" || tab === "daily-cadence") {
+        setActiveModuleTab("cadence");
+      } else if (tab === "followups" || tab === "follow-ups") {
+        setActiveModuleTab("followups");
+      } else {
+        setActiveModuleTab("tracker");
+        if (tab === "calls" || tab === "call") setViewMode("calls");
+        else if (tab === "kanban") setViewMode("kanban");
+      }
     }
   }, []);
+
+  const handleModuleTabChange = (tabId: string) => {
+    setActiveModuleTab(tabId as any);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", tabId);
+      window.history.replaceState({}, "", url.toString());
+    }
+  };
 
   // Power-Hour Focus State
   const [powerHourOpen, setPowerHourOpen] = useState(false);
@@ -437,11 +458,34 @@ export default function OutreachPipelinePage() {
     }
   };
 
+  const outreachTabs: SubNavTab[] = [
+    { id: "tracker", label: "Outreach Hub", icon: Send, badge: total },
+    { id: "cadence", label: "Daily Cadence", icon: Zap },
+    { id: "followups", label: "Follow-ups", icon: Clock, badge: followupsDueList.length > 0 ? followupsDueList.length : undefined },
+  ];
+
   return (
     <div className="space-y-4 page-enter pb-24 max-w-[1850px] w-full mx-auto font-sans">
+      <ModuleSubNav
+        title="Outreach & Cadence Hub"
+        subtitle="Multi-channel outreach execution, daily cadence, and follow-up pipeline"
+        tabs={outreachTabs}
+        activeTab={activeModuleTab}
+        onTabChange={handleModuleTabChange}
+      />
 
-      {/* ── Unified Minimal Top Header ────────────────────────────────────────── */}
-      <div className="rounded-2xl bg-white border border-slate-200/80 p-4 space-y-3.5 shadow-2xs">
+      {activeModuleTab === "cadence" && (
+        <DailyCadenceClient />
+      )}
+
+      {activeModuleTab === "followups" && (
+        <CadenceFollowUpsClient />
+      )}
+
+      {activeModuleTab === "tracker" && (
+        <>
+          {/* ── Unified Minimal Top Header ────────────────────────────────────────── */}
+          <div className="rounded-2xl bg-white border border-slate-200/80 p-4 space-y-3.5 shadow-2xs">
         {/* Row 1: Title + View Switcher + Actions */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
@@ -1221,6 +1265,8 @@ export default function OutreachPipelinePage() {
             </button>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

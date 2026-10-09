@@ -25,7 +25,7 @@ export default function ProspectDetailPage() {
         </div>
       </div>
 
-      <UnifiedLeadWorkspace companyId={id} currentUser="Ramij" />
+      <UnifiedLeadWorkspace companyId={id} currentUser="Team" />
     </div>
   );
 }

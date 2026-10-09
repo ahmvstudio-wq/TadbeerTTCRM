@@ -64,7 +64,7 @@ export function UnifiedLeadProvider({ children }: { children: React.ReactNode })
             <UnifiedLeadWorkspace
               companyId={selectedLeadId}
               onClose={closeLead}
-              currentUser="Ramij"
+              currentUser="Team"
               initialTab={activeInitialTab as any}
             />
           </div>

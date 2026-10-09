@@ -901,13 +901,11 @@ async function resolveUserUuid(userIdentifier?: string): Promise<string> {
   return 'd4e5f6a7-b8c9-0123-def0-123456789012';
 }
 
-export async function getOrCreateDailyCallBatch(count = 20, assignedTo = "Ramij") {
+export async function getOrCreateDailyCallBatch(count = 20, assignedTo = "Team") {
   try {
-    const userUuid = await resolveUserUuid(assignedTo);
     const { data: existingBatch } = await supabase
       .from('companies')
       .select('*, contacts(*)')
-      .eq('assigned_to', userUuid)
       .eq('status', 'ready_for_call')
       .order('updated_at', { ascending: false });
 
@@ -921,13 +919,12 @@ export async function getOrCreateDailyCallBatch(count = 20, assignedTo = "Ramij"
   }
 }
 
-export async function generateDailyCallBatch(count = 20, assignedTo = "Ramij") {
+export async function generateDailyCallBatch(count = 20, assignedTo = "Team") {
   try {
     const userUuid = await resolveUserUuid(assignedTo);
     const { data: companies, error } = await supabase
       .from('companies')
       .select('*, contacts(*)')
-      .or(`assigned_to.is.null,assigned_to.eq.${userUuid}`)
       .not('status', 'in', '(won,lost,dormant,called,contacted)')
       .order('created_at', { ascending: false })
       .limit(200);
@@ -953,7 +950,7 @@ export async function generateDailyCallBatch(count = 20, assignedTo = "Ramij") {
   }
 }
 
-export async function loadMoreCallBatch(count = 20, assignedTo = "Ramij") {
+export async function loadMoreCallBatch(count = 20, assignedTo = "Team") {
   return await generateDailyCallBatch(count, assignedTo);
 }
 
@@ -1021,7 +1018,7 @@ export async function getComprehensiveOutreachMetrics(days: number = 30): Promis
     const [activitiesRes, companiesRes, callsRes, meetingsRes] = await Promise.all([
       supabase
         .from('activities')
-        .select('id, company_id, activity_type, title, description, created_at, companies(id, company_name, industry, category, research_json)')
+        .select('id, company_id, activity_type, title, description, metadata, created_at, companies(id, company_name, industry, category, research_json)')
         .order('created_at', { ascending: false }),
       supabase
         .from('companies')
@@ -1031,7 +1028,7 @@ export async function getComprehensiveOutreachMetrics(days: number = 30): Promis
         .select('id, outcome, created_at, company_id'),
       supabase
         .from('meetings')
-        .select('id, status, meeting_date, company_id')
+        .select('id, status, meeting_date, company_id, created_at')
     ]);
 
     const activities = activitiesRes.data || [];
@@ -1039,11 +1036,25 @@ export async function getComprehensiveOutreachMetrics(days: number = 30): Promis
     const calls = callsRes.data || [];
     const meetings = meetingsRes.data || [];
 
+    // Calculate cutoff date for date filtering
+    const now = new Date();
+    const cutoffDate = new Date();
+    cutoffDate.setDate(now.getDate() - days);
+    cutoffDate.setHours(0, 0, 0, 0);
+    const cutoffStr = cutoffDate.toISOString().split('T')[0];
+
+    const filteredMeetings = (days > 0 && days < 365)
+      ? meetings.filter((m: any) => {
+          const mDate = m.meeting_date ? m.meeting_date.split('T')[0] : (m.created_at ? m.created_at.split('T')[0] : '');
+          return !mDate || mDate >= cutoffStr;
+        })
+      : meetings;
+
     // Parse activities
     let totalOutreaches = 0;
     let totalReplies = 0;
     let positiveReplies = 0;
-    let meetingsBooked = meetings.length;
+    let meetingsBooked = filteredMeetings.length;
     let objectionsCount = 0;
     let noReplyCount = 0;
 
@@ -1060,11 +1071,11 @@ export async function getComprehensiveOutreachMetrics(days: number = 30): Promis
     const statusCounts: Record<string, number> = {};
     const recentRepliesList: OutreachMetricsResult['recentReplies'] = [];
 
-    // Calculate cutoff date for dailyTrend
-    const now = new Date();
+    // Build trendMap (up to 30 days for trend chart display)
+    const trendDays = days >= 365 ? 30 : days;
     const trendMap = new Map<string, { totalSent: number; calls: number; whatsapp: number; instagram: number; linkedin: number; email: number; replies: number }>();
     
-    for (let i = days - 1; i >= 0; i--) {
+    for (let i = trendDays - 1; i >= 0; i--) {
       const d = new Date();
       d.setDate(now.getDate() - i);
       const dateKey = d.toISOString().split('T')[0];
@@ -1073,16 +1084,63 @@ export async function getComprehensiveOutreachMetrics(days: number = 30): Promis
 
     // Process activities
     activities.forEach((act: any) => {
-      let payload: any = {};
-      try {
-        if (act.description) payload = JSON.parse(act.description);
-      } catch {}
+      let payload: any = act.metadata && typeof act.metadata === 'object' && Object.keys(act.metadata).length > 0 ? act.metadata : {};
+      if (Object.keys(payload).length === 0 && act.description) {
+        try {
+          const parsed = JSON.parse(act.description);
+          if (parsed && typeof parsed === 'object') payload = parsed;
+        } catch {}
+      }
 
-      const channel = String(payload.channel || (act.activity_type === 'call_made' ? 'cold_call' : (act.activity_type === 'whatsapp_sent' ? 'whatsapp' : (act.activity_type === 'email_sent' ? 'email' : 'instagram_dm'))));
-      const status = String(payload.status || 'sent');
+      const actDate = payload.outreach_date ? payload.outreach_date.split('T')[0] : (act.created_at ? act.created_at.split('T')[0] : '');
+
+      // Apply date cutoff if timeframe is active (< 365 days)
+      if (days > 0 && days < 365 && actDate && actDate < cutoffStr) {
+        return;
+      }
+
+      const titleLower = (act.title || '').toLowerCase();
+      const typeLower = (act.activity_type || '').toLowerCase();
+      const rawCh = String(payload.channel || '').toLowerCase();
+
+      // Determine if this is a genuine outreach touch or event
+      const isOutreach = Boolean(
+        rawCh ||
+        typeLower.includes('outreach') ||
+        typeLower.includes('sent') ||
+        typeLower.includes('call') ||
+        titleLower.includes('dm') ||
+        titleLower.includes('outreach') ||
+        titleLower.includes('gate-opener') ||
+        titleLower.includes('linkedin') ||
+        titleLower.includes('whatsapp') ||
+        titleLower.includes('email') ||
+        titleLower.includes('touch')
+      );
+
+      if (!isOutreach && !['status_changed', 'opportunity_stage_changed'].includes(typeLower)) {
+        return;
+      }
+
+      let channel = 'instagram_dm';
+      if (rawCh.includes('linkedin') || typeLower.includes('linkedin') || titleLower.includes('linkedin')) {
+        channel = 'linkedin';
+      } else if (rawCh.includes('whatsapp') || typeLower.includes('whatsapp') || titleLower.includes('whatsapp')) {
+        channel = 'whatsapp';
+      } else if (rawCh.includes('call') || typeLower.includes('call') || titleLower.includes('call') || titleLower.includes('phone')) {
+        channel = 'cold_call';
+      } else if (rawCh.includes('email') || typeLower.includes('email') || titleLower.includes('email')) {
+        channel = 'email';
+      } else if (rawCh.includes('instagram') || rawCh.includes('ig') || typeLower.includes('ig') || titleLower.includes('instagram')) {
+        channel = 'instagram_dm';
+      }
+
+      const rawStatus = String(payload.status || 'sent').toLowerCase();
+      const status = rawStatus === 'gate_opener_staged' ? 'sent' : rawStatus;
       const prospectReply = String(payload.prospect_reply || payload.reply || '').trim();
-      const rawIndustry = String(act.companies?.industry || act.companies?.category || 'General').trim();
-      const cleanIndustry = rawIndustry.startsWith('@') || rawIndustry.toLowerCase().startsWith('hey') ? 'Fashion & Boutiques' : rawIndustry;
+      const co = act.companies;
+      const rawIndustry = String(co?.industry || co?.category || 'General').trim();
+      const cleanIndustry = rawIndustry.startsWith('@') || rawIndustry.toLowerCase().startsWith('hey') ? 'Fashion & Boutiques' : (rawIndustry || 'General');
 
       totalOutreaches++;
 
@@ -1114,7 +1172,10 @@ export async function getComprehensiveOutreachMetrics(days: number = 30): Promis
         ))
       );
 
-      const isReply = !isBot && Boolean(prospectReply || ['reply_received', 'replied_interested', 'replied_objection', 'interested', 'meeting_booked'].includes(status));
+      const isReply = !isBot && Boolean(
+        prospectReply ||
+        ['reply_received', 'replied_interested', 'replied_objection', 'interested', 'meeting_booked', 'warm_up', 'opening_identified'].includes(status)
+      );
       const isPositive = ['replied_interested', 'interested', 'meeting_booked'].includes(status) || (prospectReply && (prospectReply.toLowerCase().includes('yes') || prospectReply.toLowerCase().includes('interested') || prospectReply.toLowerCase().includes('share') || prospectReply.toLowerCase().includes('call')));
       const isObjection = ['replied_objection', 'objection'].includes(status);
 
@@ -1153,12 +1214,11 @@ export async function getComprehensiveOutreachMetrics(days: number = 30): Promis
         channelStats[channel].meetings++;
       }
 
-      if (['sent', 'no_reply', 'gate_opener_staged'].includes(status)) {
+      if (['sent', 'no_reply', 'gate_opener_staged', 'gate_opener_sent'].includes(status)) {
         noReplyCount++;
       }
 
-      // Trend data
-      const actDate = act.created_at ? act.created_at.split('T')[0] : '';
+      // Trend data with date fallback
       if (trendMap.has(actDate)) {
         const item = trendMap.get(actDate)!;
         item.totalSent++;
@@ -1173,7 +1233,14 @@ export async function getComprehensiveOutreachMetrics(days: number = 30): Promis
     });
 
     // Also include calls and meetings
-    calls.forEach(c => {
+    const filteredCalls = (days > 0 && days < 365)
+      ? calls.filter((c: any) => {
+          const cDate = c.created_at ? c.created_at.split('T')[0] : '';
+          return !cDate || cDate >= cutoffStr;
+        })
+      : calls;
+
+    filteredCalls.forEach((c: any) => {
       if (c.outcome === 'connected' || c.outcome === 'interested' || c.outcome === 'scheduled_meeting') {
         positiveReplies++;
       }

@@ -54,7 +54,7 @@ interface UnifiedLeadWorkspaceProps {
 export function UnifiedLeadWorkspace({
   companyId,
   onClose,
-  currentUser = "Ramij",
+  currentUser = "Team",
   initialTab
 }: UnifiedLeadWorkspaceProps) {
   const cleanId = String(companyId || '').replace(/^staged-/, '').trim();
@@ -216,7 +216,7 @@ export function UnifiedLeadWorkspace({
 
   const primaryContact = contacts.find(c => c.is_primary) || contacts[0] || null;
   const assignedRep = company.assigned_to;
-  const isAssignedToOther = assignedRep && assignedRep !== currentUser;
+  const isAssignedToOther = false; // Lean shared CRM: universal team access
 
   const handleStatusChange = async (newStatus: string) => {
     const unified = getUnifiedStatus(newStatus);

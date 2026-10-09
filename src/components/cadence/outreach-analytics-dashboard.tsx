@@ -40,7 +40,7 @@ interface OutreachAnalyticsDashboardProps {
 export function OutreachAnalyticsDashboard({ onSelectLead }: OutreachAnalyticsDashboardProps) {
   const [metrics, setMetrics] = useState<OutreachMetricsResult | null>(null);
   const [loading, setLoading] = useState(true);
-  const [timeframe, setTimeframe] = useState<30 | 14 | 7>(30);
+  const [timeframe, setTimeframe] = useState<30 | 14 | 7 | 365>(30);
   const { openLead } = useUnifiedLead();
 
   const fetchMetrics = async () => {
@@ -109,7 +109,8 @@ export function OutreachAnalyticsDashboard({ onSelectLead }: OutreachAnalyticsDa
             {[
               { id: 7, label: "7 Days" },
               { id: 14, label: "14 Days" },
-              { id: 30, label: "30 Days" }
+              { id: 30, label: "30 Days" },
+              { id: 365, label: "All Time" }
             ].map((t) => (
               <button
                 key={t.id}
@@ -219,7 +220,7 @@ export function OutreachAnalyticsDashboard({ onSelectLead }: OutreachAnalyticsDa
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <h3 className="text-xs font-black text-black uppercase tracking-wider">
-              Daily Activity (Last {timeframe} Days)
+              Daily Activity ({timeframe === 365 ? "Last 30 Days Trend" : `Last ${timeframe} Days`})
             </h3>
             <p className="text-xs text-neutral-500 font-medium mt-0.5">
               Messages sent vs. replies received.

@@ -683,7 +683,7 @@ export async function runBulkProposalAndCadenceSeeding(userEmail: string = 'w.ta
       contactEmail: primaryContact?.email || company.email || 'contact@tadbeer.com',
       companyName: company.company_name,
       companyLocation: company.location || 'Muscat, Oman',
-      pricing: { currency: 'SAR', amount: 150000, terms: 'Net 30 days upon milestone sign-off' },
+      pricing: { currency: 'OMR', amount: 15000, terms: 'Net 30 days upon milestone sign-off' },
       roiSummary: 'Estimated 3.4x ROI within 12 months through margin leak recovery and downtime reduction.'
     }
 

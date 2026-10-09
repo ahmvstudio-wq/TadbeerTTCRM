@@ -132,7 +132,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData?: Dashboar
 
   useEffect(() => {
     async function loadBatch() {
-      const res = await getOrCreateDailyCallBatch(20, "Ramij");
+      const res = await getOrCreateDailyCallBatch(20);
       if (res.data && res.data.length > 0) {
         setDailyCallBatch(res.data);
       }
@@ -292,8 +292,10 @@ export function TealCRMDashboardClient({ initialData }: { initialData?: Dashboar
   const activePipeline = inOutreachCount;
   
   const pipelineValue = useMemo(() => {
-    return opportunitiesList.reduce((acc, o) => acc + (o.estimated_value || 0), 0);
-  }, [opportunitiesList]);
+    const oppTotal = opportunitiesList.reduce((acc, o) => acc + (o.estimated_value || 0), 0);
+    if (oppTotal > 0) return oppTotal;
+    return companies.reduce((acc, c) => acc + (Number((c as any).est_deal_value) || 0), 0);
+  }, [opportunitiesList, companies]);
 
   const meetingsBooked = stats?.is_filtered
     ? (stats?.total_meetings_booked ?? stats?.upcoming_meetings ?? 0)
@@ -718,7 +720,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData?: Dashboar
 
         {/* KPI 4: Pending Audits */}
         <Link
-          href="/audits?status=pending"
+          href="/pipeline?tab=audits&status=pending"
           className="bg-white/80 backdrop-blur-xl rounded-2xl p-4 sm:p-5 border border-black/[0.06] shadow-glass hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:border-black/20 transition-all flex flex-col justify-between space-y-2 cursor-pointer group"
         >
           <div className="flex items-center justify-between">
@@ -910,7 +912,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData?: Dashboar
             <p className="text-[11px] text-[#8a8d95] font-light mt-0.5">{callReadyLeads.length} leads in call queue.</p>
           </div>
 
-          <Link href="/follow-ups">
+          <Link href="/outreach?tab=followups">
             <div className="p-4 rounded-xl bg-white/60 hover:bg-white border border-black/[0.05] hover:border-black/[0.15] hover:shadow-glass transition-all cursor-pointer group">
               <div className="flex items-center justify-between">
                 <div className="h-8 w-8 rounded-xl bg-black text-white flex items-center justify-center font-normal">

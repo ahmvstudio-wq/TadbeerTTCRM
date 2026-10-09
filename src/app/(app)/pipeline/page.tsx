@@ -34,8 +34,12 @@ import {
   Layers,
   Send,
   HelpCircle,
-  Copy
+  Copy,
+  FileCheck
 } from "lucide-react";
+import { ModuleSubNav, type SubNavTab } from "@/components/layout/module-sub-nav";
+import { MeetingsClient } from "@/app/(app)/meetings/page";
+import { AuditsClient } from "@/app/(app)/audits/page";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -225,6 +229,32 @@ export default function PipelinePage() {
     useState<IntelligenceFilterKey>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+
+  // Consolidated Module Tabs: Deals & Stages vs Meetings vs Audits
+  const [activeModuleTab, setActiveModuleTab] = useState<"deals" | "meetings" | "audits">("deals");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab");
+      if (tab === "meetings" || tab === "meeting") {
+        setActiveModuleTab("meetings");
+      } else if (tab === "audits" || tab === "audit") {
+        setActiveModuleTab("audits");
+      } else {
+        setActiveModuleTab("deals");
+      }
+    }
+  }, []);
+
+  const handleModuleTabChange = (tabId: string) => {
+    setActiveModuleTab(tabId as any);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", tabId);
+      window.history.replaceState({}, "", url.toString());
+    }
+  };
 
   // Edit Action / Demo Modal state
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -562,10 +592,40 @@ export default function PipelinePage() {
 
   const currentStageConfig = STAGE_CONFIGS[selectedStage];
 
+  const pipelineTabs: SubNavTab[] = [
+    { id: "deals", label: "Deals & Stages", icon: TrendingUp },
+    { id: "meetings", label: "Meetings", icon: Calendar },
+    { id: "audits", label: "Audits", icon: FileCheck },
+  ];
+
   return (
     <div className="min-h-screen bg-[#fafafa]">
-      {/* ─── Top Control Panel Header (Follow-up Command Center Style) ──────── */}
-      <div className="bg-white border-b border-black/[0.06] sticky top-0 z-20 backdrop-blur-md bg-white/95 shadow-2xs">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-2">
+        <ModuleSubNav
+          title="Sales Pipeline & Deals"
+          subtitle="Deal progression, scheduled meetings, and client diagnostics"
+          tabs={pipelineTabs}
+          activeTab={activeModuleTab}
+          onTabChange={handleModuleTabChange}
+        />
+      </div>
+
+      {activeModuleTab === "meetings" && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <MeetingsClient />
+        </div>
+      )}
+
+      {activeModuleTab === "audits" && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <AuditsClient />
+        </div>
+      )}
+
+      {activeModuleTab === "deals" && (
+        <>
+          {/* ─── Top Control Panel Header (Follow-up Command Center Style) ──────── */}
+          <div className="bg-white border-b border-black/[0.06] sticky top-0 z-20 backdrop-blur-md bg-white/95 shadow-2xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -1513,6 +1573,8 @@ export default function PipelinePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </>
+      )}
     </div>
   );
 }

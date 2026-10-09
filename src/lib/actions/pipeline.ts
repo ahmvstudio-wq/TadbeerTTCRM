@@ -306,7 +306,7 @@ export async function updatePipelineLeadStage(
     // 1. Fetch current record
     const { data: currentCo, error: fetchErr } = await sb
       .from("companies")
-      .select("id, company_name, research_json, pipeline_stage, status")
+      .select("id, company_name, research_json, pipeline_stage, status, est_deal_value")
       .eq("id", companyId)
       .single();
 
@@ -340,6 +340,53 @@ export async function updatePipelineLeadStage(
     if (updateErr) {
       console.error("Error updating company stage:", updateErr);
       return { success: false, error: updateErr.message };
+    }
+
+    // 2b. Synchronize PostgreSQL opportunities table in real time
+    const stageToOppConfig: Record<string, { stage: string; prob: number; defVal: number }> = {
+      demo: { stage: "qualified", prob: 20, defVal: 2000 },
+      proposal: { stage: "proposal_sent", prob: 30, defVal: 2500 },
+      follow_up: { stage: "negotiation", prob: 50, defVal: 3500 },
+      won: { stage: "won", prob: 100, defVal: 3000 },
+      lost: { stage: "lost", prob: 0, defVal: 0 },
+    };
+
+    const oppConfig = stageToOppConfig[newStage];
+    if (oppConfig) {
+      const { data: existingOpp } = await sb
+        .from("opportunities")
+        .select("id, estimated_value")
+        .eq("company_id", companyId)
+        .maybeSingle();
+
+      const dealVal = (currentCo.est_deal_value && Number(currentCo.est_deal_value) > 0)
+        ? Number(currentCo.est_deal_value)
+        : (existingOpp?.estimated_value || oppConfig.defVal);
+
+      if (existingOpp) {
+        const oppUpdate: Record<string, any> = {
+          stage: oppConfig.stage,
+          probability: oppConfig.prob,
+          estimated_value: dealVal,
+          currency: "OMR",
+          updated_at: new Date().toISOString(),
+        };
+        if (newStage === "won") oppUpdate.won_at = new Date().toISOString();
+        if (newStage === "lost") oppUpdate.lost_at = new Date().toISOString();
+        await sb.from("opportunities").update(oppUpdate).eq("id", existingOpp.id);
+      } else if (newStage !== "lost") {
+        await sb.from("opportunities").insert({
+          company_id: companyId,
+          title: `${currentCo.company_name} — Transformation Proposal`,
+          description: `Pipeline stage: ${mapping.pipeline_stage}`,
+          estimated_value: dealVal,
+          currency: "OMR",
+          stage: oppConfig.stage,
+          probability: oppConfig.prob,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+      }
     }
 
     // 3. If next follow-up date given, schedule/update follow-up
@@ -408,6 +455,7 @@ export async function updatePipelineLeadDetails(
     presentationUrls?: DemoUrlItem[];
     assignedBdm?: string;
     notes?: string;
+    estDealValue?: number;
   }
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -415,7 +463,7 @@ export async function updatePipelineLeadDetails(
 
     const { data: currentCo, error: fetchErr } = await sb
       .from("companies")
-      .select("id, company_name, notes, research_json, assigned_bdm")
+      .select("id, company_name, notes, research_json, assigned_bdm, est_deal_value")
       .eq("id", companyId)
       .single();
 
@@ -449,6 +497,9 @@ export async function updatePipelineLeadDetails(
     if (payload.notes !== undefined) {
       updateFields.notes = payload.notes;
     }
+    if (payload.estDealValue !== undefined) {
+      updateFields.est_deal_value = payload.estDealValue;
+    }
 
     const { error: updateErr } = await sb
       .from("companies")
@@ -457,6 +508,18 @@ export async function updatePipelineLeadDetails(
 
     if (updateErr) {
       return { success: false, error: updateErr.message };
+    }
+
+    // Keep opportunity valuation in sync
+    if (payload.estDealValue !== undefined) {
+      await sb
+        .from("opportunities")
+        .update({
+          estimated_value: payload.estDealValue,
+          currency: "OMR",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("company_id", companyId);
     }
 
     // Update follow-up schedule if date specified

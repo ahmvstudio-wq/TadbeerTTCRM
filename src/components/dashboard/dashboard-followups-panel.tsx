@@ -263,7 +263,7 @@ export function DashboardFollowUpsPanel({
             <span>Schedule Task</span>
           </Button>
 
-          <Link href="/follow-ups">
+          <Link href="/outreach?tab=followups">
             <Button
               variant="outline"
               size="sm"
@@ -401,7 +401,7 @@ export function DashboardFollowUpsPanel({
               >
                 + Schedule Follow-up
               </Button>
-              <Link href="/follow-ups">
+              <Link href="/outreach?tab=followups">
                 <Button
                   size="sm"
                   className="text-xs h-7 rounded-lg bg-black text-white hover:bg-neutral-800"

@@ -60,7 +60,7 @@ export async function createOpportunity(data: {
         title: data.title,
         description: data.description,
         estimated_value: data.estimated_value,
-        currency: data.currency || 'SAR',
+        currency: data.currency || 'OMR',
         stage: data.stage || 'qualified',
         expected_close_date: data.expected_close_date,
         probability: data.probability || 10
@@ -74,6 +74,9 @@ export async function createOpportunity(data: {
       .from('companies')
       .update({
         status: 'opportunity',
+        est_deal_value: data.estimated_value,
+        pipeline_stage: data.stage === 'proposal_sent' ? 'Proposal Sent' : data.stage === 'negotiation' ? 'Follow-up / Negotiation' : 'Opportunity',
+        lead_status: data.stage === 'proposal_sent' ? 'Proposal Sent' : data.stage === 'negotiation' ? 'Negotiation' : 'Qualified',
         updated_at: new Date().toISOString()
       })
       .eq('id', data.company_id)
@@ -88,11 +91,12 @@ export async function createOpportunity(data: {
         company_id: data.company_id,
         activity_type: 'opportunity_created',
         title: 'Opportunity created',
-        description: `New opportunity "${data.title}" with value SAR ${data.estimated_value.toLocaleString()}`,
+        description: `New opportunity "${data.title}" with value OMR ${data.estimated_value.toLocaleString()}`,
         contact_id: data.contact_id,
         metadata: {
           opportunity_id: opportunity.id,
           estimated_value: data.estimated_value,
+          currency: 'OMR',
           stage: data.stage || 'qualified'
         },
         created_at: new Date().toISOString()
@@ -152,6 +156,29 @@ export async function updateOpportunityStage(id: string, stage: string) {
       .single()
 
     if (updateError) return { data: null, error: updateError.message }
+
+    // Keep company status synchronized with opportunity stage
+    const companyUpdates: Record<string, any> = { updated_at: new Date().toISOString() }
+    if (stage === 'won') {
+      companyUpdates.status = 'won'
+      companyUpdates.pipeline_stage = 'Won'
+      companyUpdates.lead_status = 'Won'
+    } else if (stage === 'lost') {
+      companyUpdates.status = 'lost'
+      companyUpdates.pipeline_stage = 'Lost'
+      companyUpdates.lead_status = 'Lost'
+    } else if (stage === 'proposal_sent') {
+      companyUpdates.status = 'opportunity'
+      companyUpdates.pipeline_stage = 'Proposal Sent'
+      companyUpdates.lead_status = 'Proposal Sent'
+    } else if (stage === 'negotiation' || stage === 'verbal_commit') {
+      companyUpdates.status = 'opportunity'
+      companyUpdates.pipeline_stage = 'Follow-up / Negotiation'
+      companyUpdates.lead_status = 'Negotiation'
+    }
+    if (opportunity.company_id && Object.keys(companyUpdates).length > 1) {
+      await supabase.from('companies').update(companyUpdates).eq('id', opportunity.company_id)
+    }
 
     const { error: activityError } = await supabase
       .from('activities')

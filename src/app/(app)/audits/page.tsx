@@ -86,6 +86,10 @@ const STATUS_CONFIG: Record<AuditStatus, { label: string; bg: string; text: stri
   },
 };
 
+export function AuditsClient() {
+  return <AuditsPage />;
+}
+
 export default function AuditsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -103,6 +107,15 @@ export default function AuditsPage() {
   // Modals & Drawers
   const [newModalOpen, setNewModalOpen] = useState(false);
   const [selectedAudit, setSelectedAudit] = useState<AuditRecord | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.pathname === "/audits") {
+      const url = new URL(window.location.href);
+      const status = url.searchParams.get("status");
+      const target = status ? `/pipeline?tab=audits&status=${status}` : "/pipeline?tab=audits";
+      window.history.replaceState({}, "", target);
+    }
+  }, []);
 
   // Read initial filter from URL params (e.g. /audits?status=pending from dashboard)
   useEffect(() => {

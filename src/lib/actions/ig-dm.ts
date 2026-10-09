@@ -58,6 +58,19 @@ function parseSafeOutreachDate(dateStr?: string | null): string {
   }
 }
 
+function extractActivityPayload(act: any): any {
+  if (act?.metadata && typeof act.metadata === 'object' && Object.keys(act.metadata).length > 0) {
+    return act.metadata;
+  }
+  if (act?.description) {
+    try {
+      const parsed = JSON.parse(act.description);
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch {}
+  }
+  return {};
+}
+
 // ─── Log outreach ─────────────────────────────────────────────────────────────
 export async function logOutreach(data: {
   company_name: string
@@ -130,12 +143,29 @@ export async function logOutreach(data: {
         activity_type: getValidActivityType(data.channel),
         title: CHANNEL_CONFIG[data.channel].label + ' — ' + TEMPLATE_LABELS[data.template_used],
         description: JSON.stringify(payload),
+        metadata: payload,
         created_at: createdAt,
       })
       .select()
       .single()
 
     if (actErr) return { data: null, error: actErr.message }
+
+    // Dual-write to outreach_touches for unified pipeline normalization
+    const rawCh = String(data.channel).toLowerCase()
+    const validTouchChannel = rawCh.includes('email') ? 'email' : (rawCh.includes('linkedin') ? 'linkedin' : (rawCh.includes('wa') || rawCh.includes('whatsapp') ? 'whatsapp' : 'call'))
+    try {
+      await supabase.from('outreach_touches').insert({
+        lead_id: companyId,
+        channel: validTouchChannel,
+        step_number: 1,
+        message: data.notes || `${CHANNEL_CONFIG[data.channel].label} outreach sent`,
+        status: 'sent',
+        sent_at: createdAt,
+      })
+    } catch (touchErr) {
+      console.warn("Touch insert note:", touchErr)
+    }
 
     // Auto-schedule Follow-up 1 for exactly +2 days (Undeniable Cadence Delay)
     const nextDueDate = new Date(createdAt)
@@ -279,7 +309,7 @@ export async function updateOutreachEntry(activityId: string, update: {
     if (companyId && !actualActivityId) {
       const { data: act } = await supabase
         .from('activities')
-        .select('id, company_id, description, created_at')
+        .select('id, company_id, description, metadata, created_at')
         .eq('company_id', companyId)
         .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent'])
         .order('created_at', { ascending: false })
@@ -292,14 +322,7 @@ export async function updateOutreachEntry(activityId: string, update: {
       }
     }
 
-    let current: any = {}
-    if (existingActivity?.description) {
-      try {
-        current = JSON.parse(existingActivity.description)
-      } catch {
-        current = {}
-      }
-    }
+    let current: any = extractActivityPayload(existingActivity)
     const status: OutreachStatus = (update as any).status || current.status || 'sent'
     const statuses: string[] = update.statuses || current.statuses || (status ? [status] : ['sent'])
     const updated = {
@@ -313,6 +336,7 @@ export async function updateOutreachEntry(activityId: string, update: {
 
     const dbPayload: any = {
       description: JSON.stringify(updated),
+      metadata: updated,
       title: (CHANNEL_CONFIG[channel]?.label || 'Outreach') + ' — ' + (STATUS_CONFIG[status]?.label || status),
       activity_type: getValidActivityType(channel),
     }
@@ -653,8 +677,7 @@ export async function getOutreachLeads(
     if (error) return { data: null, error: error.message }
 
     let parsed = (data || []).map((act: any) => {
-      let payload: any = {}
-      try { payload = act.description ? JSON.parse(act.description) : {} } catch {}
+      const payload: any = extractActivityPayload(act)
       const actTitle = (act.title || '').toLowerCase()
       const channel: OutreachChannel = payload.channel || (
         act.activity_type === 'ig_dm' || actTitle.includes('instagram') ? 'instagram_dm' :
@@ -850,8 +873,7 @@ export async function getAllLeadsForPipeline(
     // activities are ordered by created_at DESC (newest first), so the FIRST activity encountered for a company
     // is its most recent state! Older activities must NOT overwrite the newest activity.
     ;(activities || []).forEach((act: any) => {
-      let payload: any = {}
-      try { payload = act.description ? JSON.parse(act.description) : {} } catch {}
+      const payload: any = extractActivityPayload(act)
 
       const compId = act.company_id
       const co = (compId ? companyById.get(compId) : null) || act.companies || {}
@@ -957,8 +979,7 @@ export async function getAllLeadsForPipeline(
       // 1. Matches from logged activities in target date range
       ;(activities || []).forEach((act: any) => {
         if (!act.created_at) return
-        let payload: any = {}
-        try { payload = act.description ? JSON.parse(act.description) : {} } catch {}
+        const payload: any = extractActivityPayload(act)
 
         const createdDate = act.created_at ? act.created_at.split('T')[0] : null
         const explicitDate = payload.outreach_date ? payload.outreach_date.split('T')[0] : null
@@ -1337,8 +1358,7 @@ export async function getOutreachCountsForMonth(year: number, month: number) {
       const co = companyById.get(compId)
       if (co && (co.lead_type === 'Dormant' || co.status === 'dormant' || co.status === 'lost')) return
 
-      let payload: any = {}
-      try { payload = act.description ? JSON.parse(act.description) : {} } catch {}
+      const payload: any = extractActivityPayload(act)
 
       const day = payload.outreach_date ? payload.outreach_date.split('T')[0] : act.created_at.split('T')[0]
       if (day && day >= startDayStr && day <= endDayStr) {
