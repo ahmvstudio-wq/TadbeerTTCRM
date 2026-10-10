@@ -99,28 +99,34 @@ export async function bookMeeting(data: {
     // Also sync or insert outreach activity with status: meeting_booked
     const { data: acts } = await supabase
       .from('activities')
-      .select('id, description')
+      .select('id, description, metadata')
       .eq('company_id', data.company_id)
       .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent'])
       .order('created_at', { ascending: false })
       .limit(1)
 
     if (acts && acts.length > 0) {
-      let p: any = {}
-      try { p = acts[0].description ? JSON.parse(acts[0].description) : {} } catch {}
+      let p: any = acts[0].metadata || {}
+      if (!acts[0].metadata && acts[0].description) {
+        try { p = JSON.parse(acts[0].description) } catch { p = { notes: acts[0].description } }
+      }
+      const updatedPayload = { ...p, status: 'meeting_booked', updated_at: new Date().toISOString() }
       await supabase.from('activities').update({
-        description: JSON.stringify({ ...p, status: 'meeting_booked', updated_at: new Date().toISOString() })
+        description: updatedPayload.notes || updatedPayload.prospect_reply || 'Meeting Scheduled — meeting_booked',
+        metadata: updatedPayload
       }).eq('id', acts[0].id)
     } else {
+      const newPayload = {
+        channel: 'cold_call',
+        status: 'meeting_booked',
+        updated_at: new Date().toISOString()
+      }
       await supabase.from('activities').insert({
         company_id: data.company_id,
         activity_type: 'call_made',
         title: 'Meeting Scheduled — meeting_booked',
-        description: JSON.stringify({
-          channel: 'cold_call',
-          status: 'meeting_booked',
-          updated_at: new Date().toISOString()
-        }),
+        description: 'Meeting Scheduled — meeting_booked',
+        metadata: newPayload,
         created_at: new Date().toISOString()
       })
     }

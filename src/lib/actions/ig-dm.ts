@@ -142,7 +142,7 @@ export async function logOutreach(data: {
         company_id: companyId,
         activity_type: getValidActivityType(data.channel),
         title: CHANNEL_CONFIG[data.channel].label + ' — ' + TEMPLATE_LABELS[data.template_used],
-        description: JSON.stringify(payload),
+        description: data.notes || `${CHANNEL_CONFIG[data.channel].label} outreach sent`,
         metadata: payload,
         created_at: createdAt,
       })
@@ -228,7 +228,8 @@ export async function bulkLogOutreach(data: {
         company_id: co.id,
         activity_type: getValidActivityType(data.channel),
         title: CHANNEL_CONFIG[data.channel].label + ' — ' + TEMPLATE_LABELS[data.template_used],
-        description: JSON.stringify(payload),
+        description: data.notes || `${CHANNEL_CONFIG[data.channel].label} outreach sent`,
+        metadata: payload,
         created_at: createdAt,
       }
     })
@@ -333,9 +334,9 @@ export async function updateOutreachEntry(activityId: string, update: {
       updated_at: new Date().toISOString()
     }
     const channel: OutreachChannel = updated.channel || 'cold_call'
-
+    const readableDesc = updated.notes || updated.prospect_reply || updated.ai_summary || null
     const dbPayload: any = {
-      description: JSON.stringify(updated),
+      description: readableDesc,
       metadata: updated,
       title: (CHANNEL_CONFIG[channel]?.label || 'Outreach') + ' — ' + (STATUS_CONFIG[status]?.label || status),
       activity_type: getValidActivityType(channel),
@@ -464,13 +465,14 @@ export async function updateOutreachEntry(activityId: string, update: {
           company_id: companyId,
           activity_type: 'note',
           title: `Follow-up Scheduled — Due ${scheduledDueDate}`,
-          description: JSON.stringify({
+          description: followUpSubject,
+          metadata: {
             status,
             due_date: scheduledDueDate,
             subject: followUpSubject,
             channel: updAny.followUpChannel || channel || 'call',
             created_at: new Date().toISOString()
-          }),
+          },
           created_at: new Date().toISOString()
         })
       }
@@ -588,6 +590,7 @@ export async function markLeadFollowedUp(activityOrCompanyId: string, companyIdH
       updated_at: now
     }
 
+    const fuSentDesc = notes || updatedPayload.notes || 'Follow-up sent'
     // 1. Insert a fresh follow_up_sent activity record so cadence logs it on today's date
     const { data: newAct, error: actErr } = await supabase
       .from('activities')
@@ -595,7 +598,8 @@ export async function markLeadFollowedUp(activityOrCompanyId: string, companyIdH
         company_id: companyId,
         activity_type: getValidActivityType(channel),
         title: (CHANNEL_CONFIG[channel]?.label || 'Outreach') + ' — Follow-up Sent',
-        description: JSON.stringify(updatedPayload),
+        description: fuSentDesc,
+        metadata: updatedPayload,
         created_at: now
       })
       .select('id')
@@ -608,7 +612,8 @@ export async function markLeadFollowedUp(activityOrCompanyId: string, companyIdH
     // 2. Also update previous activity description so it reflects the latest status
     if (actualActivityId) {
       await supabase.from('activities').update({
-        description: JSON.stringify(updatedPayload)
+        description: fuSentDesc,
+        metadata: updatedPayload
       }).eq('id', actualActivityId)
     }
 
@@ -1250,7 +1255,8 @@ export async function markChannelTouchSent(data: {
         company_id: data.company_id,
         activity_type: getValidActivityType(data.channel),
         title: `${CHANNEL_CONFIG[data.channel]?.label || data.channel} — Gate-Opener Sent`,
-        description: JSON.stringify(payload),
+        description: data.notes || data.message || 'Gate-Opener Sent',
+        metadata: payload,
         created_at: createdAt,
       })
       .select('id')
@@ -1561,7 +1567,8 @@ export async function importCSVOutreach(data: {
         company_id: companyId,
         activity_type: getValidActivityType(ch),
         title: (CHANNEL_CONFIG[ch]?.label || 'Outreach') + ' — CSV Import',
-        description: JSON.stringify(payload),
+        description: row.notes?.trim() || 'Imported via CSV',
+        metadata: payload,
         created_at: createdAt,
       }
     })

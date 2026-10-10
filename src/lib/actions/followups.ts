@@ -369,19 +369,22 @@ export async function advanceCadenceStage(data: {
     }
 
     // 3. Log outreach activity
+    const fuActivityPayload = {
+      stage_completed: currentStage,
+      next_stage: nextStage,
+      channel,
+      next_due_date: nextDueDate,
+      delay_days: delayDays,
+      notes: customNotes || ''
+    }
+
     await supabase.from('activities').insert({
       company_id: companyId,
       contact_id: contactId || null,
       activity_type: 'outreach_sent',
       title: activityTitle,
-      description: JSON.stringify({
-        stage_completed: currentStage,
-        next_stage: nextStage,
-        channel,
-        next_due_date: nextDueDate,
-        delay_days: delayDays,
-        notes: customNotes || ''
-      }),
+      description: customNotes || `${activityTitle} completed`,
+      metadata: fuActivityPayload,
       created_at: nowIso
     })
 

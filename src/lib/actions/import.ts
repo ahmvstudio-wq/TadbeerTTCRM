@@ -319,7 +319,8 @@ export async function bulkImportCompanies(
             company_id: insertedComp.id,
             activity_type: getValidActivityType(ch),
             title: (CHANNEL_CONFIG[ch]?.label || 'Outreach') + ' — Opener Staged',
-            description: JSON.stringify(payload),
+            description: payload.notes || 'Opener Staged',
+            metadata: payload,
             created_at: now,
           }
         })

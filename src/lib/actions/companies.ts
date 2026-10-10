@@ -325,7 +325,7 @@ export async function updateCompanyStatus(
     // Sync latest outreach activity if exists, or insert new one so ig-dm has matching record
     const { data: acts } = await supabase
       .from('activities')
-      .select('id, description, activity_type')
+      .select('id, description, metadata, activity_type')
       .eq('company_id', cleanId)
       .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent'])
       .order('created_at', { ascending: false })
@@ -333,24 +333,31 @@ export async function updateCompanyStatus(
 
     if (acts && acts.length > 0) {
       const act = acts[0]
-      let p: any = {}
-      try {
-        p = act.description ? JSON.parse(act.description) : {}
-      } catch {
-        p = { notes: act.description }
+      let p: any = act.metadata || {}
+      if (!act.metadata && act.description) {
+        try {
+          p = JSON.parse(act.description)
+        } catch {
+          p = { notes: act.description }
+        }
       }
       const newP = { ...p, status: actStatus, updated_at: new Date().toISOString() }
-      await supabase.from('activities').update({ description: JSON.stringify(newP) }).eq('id', act.id)
+      await supabase.from('activities').update({
+        description: newP.notes || newP.prospect_reply || `Outreach Status — ${actStatus}`,
+        metadata: newP
+      }).eq('id', act.id)
     } else {
+      const newP = {
+        channel: options?.followUpChannel || 'cold_call',
+        status: actStatus,
+        updated_at: new Date().toISOString()
+      }
       await supabase.from('activities').insert({
         company_id: cleanId,
         activity_type: 'call_made',
         title: `Outreach Status — ${actStatus}`,
-        description: JSON.stringify({
-          channel: options?.followUpChannel || 'cold_call',
-          status: actStatus,
-          updated_at: new Date().toISOString()
-        }),
+        description: `Outreach Status updated to ${actStatus}`,
+        metadata: newP,
         created_at: new Date().toISOString()
       })
     }
@@ -399,14 +406,15 @@ export async function updateCompanyStatus(
         company_id: cleanId,
         activity_type: 'note',
         title: `Follow-up Scheduled — Due ${scheduledDueDate}`,
-        description: JSON.stringify({
+        description: followUpSubject,
+        metadata: {
           status: unified.id,
           status_label: unified.label,
           due_date: scheduledDueDate,
           subject: followUpSubject,
           channel: options?.followUpChannel || 'call',
           created_at: new Date().toISOString()
-        }),
+        },
         created_at: new Date().toISOString()
       })
     }
