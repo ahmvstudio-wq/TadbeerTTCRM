@@ -563,13 +563,6 @@ export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: C
                           </Badge>
 
                           <ChannelBadge channel={item.direct_channel} />
-
-                          {item.assigned_bdm && (
-                            <span className="text-[11px] text-neutral-400 font-light flex items-center gap-1">
-                              <User className="h-3 w-3" />
-                              {item.assigned_bdm}
-                            </span>
-                          )}
                         </div>
 
                         <div className="flex items-center gap-2 mt-1 text-xs text-neutral-500 font-light">

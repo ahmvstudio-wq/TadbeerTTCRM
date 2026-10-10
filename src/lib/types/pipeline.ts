@@ -52,7 +52,7 @@ export interface PipelineLead {
   lead_status: string | null;
   assigned_to: string | null;
   assigned_bdm: string | null;
-  owner_name: string;
+  owner_name?: string | null;
   primary_contact: {
     id?: string;
     full_name: string;

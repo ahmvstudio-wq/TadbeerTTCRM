@@ -161,7 +161,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData?: Dashboar
 
   const handleGenerateCallBatch = async () => {
     setGeneratingBatch(true);
-    const res = await generateDailyCallBatch(20, "Ramij");
+    const res = await generateDailyCallBatch(20);
     if (res.data) {
       setDailyBatchLeads(res.data);
       setDailyCallBatch(res.data);

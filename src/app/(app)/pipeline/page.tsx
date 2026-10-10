@@ -281,7 +281,7 @@ export default function PipelinePage() {
     followUpStatus: "none",
     demoUrls: [],
     presentationUrls: [],
-    assignedBdm: "Ramij",
+    assignedBdm: "",
     notes: "",
   });
 
@@ -500,7 +500,7 @@ export default function PipelinePage() {
       followUpStatus: lead.follow_up_status,
       demoUrls: lead.demo_urls || [],
       presentationUrls: lead.presentation_urls || [],
-      assignedBdm: lead.assigned_bdm || "Ramij",
+      assignedBdm: "",
       notes: lead.notes || "",
     });
     setNewUrlTitle("");
@@ -944,13 +944,6 @@ export default function PipelinePage() {
                               Mgmt Focus
                             </span>
                           )}
-
-                          {lead.owner_name && (
-                            <span className="text-[11px] text-neutral-400 font-light flex items-center gap-1">
-                              <User className="h-3 w-3" />
-                              {lead.owner_name}
-                            </span>
-                          )}
                         </div>
 
                         {/* Contact details */}
@@ -1312,42 +1305,26 @@ export default function PipelinePage() {
 
           <div className="space-y-4 text-xs font-sans mt-2 max-h-[70vh] overflow-y-auto pr-1">
             {/* Stage Selector */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-semibold text-neutral-700 mb-1 block">
-                  Pipeline Stage *
-                </label>
-                <select
-                  value={editForm.stage}
-                  onChange={(e) =>
-                    setEditForm({
-                      ...editForm,
-                      stage: e.target.value as PipelineStageKey,
-                    })
-                  }
-                  className="w-full text-xs font-mono rounded-xl px-3 py-2 border border-neutral-300 bg-white"
-                >
-                  {STAGE_KEYS.map((s) => (
-                    <option key={s} value={s}>
-                      {STAGE_CONFIGS[s].label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-neutral-700 mb-1 block">
-                  Assigned BDM / Owner
-                </label>
-                <Input
-                  value={editForm.assignedBdm}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, assignedBdm: e.target.value })
-                  }
-                  placeholder="e.g. Ramij"
-                  className="rounded-xl text-xs"
-                />
-              </div>
+            <div>
+              <label className="text-xs font-semibold text-neutral-700 mb-1 block">
+                Pipeline Stage *
+              </label>
+              <select
+                value={editForm.stage}
+                onChange={(e) =>
+                  setEditForm({
+                    ...editForm,
+                    stage: e.target.value as PipelineStageKey,
+                  })
+                }
+                className="w-full text-xs font-mono rounded-xl px-3 py-2 border border-neutral-300 bg-white"
+              >
+                {STAGE_KEYS.map((s) => (
+                  <option key={s} value={s}>
+                    {STAGE_CONFIGS[s].label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Next Action & Action Due Date */}

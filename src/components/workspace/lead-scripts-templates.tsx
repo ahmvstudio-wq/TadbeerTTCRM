@@ -159,7 +159,7 @@ export function LeadScriptsTemplates({
           {
             id: "em_1",
             title: "Direct Executive Observation",
-            body: `Subject: Observation regarding ${companyName}'s operations in Muscat\n\nAssalamu Alaikum ${contactName},\n\nI was reviewing ${companyName} and was impressed by your presence in ${industry}. Specifically noticed ${observation}.\n\nI'm based in Muscat and work with business owners optimizing front-desk customer flow and response times. Would you be open to a casual 20-minute coffee this week in Qurum or Al Mouj?\n\nBest regards,\nRamij | Tadbeer Transformation`
+            body: `Subject: Observation regarding ${companyName}'s operations in Muscat\n\nAssalamu Alaikum ${contactName},\n\nI was reviewing ${companyName} and was impressed by your presence in ${industry}. Specifically noticed ${observation}.\n\nI'm based in Muscat and work with business owners optimizing front-desk customer flow and response times. Would you be open to a casual 20-minute coffee this week in Qurum or Al Mouj?\n\nBest regards,\nTadbeer Transformation`
           }
         ];
     }

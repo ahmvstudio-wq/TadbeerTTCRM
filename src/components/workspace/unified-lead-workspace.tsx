@@ -17,14 +17,13 @@ import {
   Bot,
   Trash2,
   ExternalLink,
-  ShieldAlert,
   Loader2,
   MapPin,
   CalendarCheck,
   ChevronDown
 } from "lucide-react";
 import { Company, Contact, Activity, FollowUp, Meeting, OutreachPreparation } from "@/lib/types/database";
-import { getCompany, updateCompany, updateCompanyStatus, assignCompanyLead, upsertCompanyContact } from "@/lib/actions/companies";
+import { getCompany, updateCompany, updateCompanyStatus, upsertCompanyContact } from "@/lib/actions/companies";
 import { ContactChannelsGrid, extractInstagramUrl } from "./contact-channels-grid";
 import { ActivityTimeline } from "./activity-timeline";
 import { LeadResearchCard } from "./lead-research-card";
@@ -36,13 +35,6 @@ import { Button } from "@/components/ui/button";
 import { UNIFIED_STATUSES, getUnifiedStatus, mapToDbCompanyStatus } from "@/lib/constants/statuses";
 import { StatusFollowUpModal } from "@/components/status/status-follow-up-modal";
 import { CRMCache } from "@/lib/cache/crm-cache";
-
-export const TEAM_MEMBERS = [
-  { id: "Ramij", name: "Ramij (Sales Lead)", role: "bd_rep" },
-  { id: "Taufiq", name: "Taufiq (Automation)", role: "bd_rep" },
-  { id: "Ismail", name: "Ismail (Closer)", role: "closer" },
-  { id: "Ahmed", name: "Ahmed Al-Rashid", role: "admin" }
-];
 
 interface UnifiedLeadWorkspaceProps {
   companyId: string;
@@ -215,8 +207,6 @@ export function UnifiedLeadWorkspace({
   }
 
   const primaryContact = contacts.find(c => c.is_primary) || contacts[0] || null;
-  const assignedRep = company.assigned_to;
-  const isAssignedToOther = false; // Lean shared CRM: universal team access
 
   const handleStatusChange = async (newStatus: string) => {
     const unified = getUnifiedStatus(newStatus);
@@ -233,15 +223,6 @@ export function UnifiedLeadWorkspace({
       window.dispatchEvent(new CustomEvent("lead-updated", { detail: { source: "workspace_status", companyId: company.id, status: unified.id } }));
     }
     await updateCompanyStatus(company.id, unified.id);
-    fetchLeadData(true);
-  };
-
-  const handleAssign = async (repId: string | null) => {
-    setCompany(prev => prev ? { ...prev, assigned_to: repId || null } : null);
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("lead-updated", { detail: { source: "workspace_status", companyId: company.id } }));
-    }
-    await assignCompanyLead(company.id, repId);
     fetchLeadData(true);
   };
 
@@ -357,20 +338,6 @@ export function UnifiedLeadWorkspace({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {/* Owner assignment */}
-          <div className="flex items-center gap-1.5 text-xs text-neutral-500">
-            <span className="hidden sm:inline text-neutral-400 text-[11px]">Owner:</span>
-            <select
-              value={assignedRep || ""}
-              onChange={(e) => handleAssign(e.target.value || null)}
-              className="text-xs text-neutral-700 border border-neutral-200 rounded-md px-2 py-1 bg-white cursor-pointer focus:outline-none focus:ring-1 focus:ring-neutral-300"
-            >
-              <option value="">Unassigned</option>
-              {TEAM_MEMBERS.map(m => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </select>
-          </div>
 
           {onClose && (
             <button
@@ -385,12 +352,6 @@ export function UnifiedLeadWorkspace({
 
       {/* ── Pipeline Status + Meta row ──────────────────────────────────── */}
       <div className="px-5 py-2.5 border-b border-neutral-100 bg-neutral-50 flex flex-wrap items-center gap-3">
-        {isAssignedToOther && (
-          <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
-            <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
-            <span>Assigned to <strong>{assignedRep}</strong> — coordinate before outreach</span>
-          </div>
-        )}
         <div className="flex items-center gap-2 text-xs text-neutral-500">
           <span className="text-neutral-400">Stage:</span>
           <button

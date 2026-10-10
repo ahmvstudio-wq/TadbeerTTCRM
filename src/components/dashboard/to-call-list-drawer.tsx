@@ -95,7 +95,7 @@ export function ToCallListDrawer({
 
   const handleLoadMore = async () => {
     setLoadingMore(true);
-    const res = await loadMoreCallBatch(20, "Ramij");
+    const res = await loadMoreCallBatch(20);
     if (res.data && res.data.length > 0) {
       setLeads(prev => {
         const existingIds = new Set(prev.map(p => p.id));
@@ -124,7 +124,7 @@ export function ToCallListDrawer({
                 </span>
               </div>
               <p className="text-xs text-slate-400 font-medium mt-0.5">
-                Targeting Ramij&apos;s daily 20 verified numbers ({totalPoolCount} Total Verified Pool)
+                Targeting daily 20 verified numbers ({totalPoolCount} Total Verified Pool)
               </p>
             </div>
           </div>

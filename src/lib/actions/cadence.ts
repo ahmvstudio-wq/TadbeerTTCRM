@@ -887,8 +887,8 @@ async function resolveUserUuid(userIdentifier?: string): Promise<string> {
   const isUuid = userIdentifier && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userIdentifier);
   if (isUuid) return userIdentifier;
 
-  const name = userIdentifier || 'Ramij';
-  const email = name.toLowerCase().includes('ramij') ? 'ramij@tadbeertt.com' : `${name.toLowerCase().replace(/\s+/g, '')}@tadbeertt.com`;
+  const name = userIdentifier || 'Team';
+  const email = `${name.toLowerCase().replace(/\s+/g, '')}@tadbeertt.com`;
   
   const { data: user } = await supabase
     .from('users')

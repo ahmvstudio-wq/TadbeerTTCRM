@@ -206,9 +206,9 @@ export async function getPipelineOverview(): Promise<{
         pipeline_stage_raw: c.pipeline_stage || null,
         canonical_stage: canonicalStage,
         lead_status: c.lead_status || null,
-        assigned_to: c.assigned_to || null,
-        assigned_bdm: c.assigned_bdm || rJson.owner || "Ramij",
-        owner_name: c.assigned_bdm || rJson.owner || "Ramij",
+        assigned_to: null,
+        assigned_bdm: null,
+        owner_name: null,
         primary_contact: primaryContact
           ? {
               id: primaryContact.id,
