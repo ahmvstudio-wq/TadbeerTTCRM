@@ -343,12 +343,12 @@ export async function updatePipelineLeadStage(
     }
 
     // 2b. Synchronize PostgreSQL opportunities table in real time
-    const stageToOppConfig: Record<string, { stage: string; prob: number; defVal: number }> = {
-      demo: { stage: "qualified", prob: 20, defVal: 2000 },
-      proposal: { stage: "proposal_sent", prob: 30, defVal: 2500 },
-      follow_up: { stage: "negotiation", prob: 50, defVal: 3500 },
-      won: { stage: "won", prob: 100, defVal: 3000 },
-      lost: { stage: "lost", prob: 0, defVal: 0 },
+    const stageToOppConfig: Record<string, { stage: string; prob: number }> = {
+      demo: { stage: "qualified", prob: 20 },
+      proposal: { stage: "proposal_sent", prob: 30 },
+      follow_up: { stage: "negotiation", prob: 50 },
+      won: { stage: "won", prob: 100 },
+      lost: { stage: "lost", prob: 0 },
     };
 
     const oppConfig = stageToOppConfig[newStage];
@@ -361,7 +361,7 @@ export async function updatePipelineLeadStage(
 
       const dealVal = (currentCo.est_deal_value && Number(currentCo.est_deal_value) > 0)
         ? Number(currentCo.est_deal_value)
-        : (existingOpp?.estimated_value || oppConfig.defVal);
+        : (existingOpp?.estimated_value || 0);
 
       if (existingOpp) {
         const oppUpdate: Record<string, any> = {
