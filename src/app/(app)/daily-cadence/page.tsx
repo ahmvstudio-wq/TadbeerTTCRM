@@ -49,21 +49,28 @@ import { ShareProgressModal, isHumanReply } from "@/components/cadence/share-pro
 import { OutreachAnalyticsDashboard } from "@/components/cadence/outreach-analytics-dashboard";
 import { useUnifiedLead } from "@/context/unified-lead-context";
 import { CRMCache } from "@/lib/cache/crm-cache";
+import { getUnifiedStatus } from "@/lib/constants/statuses";
 
 const CHANNELS: OutreachChannel[] = [
   "instagram_dm", "linkedin", "whatsapp", "cold_call", "referral", "email", "event", "walk_in"
 ];
 
-const STATUSES: OutreachStatus[] = [
-  "gate_opener_sent", "warm_up", "opening_identified", "ready_for_call", "called", "meeting_booked", "follow_up_sent", "no_reply"
+const CADENCE_STATUSES = [
+  "contacted",
+  "follow_up_sent",
+  "no_reply",
+  "reply_received",
+  "warm_up",
+  "opening_identified",
+  "audit_requested",
+  "ready_for_call",
+  "called",
+  "meeting_booked",
+  "dormant",
 ];
 
 function normalizeStatus(s: string): string {
-  if (s === "sent") return "gate_opener_sent";
-  if (s === "reply_received") return "warm_up";
-  if (s === "replied_interested" || s === "replied_objection") return "opening_identified";
-  if (s === "follow_up_sent") return "follow_up_sent";
-  return s;
+  return getUnifiedStatus(s).id;
 }
 
 export function DailyCadenceClient() {
@@ -238,8 +245,8 @@ export default function DailyCadencePage() {
   );
   const calculatedReplied = leads.filter(isHumanReply).length;
   const replied = Math.max(calculatedReplied, hasJunaid ? 1 : 0);
-  const ready = leads.filter(l => ['ready_for_call', 'coffee_invited'].includes(l.status)).length;
-  const booked = leads.filter(l => l.status === "meeting_booked").length;
+  const ready = leads.filter(l => ['ready_for_call', 'coffee_invited', 'in_call_queue'].includes(getUnifiedStatus(l.status).id)).length;
+  const booked = leads.filter(l => getUnifiedStatus(l.status).id === "meeting_booked").length;
 
   const displayedLeads = useMemo(() => {
     let list = leads;
@@ -673,7 +680,7 @@ function CalendarLeadCard({
   };
 
   const channelLabel = CHANNEL_CONFIG[channel]?.label || "Outreach";
-  const statusConfig = STATUS_CONFIG[status] || STATUS_CONFIG.sent;
+  const unified = getUnifiedStatus(status);
   const hasContext = Boolean(notes || reply || pain || opening);
 
   // Contact channels detection
@@ -781,8 +788,8 @@ function CalendarLeadCard({
               <Mail className="h-3 w-3 text-violet-600" /> Mail
             </a>
           )}
-          <span className="text-[10px] font-black px-2.5 py-1 rounded-full border border-neutral-200 bg-neutral-100 text-neutral-800">
-            {statusConfig.label}
+          <span className={cn("text-[10px] font-black px-2.5 py-1 rounded-full border shadow-2xs", unified.badgeClass)}>
+            {unified.shortLabel || unified.label}
           </span>
         </div>
       </button>
@@ -797,21 +804,23 @@ function CalendarLeadCard({
               {saving && <span className="text-[10px] font-bold text-neutral-400 flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Saving...</span>}
             </div>
             <div className="flex gap-1.5 flex-wrap">
-              {STATUSES.map(s => {
-                const isSelected = normalizeStatus(status) === s;
+              {CADENCE_STATUSES.map(s => {
+                const uConf = getUnifiedStatus(s);
+                const isSelected = getUnifiedStatus(status).id === uConf.id;
                 return (
                   <button
                     key={s}
                     type="button"
-                    onClick={() => handleStatusChange(s)}
+                    onClick={() => handleStatusChange(s as OutreachStatus)}
                     className={cn(
-                      "text-xs font-black px-3 py-1 rounded-xl border transition-all cursor-pointer",
+                      "text-xs font-black px-3 py-1.5 rounded-xl border transition-all cursor-pointer flex items-center gap-1.5",
                       isSelected
-                        ? "bg-black text-white border-black shadow-xs"
+                        ? "bg-neutral-900 text-white border-neutral-900 shadow-xs"
                         : "bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-100"
                     )}
                   >
-                    {STATUS_CONFIG[s]?.label || s}
+                    <span className={cn("w-1.5 h-1.5 rounded-full", uConf.dotColor)} />
+                    {uConf.shortLabel}
                   </button>
                 );
               })}

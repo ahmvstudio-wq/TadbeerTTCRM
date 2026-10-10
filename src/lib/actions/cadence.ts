@@ -3,6 +3,7 @@
 import { requireAuth } from '@/lib/auth-guard'
 import { getSupabaseAdminClient } from '@/lib/supabase/config'
 import { revalidatePath } from 'next/cache'
+import { mapToDbCompanyStatus, mapToDbPipelineStage } from '@/lib/constants/statuses'
 
 const supabase = getSupabaseAdminClient()
 
@@ -611,7 +612,11 @@ export async function logResponse(data: {
       // Move company status
       await supabase
         .from('companies')
-        .update({ status: 'in_call_queue', pipeline_stage: 'Call Ready', updated_at: now })
+        .update({
+          status: mapToDbCompanyStatus('ready_for_call'),
+          pipeline_stage: mapToDbPipelineStage('ready_for_call'),
+          updated_at: now
+        })
         .eq('id', data.companyId)
 
     } else if (data.responseType === 'call_tomorrow') {
@@ -630,7 +635,11 @@ export async function logResponse(data: {
 
       await supabase
         .from('companies')
-        .update({ status: 'in_call_queue', pipeline_stage: 'Call Ready', updated_at: now })
+        .update({
+          status: mapToDbCompanyStatus('ready_for_call'),
+          pipeline_stage: mapToDbPipelineStage('ready_for_call'),
+          updated_at: now
+        })
         .eq('id', data.companyId)
 
     } else if (data.responseType === 'contact_next_month') {
@@ -653,13 +662,21 @@ export async function logResponse(data: {
     } else if (data.responseType === 'not_interested') {
       await supabase
         .from('companies')
-        .update({ status: 'lost', pipeline_stage: 'Lost', updated_at: now })
+        .update({
+          status: mapToDbCompanyStatus('lost'),
+          pipeline_stage: mapToDbPipelineStage('lost'),
+          updated_at: now
+        })
         .eq('id', data.companyId)
 
     } else if (data.responseType === 'meeting_booked') {
       await supabase
         .from('companies')
-        .update({ status: 'meeting_booked', pipeline_stage: 'Meeting Booked', updated_at: now })
+        .update({
+          status: mapToDbCompanyStatus('meeting_booked'),
+          pipeline_stage: mapToDbPipelineStage('meeting_booked'),
+          updated_at: now
+        })
         .eq('id', data.companyId)
 
     } else if (data.responseType === 'proposal_requested') {
@@ -677,7 +694,11 @@ export async function logResponse(data: {
 
       await supabase
         .from('companies')
-        .update({ status: 'opportunity', pipeline_stage: 'Opportunity', updated_at: now })
+        .update({
+          status: mapToDbCompanyStatus('proposal_requested'),
+          pipeline_stage: mapToDbPipelineStage('proposal_requested'),
+          updated_at: now
+        })
         .eq('id', data.companyId)
     }
 
@@ -767,7 +788,11 @@ export async function completeCallTask(data: {
     } else if (data.outcome === 'meeting_booked' || data.outcome === 'meeting_requested') {
       await supabase
         .from('companies')
-        .update({ status: 'meeting_booked', pipeline_stage: 'Meeting Booked', updated_at: now })
+        .update({
+          status: mapToDbCompanyStatus('meeting_booked'),
+          pipeline_stage: mapToDbPipelineStage('meeting_booked'),
+          updated_at: now
+        })
         .eq('id', data.companyId)
 
       if (data.followUpDate) {
@@ -795,12 +820,20 @@ export async function completeCallTask(data: {
       })
       await supabase
         .from('companies')
-        .update({ status: 'opportunity', pipeline_stage: 'Opportunity', updated_at: now })
+        .update({
+          status: mapToDbCompanyStatus('proposal_requested'),
+          pipeline_stage: mapToDbPipelineStage('proposal_requested'),
+          updated_at: now
+        })
         .eq('id', data.companyId)
     } else if (data.outcome === 'not_interested') {
       await supabase
         .from('companies')
-        .update({ status: 'lost', pipeline_stage: 'Lost', updated_at: now })
+        .update({
+          status: mapToDbCompanyStatus('lost'),
+          pipeline_stage: mapToDbPipelineStage('lost'),
+          updated_at: now
+        })
         .eq('id', data.companyId)
     }
 
@@ -906,7 +939,7 @@ export async function getOrCreateDailyCallBatch(count = 20, assignedTo = "Team")
     const { data: existingBatch } = await supabase
       .from('companies')
       .select('*, contacts(*)')
-      .eq('status', 'ready_for_call')
+      .in('status', ['ready_for_call', 'in_call_queue'])
       .order('updated_at', { ascending: false });
 
     if (existingBatch && existingBatch.length > 0) {
@@ -940,7 +973,11 @@ export async function generateDailyCallBatch(count = 20, assignedTo = "Team") {
     if (leadIdsToAssign.length > 0) {
       await supabase
         .from('companies')
-        .update({ assigned_to: userUuid, status: 'ready_for_call', updated_at: new Date().toISOString() })
+        .update({
+          status: mapToDbCompanyStatus('ready_for_call'),
+          pipeline_stage: mapToDbPipelineStage('ready_for_call'),
+          updated_at: new Date().toISOString()
+        })
         .in('id', leadIdsToAssign);
     }
 
