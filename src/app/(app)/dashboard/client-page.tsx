@@ -9,8 +9,10 @@ import {
   Activity, ArrowRight, MessageCircle, Mail, ExternalLink, CheckCircle2,
   BarChart3, PieChart, RefreshCw, ShieldAlert, ArrowUpRight, Plus, Filter,
   Target, Layers, Compass, Award, Percent, CheckSquare, LineChart, Briefcase, Search, Loader2,
-  FileCheck
+  FileCheck, Download
 } from "lucide-react";
+import { exportToCsv } from "@/lib/export-csv";
+import { addToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn, formatWhatsAppNumber, formatPhoneNumberForDisplay, isValidLinkedInUrl } from "@/lib/utils";
@@ -171,6 +173,62 @@ export function TealCRMDashboardClient({ initialData }: { initialData?: Dashboar
   const [chartView, setChartView] = useState<"monthly" | "yearly">("yearly");
 
   const [dateFilter, setDateFilter] = useState<string>("all");
+
+  const handleExportLeads = () => {
+    if (outreachLeads.length === 0) {
+      addToast("error", "No leads found for the selected date filter");
+      return;
+    }
+
+    const exportData = outreachLeads.map((l) => {
+      const waNumber = l.phone ? formatWhatsAppNumber(l.phone) : "";
+      const waUrl = waNumber ? `https://wa.me/${waNumber}` : "";
+      const igHandle = l.handle?.replace(/^@/, "");
+      const igUrl = l.channel === "instagram_dm" || l.channel === "instagram"
+        ? (l.handle?.startsWith("http") ? l.handle : (igHandle ? `https://instagram.com/${igHandle}` : ""))
+        : "";
+      const liUrl = l.channel === "linkedin"
+        ? (l.handle?.startsWith("http") ? l.handle : (l.handle ? `https://linkedin.com/in/${l.handle}` : ""))
+        : "";
+
+      return {
+        company_name: l.company_name || "",
+        channel: CHANNEL_CONFIG[l.channel as OutreachChannel]?.label || l.channel,
+        handle: l.handle || "",
+        status: l.status || "",
+        phone: l.phone || "",
+        whatsapp_url: waUrl,
+        instagram_url: igUrl,
+        linkedin_url: liUrl,
+        industry: l.industry || "",
+        template_used: l.template_used || "",
+        prospect_reply: l.prospect_reply || "",
+        pain_point: l.pain_point || "",
+        notes: l.notes || "",
+        date_added: l.sent_at ? new Date(l.sent_at).toLocaleDateString() : "",
+      };
+    });
+
+    const dateTag = dateFilter !== "all" ? `${dateFilter}-` : "";
+    exportToCsv(exportData, `tadbeer-dashboard-leads-${dateTag}${new Date().toISOString().split("T")[0]}.csv`, [
+      { key: "company_name", label: "Company Name" },
+      { key: "channel", label: "Outreach Channel" },
+      { key: "handle", label: "Handle / Username" },
+      { key: "status", label: "Status" },
+      { key: "phone", label: "Phone" },
+      { key: "whatsapp_url", label: "WhatsApp Direct Chat" },
+      { key: "instagram_url", label: "Instagram Profile" },
+      { key: "linkedin_url", label: "LinkedIn Profile" },
+      { key: "industry", label: "Industry" },
+      { key: "template_used", label: "Template Used" },
+      { key: "prospect_reply", label: "Prospect Reply" },
+      { key: "pain_point", label: "Pain Point" },
+      { key: "notes", label: "Notes" },
+      { key: "date_added", label: "Date Added" },
+    ]);
+
+    addToast("success", `Exported ${exportData.length} leads for period: ${stats?.filter_label || dateFilter}`);
+  };
 
   const handleDateFilterChange = async (newVal: string) => {
     setDateFilter(newVal);
@@ -444,6 +502,16 @@ export function TealCRMDashboardClient({ initialData }: { initialData?: Dashboar
             title="Refresh Metrics"
           >
             <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin text-black")} />
+          </Button>
+          <Button
+            onClick={handleExportLeads}
+            disabled={loading || outreachLeads.length === 0}
+            size="sm"
+            className="h-8 px-3 rounded-xl text-xs font-bold bg-neutral-900 text-white hover:bg-neutral-800 cursor-pointer shadow-2xs flex items-center gap-1.5"
+            title={`Export ${outreachLeads.length} leads to CSV (Period: ${stats?.filter_label || dateFilter})`}
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Export Leads</span>
           </Button>
         </div>
       </div>

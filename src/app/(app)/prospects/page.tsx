@@ -528,12 +528,12 @@ export default function ProspectsPage() {
       yesterday.setDate(now.getDate() - 1);
       return date.toDateString() === yesterday.toDateString();
     }
-    if (filter === 'week') {
+    if (filter === 'week' || filter === 'this_week') {
       const diffTime = Math.abs(now.getTime() - date.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       return diffDays <= 7;
     }
-    if (filter === 'month') {
+    if (filter === 'month' || filter === 'this_month') {
       return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
     }
     return true;
@@ -682,7 +682,8 @@ export default function ProspectsPage() {
     });
 
     const channelTag = channelFilter !== 'all' ? `${channelFilter}-` : '';
-    exportToCsv(exportData, `tadbeer-prospects-${channelTag}${new Date().toISOString().split("T")[0]}.csv`, [
+    const dateTag = dateFilter !== 'all' ? `${dateFilter}-` : '';
+    exportToCsv(exportData, `tadbeer-prospects-${channelTag}${dateTag}${new Date().toISOString().split("T")[0]}.csv`, [
       { key: "company_name", label: "Company Name" },
       { key: "contact_name", label: "Primary Contact Person" },
       { key: "contact_title", label: "Title / Role" },
@@ -701,7 +702,7 @@ export default function ProspectsPage() {
       { key: "date_added", label: "Date Added" },
       { key: "notes", label: "Research Notes" },
     ]);
-    addToast("success", `Exported ${dataToExport.length} prospects to CSV with Instagram & WhatsApp links`);
+    addToast("success", `Exported ${dataToExport.length} prospects to CSV (Date Filter: ${dateFilter})`);
   };
   const totalCount = showDormant ? dormantLeads.length : activeProspects.length;
   const targetProspects = showDormant ? dormantLeads : activeProspects;

@@ -6,8 +6,9 @@ import {
   Loader2, Trash2, CheckCircle2, RefreshCw, Moon, Send,
   Check, AlertTriangle, Mail, BookOpen, Globe,
   Upload, FileSpreadsheet, Table, Settings2, FileUp, FileText,
-  Calendar, FileCheck, Zap, Clock
+  Calendar, FileCheck, Zap, Clock, Download
 } from "lucide-react";
+import { exportToCsv } from "@/lib/export-csv";
 import { ModuleSubNav, type SubNavTab } from "@/components/layout/module-sub-nav";
 import { DailyCadenceClient } from "@/app/(app)/daily-cadence/page";
 import { CadenceFollowUpsClient } from "@/app/(app)/follow-ups/client-page";
@@ -458,6 +459,67 @@ export default function OutreachPipelinePage() {
     }
   };
 
+  const handleExportLeads = () => {
+    const dataToExport = selectedLeadIds.size > 0
+      ? activeLeadsList.filter(l => selectedLeadIds.has(l.id))
+      : activeLeadsList;
+
+    if (dataToExport.length === 0) {
+      addToast("error", "No leads matching the current filter to export");
+      return;
+    }
+
+    const exportData = dataToExport.map(l => {
+      const waNumber = l.phone ? formatWhatsAppNumber(l.phone) : "";
+      const waUrl = waNumber ? `https://wa.me/${waNumber}` : "";
+      const igHandle = l.handle?.replace(/^@/, '');
+      const igUrl = l.channel === 'instagram_dm' || (l.channel as string) === 'instagram'
+        ? (l.handle?.startsWith('http') ? l.handle : (igHandle ? `https://instagram.com/${igHandle}` : ''))
+        : '';
+      const liUrl = l.channel === 'linkedin'
+        ? (l.handle?.startsWith('http') ? l.handle : (l.handle ? `https://linkedin.com/in/${l.handle}` : ''))
+        : '';
+
+      return {
+        company_name: l.company_name || "",
+        channel: CHANNEL_CONFIG[l.channel]?.label || l.channel,
+        handle: l.handle || "",
+        status: STATUS_CONFIG[l.status]?.label || l.status,
+        phone: l.phone || "",
+        whatsapp_url: waUrl,
+        instagram_url: igUrl,
+        linkedin_url: liUrl,
+        industry: l.industry || "",
+        template_used: l.template_used || "",
+        prospect_reply: l.prospect_reply || "",
+        pain_point: l.pain_point || "",
+        notes: l.notes || "",
+        date_added: l.sent_at ? new Date(l.sent_at).toLocaleDateString() : "",
+      };
+    });
+
+    const chTag = channelFilter !== 'all' ? `${channelFilter}-` : '';
+    const dateTag = dateFilter !== 'all' ? `${dateFilter}-` : '';
+    exportToCsv(exportData, `tadbeer-leads-${chTag}${dateTag}${new Date().toISOString().split("T")[0]}.csv`, [
+      { key: "company_name", label: "Company Name" },
+      { key: "channel", label: "Outreach Channel" },
+      { key: "handle", label: "Handle / Username" },
+      { key: "status", label: "Status" },
+      { key: "phone", label: "Phone" },
+      { key: "whatsapp_url", label: "WhatsApp Direct Chat" },
+      { key: "instagram_url", label: "Instagram Profile" },
+      { key: "linkedin_url", label: "LinkedIn Profile" },
+      { key: "industry", label: "Industry" },
+      { key: "template_used", label: "Template Used" },
+      { key: "prospect_reply", label: "Prospect Reply" },
+      { key: "pain_point", label: "Pain Point" },
+      { key: "notes", label: "Notes" },
+      { key: "date_added", label: "Date Added" },
+    ]);
+
+    addToast("success", `Exported ${exportData.length} leads to CSV (Date Filter: ${dateFilter})!`);
+  };
+
   const outreachTabs: SubNavTab[] = [
     { id: "tracker", label: "Outreach Hub", icon: Send, badge: total },
     { id: "cadence", label: "Daily Cadence", icon: Zap },
@@ -679,6 +741,14 @@ export default function OutreachPipelinePage() {
               title="Refresh Outreach Leads"
             >
               <RefreshCw className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={handleExportLeads}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 text-white hover:bg-slate-800 text-xs font-bold transition-all cursor-pointer shadow-2xs"
+              title={`Export leads to CSV (${dateFilter !== 'all' ? `Date: ${dateFilter}` : 'All Dates'})`}
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Export CSV</span>
             </button>
           </div>
         </div>
@@ -1252,6 +1322,18 @@ export default function OutreachPipelinePage() {
                 className="h-8 px-3 rounded-xl text-xs font-bold bg-white text-slate-950 hover:bg-slate-200 cursor-pointer shadow-2xs"
               >
                 {bulkUpdating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Apply"}
+              </Button>
+
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={bulkUpdating}
+                onClick={handleExportLeads}
+                className="h-8 px-2.5 rounded-xl text-xs font-bold border-slate-700 bg-slate-900 text-slate-200 hover:text-white hover:bg-slate-800 cursor-pointer shadow-2xs flex items-center gap-1.5 shrink-0"
+                title="Export selected leads to CSV"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span>Export</span>
               </Button>
             </div>
 
