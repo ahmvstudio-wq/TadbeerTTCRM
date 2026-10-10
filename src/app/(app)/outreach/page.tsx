@@ -1957,6 +1957,10 @@ function autoMatchHeaders(headers: string[]): Record<keyof MappedCSVRow, string>
     }
   });
 
+  if (headers.some(h => /linkedin/i.test(h)) && !mapping.channel) {
+    mapping.channel = "__custom__";
+  }
+
   return mapping;
 }
 
@@ -2059,6 +2063,12 @@ function LogModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () =
         setCsvHeaders(headers);
         setCsvRows(rows);
         setColumnMap(autoMatchHeaders(headers));
+
+        const isLi = file.name.toLowerCase().includes('linkedin') || headers.some(h => /linkedin/i.test(h));
+        if (isLi) {
+          setChannel('linkedin');
+          setCustomValues(prev => ({ ...prev, channel: 'linkedin' }));
+        }
       }
     };
     reader.readAsText(file);
@@ -2125,7 +2135,15 @@ function LogModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () =
           const cw = getValForField('contact_whatsapp', r); if (cw) row.contact_whatsapp = cw;
 
           const h = getValForField('handle', r); if (h) row.handle = h;
-          const ch = getValForField('channel', r); if (ch) row.channel = ch as OutreachChannel;
+          let ch = getValForField('channel', r);
+          const isRowLi = (row.linkedin_url && row.linkedin_url.includes('linkedin.com')) || (h && h.includes('linkedin.com')) || channel === 'linkedin';
+          const isRowIg = (h && (h.startsWith('@') || h.includes('instagram.com'))) && !isRowLi;
+          if (isRowLi) {
+            ch = 'linkedin';
+          } else if (isRowIg) {
+            ch = 'instagram_dm';
+          }
+          if (ch) row.channel = ch as OutreachChannel;
           const st = getValForField('status', r); if (st) row.status = st as OutreachStatus;
           const n = getValForField('notes', r); if (n) row.notes = n;
           const pr = getValForField('prospect_reply', r); if (pr) row.prospect_reply = pr;
@@ -2292,7 +2310,11 @@ function LogModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () =
               <label className="text-xs font-bold text-slate-700 block mb-1">Default Channel <span className="text-red-500">*</span></label>
               <select
                 value={channel}
-                onChange={e => setChannel(e.target.value as OutreachChannel)}
+                onChange={e => {
+                  const newCh = e.target.value as OutreachChannel;
+                  setChannel(newCh);
+                  setCustomValues(prev => ({ ...prev, channel: newCh }));
+                }}
                 className="w-full text-xs bg-white border border-slate-200 rounded-xl h-9 px-3 font-extrabold text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-900 cursor-pointer"
               >
                 {CHANNELS.map(ch => (
@@ -2312,7 +2334,10 @@ function LogModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () =
                     <button
                       key={ch}
                       type="button"
-                      onClick={() => setChannel(ch)}
+                      onClick={() => {
+                        setChannel(ch);
+                        setCustomValues(prev => ({ ...prev, channel: ch }));
+                      }}
                       className={cn(
                         "flex flex-col items-center gap-1 p-2 rounded-xl border text-center transition-all cursor-pointer",
                         channel === ch ? "bg-slate-900 text-white border-slate-900 shadow-sm" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300"

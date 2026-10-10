@@ -740,7 +740,7 @@ export async function getAllLeadsForPipeline(
     let actQuery = supabase
       .from('activities')
       .select('id, company_id, description, activity_type, title, created_at, companies(id, company_name, industry, phone, notes, research_json, category, draft_message, status, pipeline_stage)')
-      .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent', 'status_changed'])
+      .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent'])
       .order('created_at', { ascending: false })
       .range(0, 4999)
 
@@ -905,14 +905,28 @@ export async function getAllLeadsForPipeline(
 
       const actTitle = (act.title || '').toLowerCase()
       const hasValidLi = isValidLinkedInUrl(co.linkedin_url) || isValidLinkedInUrl(existingLead?.linkedin_url) || isValidLinkedInUrl(payload.profile_url) || isValidLinkedInUrl(payload.handle)
-      const channel: OutreachChannel = payload.channel === 'cold_call' ? 'linkedin' : (payload.channel || (
-        act.activity_type === 'ig_dm' || actTitle.includes('instagram') ? 'instagram_dm' :
-        act.activity_type === 'whatsapp_sent' || actTitle.includes('whatsapp') ? 'whatsapp' :
-        act.activity_type === 'email_sent' || actTitle.includes('email') ? 'email' :
-        (actTitle.includes('linkedin') || hasValidLi) ? 'linkedin' :
-        (co.phone || existingLead?.phone) ? 'whatsapp' :
-        'linkedin'
-      ))
+      const hasValidIg = (payload.handle && (payload.handle.startsWith('@') || payload.handle.includes('instagram.com'))) || (actTitle.includes('instagram') && !actTitle.includes('linkedin')) || act.activity_type === 'ig_dm'
+
+      let channel: OutreachChannel
+      if (payload.channel && ['instagram_dm', 'linkedin', 'whatsapp', 'cold_call', 'email', 'referral', 'event', 'walk_in'].includes(payload.channel)) {
+        channel = payload.channel as OutreachChannel
+      } else if (hasValidLi && !hasValidIg) {
+        channel = 'linkedin'
+      } else if (hasValidIg && !hasValidLi) {
+        channel = 'instagram_dm'
+      } else if (act.activity_type === 'ig_dm' || actTitle.includes('instagram')) {
+        channel = 'instagram_dm'
+      } else if (act.activity_type === 'whatsapp_sent' || actTitle.includes('whatsapp')) {
+        channel = 'whatsapp'
+      } else if (act.activity_type === 'email_sent' || actTitle.includes('email')) {
+        channel = 'email'
+      } else if (act.activity_type === 'call_made' || actTitle.includes('call')) {
+        channel = 'cold_call'
+      } else if (actTitle.includes('linkedin') || hasValidLi) {
+        channel = 'linkedin'
+      } else {
+        channel = (existingLead?.channel || 'linkedin') as OutreachChannel
+      }
       let rJson: any = {}
       try {
         if (co.research_json && typeof co.research_json === 'object') rJson = co.research_json
@@ -1003,16 +1017,7 @@ export async function getAllLeadsForPipeline(
         }
       })
 
-      // 2. Fallback only for purely staged leads with ZERO logged activities in CRM
-      activeOutreachCompanies.forEach((co: any) => {
-        if (seenCompanyActivities.has(co.id)) return
-        const coCreated = co.created_at ? co.created_at.split('T')[0] : null
-        if (coCreated && isDateInRange(coCreated, range.startDate, range.endDate)) {
-          matchedCompanyIds.add(co.id)
-        }
-      })
-
-      // 3. Assemble rich lead records from leadMap
+      // 2. Assemble rich lead records from leadMap for active outreach touches
       matchedCompanyIds.forEach(compId => {
         const lead = leadMap.get(compId)
         if (lead) {
@@ -1343,13 +1348,13 @@ export async function getOutreachCountsForMonth(year: number, month: number) {
       supabase
         .from('activities')
         .select('created_at, company_id, description, activity_type')
-        .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent', 'status_changed'])
+        .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent'])
         .gte('created_at', startDate)
         .lte('created_at', endDate)
         .range(0, 4999),
       supabase
         .from('companies')
-        .select('id, created_at, date_added, status, pipeline_stage, lead_type')
+        .select('id, status, lead_type')
         .range(0, 4999)
     ])
 
@@ -1370,22 +1375,6 @@ export async function getOutreachCountsForMonth(year: number, month: number) {
       if (day && day >= startDayStr && day <= endDayStr) {
         if (!dateToCompanySet[day]) dateToCompanySet[day] = new Set()
         dateToCompanySet[day].add(compId)
-      }
-    })
-
-    // 2. Fallback only for purely staged companies with ZERO logged activities in CRM
-    const seenActivitiesCompIds = new Set((actRes.data || []).map((a: any) => a.company_id).filter(Boolean))
-    ;(coRes.data || []).forEach((co: any) => {
-      if (seenActivitiesCompIds.has(co.id)) return
-      if (co.lead_type === 'Dormant' || co.status === 'dormant' || co.status === 'lost') return
-      const s = (co.status || '').toLowerCase().trim()
-      const p = (co.pipeline_stage || '').toLowerCase().trim()
-      if (s === 'prospect' || s === 'new' || p === 'new' || p === 'raw' || p === 'prospect') return
-
-      const createdDay = co.created_at ? co.created_at.split('T')[0] : null
-      if (createdDay && createdDay >= startDayStr && createdDay <= endDayStr) {
-        if (!dateToCompanySet[createdDay]) dateToCompanySet[createdDay] = new Set()
-        dateToCompanySet[createdDay].add(co.id)
       }
     })
 
@@ -1476,6 +1465,10 @@ export async function importCSVOutreach(data: {
         const sampleRow = data.rows.find(
           (r, i) => getRowCompanyName(r, i).toLowerCase().trim() === name.toLowerCase().trim()
         )
+        const rowLi = (sampleRow?.linkedin_url || '').trim().toLowerCase()
+        const isLi = rowLi.includes('linkedin.com') || sampleRow?.channel === 'linkedin' || data.defaultChannel === 'linkedin'
+        const isIg = (sampleRow?.handle && (sampleRow.handle.startsWith('@') || sampleRow.handle.includes('instagram.com'))) || sampleRow?.channel === 'instagram_dm'
+
         return {
           company_name: name,
           industry: sampleRow?.industry?.trim() || 'General',
@@ -1483,6 +1476,7 @@ export async function importCSVOutreach(data: {
           website: sampleRow?.website?.trim() || null,
           email: sampleRow?.email?.trim() || null,
           linkedin_url: sampleRow?.linkedin_url?.trim() || null,
+          lead_source: isLi ? 'LinkedIn' : isIg ? 'Instagram' : 'CSV Import',
           status: 'contacted',
           pipeline_stage: 'Contacted',
           lead_status: 'Contacted',
@@ -1547,14 +1541,24 @@ export async function importCSVOutreach(data: {
     const activityRecords = data.rows.map((row, idx) => {
       const rawName = getRowCompanyName(row, idx)
       const companyId = companyMap.get(rawName.toLowerCase().trim())
-      const ch = (row.channel || data.defaultChannel) as OutreachChannel
+      
+      let ch = (row.channel || data.defaultChannel) as OutreachChannel
+      const rawHandle = (row.handle || '').trim().toLowerCase()
+      const rawLi = (row.linkedin_url || '').trim().toLowerCase()
+
+      if (rawLi.includes('linkedin.com') || rawHandle.includes('linkedin.com') || row.channel === 'linkedin' || data.defaultChannel === 'linkedin') {
+        ch = 'linkedin'
+      } else if (rawHandle.includes('instagram.com') || rawHandle.startsWith('@') || row.channel === 'instagram_dm' || data.defaultChannel === 'instagram_dm') {
+        ch = 'instagram_dm'
+      }
+
       const st = (row.status || 'sent') as OutreachStatus
       const dt = row.outreach_date?.trim() || data.defaultDate
       const createdAt = dt ? new Date(dt + 'T12:00:00.000Z').toISOString() : new Date().toISOString()
 
       const payload = {
         channel: ch,
-        handle: row.handle?.trim() || row.phone?.trim() || row.contact_whatsapp?.trim() || '',
+        handle: row.handle?.trim() || row.linkedin_url?.trim() || row.phone?.trim() || row.contact_whatsapp?.trim() || '',
         template_used: data.defaultTemplate || 'growth_offer',
         status: st,
         prospect_reply: row.prospect_reply?.trim() || '',
