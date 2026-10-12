@@ -32,6 +32,7 @@ import { CRMCache } from "@/lib/cache/crm-cache";
 import { extractInstagramUrl as sharedExtractInstagramUrl } from "@/components/workspace/contact-channels-grid";
 import { getCleanIndustry } from "@/lib/utils";
 import { Moon, Archive, RotateCcw } from "lucide-react";
+import { type LeadPriority, PRIORITY_CONFIGS, resolveLeadPriority } from "@/lib/constants/priorities";
 
 // Inline LinkedIn Icon
 function LinkedInIcon({ size = 12 }: { size?: number }) {
@@ -86,6 +87,7 @@ const csvFields = [
   { key: "whatsapp", label: "WhatsApp" },
   { key: "contact_linkedin", label: "Contact LinkedIn" },
   { key: "industry", label: "Industry" },
+  { key: "priority", label: "Priority" },
   { key: "website", label: "Website" },
   { key: "phone", label: "Company Phone" },
   { key: "email", label: "Company Email" },
@@ -96,13 +98,14 @@ const csvFields = [
   { key: "notes", label: "Notes" },
 ];
 
-type SortOption = 'urgency' | 'newest' | 'oldest' | 'name' | 'status';
+type SortOption = 'urgency' | 'newest' | 'oldest' | 'name' | 'status' | 'priority';
 type ViewMode = 'table' | 'board' | 'grid';
 
 export default function ProspectsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [industryFilter, setIndustryFilter] = useState<string>("all");
+  const [priorityFilter, setPriorityFilter] = useState<LeadPriority | "all">("all");
   const [leadTypeFilter, setLeadTypeFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("all");
@@ -513,6 +516,22 @@ export default function ProspectsPage() {
     return counts;
   }, [showDormant, dormantLeads, activeProspects, hasValidWhatsApp, hasValidPhone, hasValidEmail]);
 
+  // Priority Category counts derived automatically from prospects
+  const priorityCategoryCounts = useMemo(() => {
+    const targetList = showDormant ? dormantLeads : activeProspects;
+    const counts: Record<string, number> = {
+      all: targetList.length,
+      1: 0,
+      2: 0,
+      3: 0,
+    };
+    targetList.forEach(p => {
+      const prio = resolveLeadPriority(p);
+      counts[prio] = (counts[prio] || 0) + 1;
+    });
+    return counts;
+  }, [showDormant, dormantLeads, activeProspects]);
+
   // Date Filter Matcher
   const isDateMatch = (created_at: string, filter: string): boolean => {
     if (!filter || filter === 'all') return true;
@@ -559,6 +578,12 @@ export default function ProspectsPage() {
       if (sourceFilter === 'linkedin' && getLeadSource(p).type !== 'linkedin') return false;
       if (sourceFilter === 'csv' && getLeadSource(p).type !== 'csv') return false;
 
+      // Priority Filter
+      if (priorityFilter && priorityFilter !== 'all') {
+        const pPrio = resolveLeadPriority(p);
+        if (pPrio !== priorityFilter) return false;
+      }
+
       // Industry / Sector Filter
       if (industryFilter && industryFilter !== 'all') {
         const cleanInd = getCleanIndustry(p);
@@ -594,10 +619,16 @@ export default function ProspectsPage() {
       if (leadSegment === 'database' && p.lead_source === 'new_lead') return false;
       return true;
     });
-  }, [showDormant, dormantLeads, activeProspects, leadTypeFilter, sourceFilter, dateFilter, leadSegment, channelFilter, industryFilter, hasValidWhatsApp, hasValidPhone, hasValidEmail]);
+  }, [showDormant, dormantLeads, activeProspects, leadTypeFilter, sourceFilter, dateFilter, leadSegment, channelFilter, industryFilter, priorityFilter, hasValidWhatsApp, hasValidPhone, hasValidEmail]);
 
   const sortedProspects = useMemo(() => {
     return [...filteredProspects].sort((a, b) => {
+      if (sortBy === 'priority') {
+        const prioA = resolveLeadPriority(a);
+        const prioB = resolveLeadPriority(b);
+        if (prioA !== prioB) return prioA - prioB;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
       if (sortBy === 'urgency') {
         const urgencyScore = (p: any) => {
           let score = 0;
@@ -625,7 +656,7 @@ export default function ProspectsPage() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, statusFilter, industryFilter, dateFilter, channelFilter, leadSegment, sortBy]);
+  }, [search, statusFilter, industryFilter, priorityFilter, dateFilter, channelFilter, leadSegment, sortBy]);
 
   const totalItems = sortedProspects.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -660,6 +691,9 @@ export default function ProspectsPage() {
         ? primaryContact!.linkedin_url
         : (isValidLinkedInUrl(p.linkedin_url) ? p.linkedin_url : "");
 
+      const prio = resolveLeadPriority(p);
+      const prioCfg = PRIORITY_CONFIGS[prio];
+
       return {
         company_name: p.company_name || "",
         contact_name: primaryContact?.full_name || p.company_name || "",
@@ -671,6 +705,8 @@ export default function ProspectsPage() {
         linkedin: liUrl,
         email: primaryContact?.email || p.email || "",
         industry: p.industry || "General Enterprise",
+        priority: prioCfg.shortLabel,
+        priority_category: prioCfg.tag,
         city: p.city ? `${p.city}, Oman` : "Muscat, Oman",
         website: p.website || "",
         lead_source: getLeadSource(p).label,
@@ -897,6 +933,19 @@ export default function ProspectsPage() {
               ))}
             </select>
 
+            {/* Priority Listing Filter Dropdown */}
+            <select
+              value={priorityFilter}
+              onChange={(e) => setPriorityFilter(e.target.value === 'all' ? 'all' : (Number(e.target.value) as LeadPriority))}
+              className="bg-neutral-50 border border-neutral-200 rounded-lg text-xs font-bold text-neutral-700 h-8 px-2.5 focus:bg-white cursor-pointer font-sans"
+              title="Filter by Industry Priority Tier"
+            >
+              <option value="all">⭐ All Priorities ({priorityCategoryCounts.all})</option>
+              <option value={1}>🟢 Priority 1: Retail, FMCG, Spas & Clinics ({priorityCategoryCounts[1]})</option>
+              <option value={2}>🟣 Priority 2: Real Estate & Supermarkets ({priorityCategoryCounts[2]})</option>
+              <option value={3}>⚪ Priority 3: Remaining Industries ({priorityCategoryCounts[3]})</option>
+            </select>
+
             <select
               value={industryFilter}
               onChange={(e) => setIndustryFilter(e.target.value)}
@@ -919,6 +968,7 @@ export default function ProspectsPage() {
               onChange={(e) => setSortBy(e.target.value as SortOption)}
               className="bg-neutral-50 border border-neutral-200 rounded-lg text-xs font-bold text-neutral-700 h-8 px-2.5 focus:bg-white cursor-pointer"
             >
+              <option value="priority">Sort: Priority (P1 → P2 → P3)</option>
               <option value="urgency">Sort: Urgency</option>
               <option value="newest">Sort: Newest</option>
               <option value="oldest">Sort: Oldest</option>
@@ -949,7 +999,7 @@ export default function ProspectsPage() {
           </div>
         </div>
 
-        {/* Row 2: Compact Date & Segment Pill Bar */}
+        {/* Row 2: Compact Scope, Date & Priority Pill Bar */}
         <div className="flex items-center gap-2 overflow-x-auto pb-0.5 pt-1.5 border-t border-neutral-100 scrollbar-hide text-xs">
           <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-wider shrink-0">SCOPE:</span>
           
@@ -985,6 +1035,28 @@ export default function ProspectsPage() {
               {df.label}
             </button>
           ))}
+
+          <span className="text-neutral-300">|</span>
+
+          <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-wider shrink-0">PRIORITY:</span>
+          
+          {(['all', 1, 2, 3] as const).map((p) => {
+            const count = p === 'all' ? priorityCategoryCounts.all : priorityCategoryCounts[p];
+            const title = p === 'all' ? 'All Priorities' : p === 1 ? 'Priority 1: Retail, FMCG, Spas, Clinics (No general)' : p === 2 ? 'Priority 2: Real Estate & Supermarkets' : 'Priority 3: Remaining Industries';
+            return (
+              <button
+                key={p}
+                onClick={() => setPriorityFilter(p)}
+                className={cn(
+                  "px-2 py-0.5 rounded text-xs font-bold transition-all border cursor-pointer shrink-0 font-mono",
+                  priorityFilter === p ? "bg-black text-white border-black shadow-xs" : "bg-neutral-50 border-neutral-200 text-neutral-600 hover:bg-neutral-100"
+                )}
+                title={title}
+              >
+                {p === 'all' ? 'All' : `P${p}`} ({count})
+              </button>
+            );
+          })}
         </div>
 
         {/* ── Row 3: Dynamic Channel Categories Filter Buttons ────────────────── */}
@@ -1194,6 +1266,7 @@ export default function ProspectsPage() {
                     />
                   </th>
                   <th className="py-3.5 px-4">Contact & Company</th>
+                  <th className="py-3.5 px-4 hidden md:table-cell">Priority</th>
                   <th className="py-3.5 px-4 hidden md:table-cell">Channel</th>
                   <th className="py-3.5 px-4 hidden md:table-cell">Industry</th>
                   <th className="py-3.5 px-4 hidden lg:table-cell font-mono">Date</th>
@@ -1261,6 +1334,30 @@ export default function ProspectsPage() {
                             </p>
                           </div>
                         </div>
+                      </td>
+
+                      {/* Priority Column */}
+                      <td className="py-3.5 px-4 hidden md:table-cell font-mono">
+                        {(() => {
+                          const prio = resolveLeadPriority(prospect);
+                          const cfg = PRIORITY_CONFIGS[prio];
+                          return (
+                            <span
+                              className={cn(
+                                "text-[10px] font-mono font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1",
+                                prio === 1
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : prio === 2
+                                  ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                  : "bg-neutral-50 text-neutral-600 border-neutral-200"
+                              )}
+                              title={cfg.label}
+                            >
+                              <span className={cn("h-1.5 w-1.5 rounded-full", prio === 1 ? "bg-emerald-500" : prio === 2 ? "bg-indigo-500" : "bg-neutral-400")} />
+                              P{prio}
+                            </span>
+                          );
+                        })()}
                       </td>
 
                       {/* Source Channel */}
@@ -1514,15 +1611,27 @@ export default function ProspectsPage() {
                         )}
                       >
                         <div className="flex items-center justify-between gap-1 font-mono">
-                          {source.type === 'linkedin' ? (
-                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-neutral-100 text-black border border-neutral-200 flex items-center gap-1">
-                              <LinkedInIcon size={10} /> LinkedIn
-                            </span>
-                          ) : (
-                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-neutral-100 text-neutral-800 border border-neutral-200">
-                              {getCleanIndustry(prospect.industry || prospect.company_name)}
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {(() => {
+                              const prio = resolveLeadPriority(prospect);
+                              const cfg = PRIORITY_CONFIGS[prio];
+                              return (
+                                <span className={cn("text-[9px] font-bold px-1.5 py-0.2 rounded border inline-flex items-center gap-1 font-mono", cfg.badgeBg, cfg.badgeText, cfg.badgeBorder)}>
+                                  <span className={cn("h-1 w-1 rounded-full", cfg.dotColor)} />
+                                  {cfg.shortLabel}
+                                </span>
+                              );
+                            })()}
+                            {source.type === 'linkedin' ? (
+                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-neutral-100 text-black border border-neutral-200 flex items-center gap-1">
+                                <LinkedInIcon size={10} /> LinkedIn
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-neutral-100 text-neutral-800 border border-neutral-200">
+                                {getCleanIndustry(prospect.industry || prospect.company_name)}
+                              </span>
+                            )}
+                          </div>
 
                           <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                             {prospect.website && (

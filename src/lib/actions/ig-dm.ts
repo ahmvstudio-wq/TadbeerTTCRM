@@ -20,8 +20,9 @@ import {
   STATUS_CONFIG,
   TEMPLATE_LABELS
 } from "../types/outreach"
-import { isValidLinkedInUrl } from '@/lib/utils'
+import { isValidLinkedInUrl, extractInstagramUrl } from '@/lib/utils'
 import { normalizeCategorySync } from '@/lib/outreach-playbook'
+import { resolveLeadPriority } from '@/lib/constants/priorities'
 import {
   mapToDbLeadStatus,
   mapToDbCompanyStatus,
@@ -985,6 +986,7 @@ export async function getAllLeadsForPipeline(
         staged_sequence: stagedSeq,
         sent_at: act.created_at,
         updated_at: payload.updated_at || act.created_at,
+        priority: resolveLeadPriority(co || existingLead),
       })
     })
 
@@ -1040,11 +1042,12 @@ export async function getAllLeadsForPipeline(
   }
 }
 
-// ─── Get Dedicated Daily Batch per Channel (25 Contacts with 0 Contradictions) ───
+// ─── Get Dedicated Daily Batch per Channel (Strict 25 Contacts per Day) ───
 export async function getChannelDailyBatch(
   channel: OutreachChannel,
   limit: number = 25,
-  industry?: string
+  industry?: string,
+  priority?: 1 | 2 | 3 | 'all'
 ) {
   try {
     await requireAuth()
@@ -1090,14 +1093,6 @@ export async function getChannelDailyBatch(
       .not('status', 'in', '("won","lost","archived")')
       .order('created_at', { ascending: false })
 
-    if (channel === 'whatsapp' || channel === 'cold_call') {
-      coQuery = coQuery.not('phone', 'is', null)
-    } else if (channel === 'linkedin') {
-      coQuery = coQuery.not('linkedin_url', 'is', null)
-    } else if (channel === 'email') {
-      coQuery = coQuery.not('email', 'is', null)
-    }
-
     const { data: companies, error: coErr } = await coQuery.limit(1000)
     if (coErr) return { data: [], totalAvailable: 0, error: coErr.message }
 
@@ -1128,7 +1123,12 @@ export async function getChannelDailyBatch(
       } catch {}
 
       if (channel === 'instagram_dm') {
-        const rawIg = rJson.instagram_handle || (c.notes && c.notes.match(/["']?instagram_handle["']?\s*:\s*["'](@?[^"']+)["']/i)?.[1]) || (c.notes && c.notes.match(/Instagram:\s*(@?[^\s,]+)/i)?.[1])
+        const igUrl = extractInstagramUrl(c)
+        let rawIg = rJson.instagram_handle || (c.notes && c.notes.match(/["']?instagram_handle["']?\s*:\s*["'](@?[^"']+)["']/i)?.[1]) || (c.notes && c.notes.match(/Instagram:\s*(@?[^\s,]+)/i)?.[1])
+        if (!rawIg && igUrl) {
+          const m = igUrl.match(/instagram\.com\/([a-zA-Z0-9_.]+)/i)
+          if (m) rawIg = m[1]
+        }
         const clean = rawIg ? String(rawIg).replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^@+/, '').replace(/\/+$/, '').trim() : ''
         return Boolean(clean && clean.length >= 2 && !clean.includes(' '))
       }
@@ -1147,23 +1147,28 @@ export async function getChannelDailyBatch(
       return true
     })
 
+    // If a specific priority tier is requested (1, 2, or 3), return up to `limit` of that priority.
+    // If priority is 'all' or omitted, return a balanced pool (up to `limit` per priority tier, e.g. 25 of P1, 25 of P2, 25 of P3)
+    // so the client-side Power Hour queue has leads ready for any priority the user selects in the "Send to:" dropdown.
     let selectedBatch: any[] = []
-    if (industry && industry !== 'all') {
-      selectedBatch = uncontacted.slice(0, Math.max(limit, 50))
+    if (priority && priority !== 'all') {
+      const filteredByPrio = uncontacted.filter(c => resolveLeadPriority(c) === priority)
+      selectedBatch = filteredByPrio.slice(0, limit)
     } else {
-      // Balanced distribution across sectors so Power Hour modal has leads in every sector tab
-      const bySector: Record<string, any[]> = {}
+      const p1: any[] = []
+      const p2: any[] = []
+      const p3: any[] = []
       for (const c of uncontacted) {
-        const sec = normalizeCategorySync(c.category || c.industry, c.company_name)
-        if (!bySector[sec]) bySector[sec] = []
-        bySector[sec].push(c)
+        const pri = resolveLeadPriority(c)
+        if (pri === 1) {
+          if (p1.length < limit) p1.push(c)
+        } else if (pri === 2) {
+          if (p2.length < limit) p2.push(c)
+        } else {
+          if (p3.length < limit) p3.push(c)
+        }
       }
-      const balanced: any[] = []
-      const sectors = ['social_commerce_dtc', 'aesthetic_clinics', 'hospitality_fnb', 'training_education', 'dental_clinics', 'general']
-      for (const s of sectors) {
-        balanced.push(...(bySector[s] || []).slice(0, 25))
-      }
-      selectedBatch = balanced.length > 0 ? balanced : uncontacted.slice(0, 100)
+      selectedBatch = [...p1, ...p2, ...p3]
     }
 
     const mapped: OutreachLead[] = selectedBatch.map(c => {
@@ -1174,7 +1179,12 @@ export async function getChannelDailyBatch(
         else if (c.notes && (c.notes.startsWith('{') || c.notes.startsWith('['))) rJson = JSON.parse(c.notes)
       } catch {}
 
-      const rawIg = rJson.instagram_handle || (c.notes && c.notes.match(/["']?instagram_handle["']?\s*:\s*["'](@?[^"']+)["']/i)?.[1]) || (c.notes && c.notes.match(/Instagram:\s*(@?[^\s,]+)/i)?.[1]) || null
+      const igUrl = extractInstagramUrl(c)
+      let rawIg = rJson.instagram_handle || (c.notes && c.notes.match(/["']?instagram_handle["']?\s*:\s*["'](@?[^"']+)["']/i)?.[1]) || (c.notes && c.notes.match(/Instagram:\s*(@?[^\s,]+)/i)?.[1]) || null
+      if (!rawIg && igUrl) {
+        const m = igUrl.match(/instagram\.com\/([a-zA-Z0-9_.]+)/i)
+        if (m) rawIg = m[1]
+      }
       const cleanIg = rawIg ? (rawIg.startsWith('@') ? rawIg : `@${rawIg.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^\/+/, '').replace(/\/+$/, '')}`) : null
       const ig = cleanIg && !cleanIg.includes(' ') && cleanIg.length >= 2 ? cleanIg : null
 
@@ -1218,6 +1228,7 @@ export async function getChannelDailyBatch(
         call_opening_line: stagedSeq?.cold_call_script?.opener || `Ahlan, this is from Tadbeer in Muscat regarding ${c.company_name}. Have 30 seconds?`,
         notes: c.notes || '',
         staged_sequence: stagedSeq,
+        priority: resolveLeadPriority(c),
         sent_at: c.created_at,
         updated_at: c.updated_at || c.created_at,
       } as OutreachLead

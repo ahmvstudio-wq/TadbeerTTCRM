@@ -202,6 +202,7 @@ export interface OutreachLead {
   call_opening_line: string
   notes: string
   staged_sequence?: PreStagedSequence
+  priority?: 1 | 2 | 3
   sent_at: string
   updated_at: string
 }

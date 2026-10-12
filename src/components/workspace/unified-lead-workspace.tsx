@@ -369,6 +369,24 @@ export function UnifiedLeadWorkspace({
           </button>
         </div>
 
+        {/* Sequence Track Badge */}
+        {rJson.sequence_track === "conversation" ? (
+          <div className="flex items-center gap-1.5 text-xs text-purple-900 bg-purple-50 border border-purple-200 rounded-md px-2.5 py-1 font-mono">
+            <span className="h-2 w-2 rounded-full bg-purple-600" />
+            <span className="font-semibold">Conversation Track</span>
+            {rJson.target_persona && (
+              <>
+                <span className="text-purple-300">•</span>
+                <span>{String(rJson.target_persona).replace("_", " ")}</span>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 text-xs text-neutral-600 bg-neutral-100 border border-neutral-200 rounded-md px-2 py-1 font-mono">
+            <span>Cold Cadence</span>
+          </div>
+        )}
+
         {/* Next Scheduled Follow-up or Schedule Trigger */}
         {nextPendingFollowUp ? (
           <div className="flex items-center gap-1.5 text-xs text-teal-900 bg-teal-50 border border-teal-200 rounded-md px-2.5 py-1 font-mono">

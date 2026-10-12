@@ -71,6 +71,15 @@ import type {
   IntelligenceFilterKey,
   DemoUrlItem,
 } from "@/lib/types/pipeline";
+import {
+  type SequenceTrack,
+  type ProspectPersona,
+  type ReplySentiment,
+  COLD_CADENCE_STAGES,
+  CONVERSATION_STAGES,
+  PROSPECT_PERSONAS,
+  REPLY_SENTIMENTS,
+} from "@/lib/constants/sequences";
 
 // ─── STAGE CONFIGURATIONS ─────────────────────────────────────────────────────
 const STAGE_CONFIGS: Record<
@@ -271,6 +280,11 @@ export default function PipelinePage() {
     presentationUrls: DemoUrlItem[];
     assignedBdm: string;
     notes: string;
+    sequenceTrack: SequenceTrack;
+    persona: ProspectPersona;
+    replySentiment: ReplySentiment;
+    replyNotes: string;
+    conversationStage: number;
   }>({
     stage: "demo",
     nextAction: "",
@@ -283,6 +297,11 @@ export default function PipelinePage() {
     presentationUrls: [],
     assignedBdm: "",
     notes: "",
+    sequenceTrack: "cold_cadence",
+    persona: "owner_founder",
+    replySentiment: "interested",
+    replyNotes: "",
+    conversationStage: 1,
   });
 
   const [newUrlTitle, setNewUrlTitle] = useState("");
@@ -502,6 +521,11 @@ export default function PipelinePage() {
       presentationUrls: lead.presentation_urls || [],
       assignedBdm: "",
       notes: lead.notes || "",
+      sequenceTrack: (lead.sequence_track || "cold_cadence") as SequenceTrack,
+      persona: (lead.persona || "owner_founder") as ProspectPersona,
+      replySentiment: (lead.reply_sentiment || "interested") as ReplySentiment,
+      replyNotes: lead.reply_notes || "",
+      conversationStage: lead.conversation_stage || 1,
     });
     setNewUrlTitle("");
     setNewUrlLink("");
@@ -537,6 +561,11 @@ export default function PipelinePage() {
       presentationUrls: editForm.presentationUrls,
       assignedBdm: editForm.assignedBdm,
       notes: editForm.notes,
+      sequenceTrack: editForm.sequenceTrack,
+      persona: editForm.persona,
+      replySentiment: editForm.replySentiment,
+      replyNotes: editForm.replyNotes,
+      conversationStage: editForm.conversationStage,
     });
 
     if (res.error) {
@@ -938,6 +967,18 @@ export default function PipelinePage() {
                             {lead.industry || lead.category || "General"}
                           </Badge>
 
+                          {lead.sequence_track === "conversation" ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-purple-50 text-purple-800 border border-purple-200">
+                              <MessageSquare className="h-3 w-3 text-purple-600" />
+                              <span>In Conversation • {PROSPECT_PERSONAS[lead.persona as ProspectPersona]?.shortLabel || "Founder"}</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-neutral-100 text-neutral-600 border border-neutral-200">
+                              <Clock className="h-3 w-3 text-neutral-400" />
+                              <span>Cold Cadence</span>
+                            </span>
+                          )}
+
                           {lead.mgmt_highlight && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-amber-50 text-amber-900 border border-amber-200">
                               <Sparkles className="h-3 w-3 text-amber-600" />
@@ -1038,6 +1079,15 @@ export default function PipelinePage() {
                           <span>Edit Plan</span>
                         </Button>
                       </div>
+
+                      {lead.sequence_track === "conversation" && (
+                        <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-50/80 border border-purple-200/70 text-xs text-purple-900 font-medium">
+                          <MessageSquare className="h-3.5 w-3.5 text-purple-600 shrink-0" />
+                          <span>Conversation Stage {lead.conversation_stage || 1}: {CONVERSATION_STAGES[lead.conversation_stage || 1]?.label || "Active Conversation"}</span>
+                          <span className="text-purple-400">•</span>
+                          <span className="text-purple-700 font-normal">Next: {CONVERSATION_STAGES[lead.conversation_stage || 1]?.nextStep}</span>
+                        </div>
+                      )}
 
                       <p className="text-xs sm:text-sm text-neutral-800 leading-relaxed font-light">
                         {lead.next_action || (
@@ -1325,6 +1375,110 @@ export default function PipelinePage() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* ─── Sequence Track & Persona Strategy ────────────────────────── */}
+            <div className="p-3.5 bg-neutral-50/90 rounded-2xl border border-neutral-200/80 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-neutral-800 flex items-center gap-1.5">
+                  <MessageSquare className="h-3.5 w-3.5 text-purple-600" />
+                  <span>Outreach Sequence Track & Persona</span>
+                </span>
+                <span className="text-[10px] text-neutral-500 font-mono">
+                  Syncs with Follow-up Command Center
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-medium text-neutral-700 mb-1 block">
+                    Sequence Track
+                  </label>
+                  <select
+                    value={editForm.sequenceTrack}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        sequenceTrack: e.target.value as SequenceTrack,
+                      })
+                    }
+                    className="w-full text-xs font-mono rounded-xl px-2.5 py-1.5 border border-neutral-300 bg-white"
+                  >
+                    <option value="cold_cadence">Cold Cadence (4-Touch Linear)</option>
+                    <option value="conversation">Active Conversation (Replied)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-medium text-neutral-700 mb-1 block">
+                    Decision Maker Persona
+                  </label>
+                  <select
+                    value={editForm.persona}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        persona: e.target.value as ProspectPersona,
+                      })
+                    }
+                    className="w-full text-xs font-mono rounded-xl px-2.5 py-1.5 border border-neutral-300 bg-white"
+                  >
+                    {(Object.keys(PROSPECT_PERSONAS) as ProspectPersona[]).map((k) => (
+                      <option key={k} value={k}>
+                        {PROSPECT_PERSONAS[k].label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {editForm.sequenceTrack === "conversation" && (
+                <div className="grid grid-cols-2 gap-3 pt-1 border-t border-neutral-200/60">
+                  <div>
+                    <label className="text-[11px] font-medium text-neutral-700 mb-1 block">
+                      Reply Sentiment / Status
+                    </label>
+                    <select
+                      value={editForm.replySentiment}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          replySentiment: e.target.value as ReplySentiment,
+                        })
+                      }
+                      className="w-full text-xs font-mono rounded-xl px-2.5 py-1.5 border border-neutral-300 bg-white"
+                    >
+                      {(Object.keys(REPLY_SENTIMENTS) as ReplySentiment[]).map((k) => (
+                        <option key={k} value={k}>
+                          {REPLY_SENTIMENTS[k].label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-medium text-neutral-700 mb-1 block">
+                      Conversation Stage
+                    </label>
+                    <select
+                      value={editForm.conversationStage}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          conversationStage: Number(e.target.value),
+                        })
+                      }
+                      className="w-full text-xs font-mono rounded-xl px-2.5 py-1.5 border border-neutral-300 bg-white"
+                    >
+                      {[1, 2, 3, 4].map((n) => (
+                        <option key={n} value={n}>
+                          Stage {n}: {CONVERSATION_STAGES[n]?.shortLabel}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Next Action & Action Due Date */}

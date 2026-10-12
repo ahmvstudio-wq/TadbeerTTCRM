@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   X, Check, ArrowRight, ExternalLink, MessageCircle, Phone, Mail,
   Copy, FileText, ShieldCheck, ChevronLeft, ChevronRight, Zap, Building2, User,
-  RotateCcw, Filter, Pencil, CheckCircle2, RefreshCw
+  RotateCcw, Filter, Pencil, CheckCircle2, RefreshCw, Target
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,11 @@ import {
 import { markChannelTouchSent } from "@/lib/actions/ig-dm";
 import { buildDeterministicSequence, normalizeCategorySync } from "@/lib/outreach-playbook";
 import { updateCompany } from "@/lib/actions/companies";
+import {
+  type LeadPriority,
+  PRIORITY_CONFIGS,
+  resolveLeadPriority
+} from "@/lib/constants/priorities";
 
 interface PowerHourModalProps {
   isOpen: boolean;
@@ -23,6 +28,7 @@ interface PowerHourModalProps {
   channel: OutreachChannel;
   leads: OutreachLead[];
   initialSector?: SectorCategory | "all";
+  initialPriority?: LeadPriority | "all";
   onLeadSent?: (leadId: string) => void;
 }
 
@@ -48,9 +54,11 @@ export function PowerHourModal({
   channel,
   leads,
   initialSector = "all",
+  initialPriority = "all",
   onLeadSent,
 }: PowerHourModalProps) {
-  // Industry / Category Queue Filter State
+  // Priority ("Who are you looking to send it to?") & Sector Queue Filter State
+  const [selectedPriority, setSelectedPriority] = useState<LeadPriority | "all">(initialPriority);
   const [selectedSector, setSelectedSector] = useState<SectorCategory | "all">(initialSector);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [copied, setCopied] = useState(false);
@@ -59,18 +67,39 @@ export function PowerHourModal({
   const [editedMessage, setEditedMessage] = useState<string>("");
   const [isReclassifying, setIsReclassifying] = useState(false);
 
-  // Synchronize initial sector if passed from parent
+  // Synchronize initial filters if passed from parent
   useEffect(() => {
     if (initialSector) {
       setSelectedSector(initialSector);
     }
   }, [initialSector]);
 
+  useEffect(() => {
+    if (initialPriority) {
+      setSelectedPriority(initialPriority);
+    }
+  }, [initialPriority]);
+
   // Reset pagination & sent tracker when leads or channel change
   useEffect(() => {
     setCurrentIndex(0);
     setSentIds(new Set());
   }, [channel, leads.length]);
+
+  // Compute lead counts across each priority tier
+  const priorityCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      all: leads.length,
+      1: 0,
+      2: 0,
+      3: 0,
+    };
+    for (const l of leads) {
+      const p = l.priority || resolveLeadPriority(l);
+      counts[p] = (counts[p] || 0) + 1;
+    }
+    return counts;
+  }, [leads]);
 
   // Compute lead counts across each sector
   const sectorCounts = useMemo(() => {
@@ -94,11 +123,38 @@ export function PowerHourModal({
     return counts;
   }, [leads]);
 
-  // Filtered queue of leads strictly matching the selected sector
+  // Filtered queue of leads strictly matching the selected priority and sector (locked to strictly 25 leads)
   const filteredLeads = useMemo(() => {
-    if (selectedSector === "all") return leads;
-    return leads.filter((l) => resolveLeadSector(l) === selectedSector);
-  }, [leads, selectedSector]);
+    let list = leads;
+    if (selectedPriority !== "all") {
+      list = list.filter((l) => {
+        const p = l.priority || resolveLeadPriority(l);
+        return p === selectedPriority;
+      });
+    } else {
+      // Prioritize P1 first, then P2, then P3
+      const p1: OutreachLead[] = [];
+      const p2: OutreachLead[] = [];
+      const p3: OutreachLead[] = [];
+      for (const l of list) {
+        const p = l.priority || resolveLeadPriority(l);
+        if (p === 1) p1.push(l);
+        else if (p === 2) p2.push(l);
+        else p3.push(l);
+      }
+      list = [...p1, ...p2, ...p3];
+    }
+    if (selectedSector !== "all") {
+      list = list.filter((l) => resolveLeadSector(l) === selectedSector);
+    }
+    return list.slice(0, 25);
+  }, [leads, selectedPriority, selectedSector]);
+
+  // Handle changing the priority filter ("Who are you looking to send it to?")
+  const handlePriorityFilterChange = (newPriority: LeadPriority | "all") => {
+    setSelectedPriority(newPriority);
+    setCurrentIndex(0);
+  };
 
   // Handle changing the sector queue filter
   const handleSectorFilterChange = (newSector: SectorCategory | "all") => {
@@ -110,6 +166,8 @@ export function PowerHourModal({
   const channelCfg = CHANNEL_CONFIG[channel] || CHANNEL_CONFIG.whatsapp;
   const leadSector = currentLead ? resolveLeadSector(currentLead) : (selectedSector !== "all" ? selectedSector : "general");
   const sectorCfg = SECTOR_CONFIG[leadSector] || SECTOR_CONFIG.general;
+  const leadPriority = currentLead ? (currentLead.priority || resolveLeadPriority(currentLead)) : 3;
+  const priorityCfg = PRIORITY_CONFIGS[leadPriority] || PRIORITY_CONFIGS[3];
 
   // Synchronize message draft whenever currentLead changes
   useEffect(() => {
@@ -361,42 +419,59 @@ export function PowerHourModal({
               </div>
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Who are you looking to send it to? Priority Dropdown */}
+              <div className="flex items-center gap-1.5 bg-slate-800/90 border border-slate-700/80 rounded-xl px-2.5 py-1 text-xs">
+                <Target className="h-3.5 w-3.5 text-teal-400 shrink-0" />
+                <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">Send to:</span>
+                <select
+                  value={selectedPriority}
+                  onChange={(e) => handlePriorityFilterChange(e.target.value === "all" ? "all" : (Number(e.target.value) as LeadPriority))}
+                  className="bg-transparent text-xs font-semibold text-white focus:outline-none cursor-pointer pr-1"
+                  title="Who are you looking to send it to? (Filter by lead priority)"
+                >
+                  <option value="all" className="bg-slate-900 text-white">All Priorities ({priorityCounts.all})</option>
+                  <option value={1} className="bg-slate-900 text-white">P1: Retail, FMCG, Spas, Clinics ({priorityCounts[1]})</option>
+                  <option value={2} className="bg-slate-900 text-white">P2: Real Estate & Supermarkets ({priorityCounts[2]})</option>
+                  <option value={3} className="bg-slate-900 text-white">P3: Other Industries ({priorityCounts[3]})</option>
+                </select>
+              </div>
+
               {/* Category Filter Dropdown in Top Header */}
-              <div className="flex items-center gap-1.5 bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1 text-xs">
-                <Filter className="h-3.5 w-3.5 text-teal-400" />
+              <div className="flex items-center gap-1.5 bg-slate-800/90 border border-slate-700/80 rounded-xl px-2.5 py-1 text-xs">
+                <Filter className="h-3.5 w-3.5 text-teal-400 shrink-0" />
                 <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">Industry:</span>
                 <select
                   value={selectedSector}
                   onChange={(e) => handleSectorFilterChange(e.target.value as any)}
-                  className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer pr-1"
+                  className="bg-transparent text-xs font-medium text-slate-300 focus:outline-none cursor-pointer pr-1"
                   title="Filter Power-Hour queue by industry"
                 >
-                  <option value="all" className="bg-slate-900 text-white">🌐 All Categories ({sectorCounts.all})</option>
-                  <option value="social_commerce_dtc" className="bg-slate-900 text-white">🛍️ Social-Commerce & DTC ({sectorCounts.social_commerce_dtc})</option>
-                  <option value="aesthetic_clinics" className="bg-slate-900 text-white">🩺 Aesthetic & Derma ({sectorCounts.aesthetic_clinics})</option>
-                  <option value="dental_clinics" className="bg-slate-900 text-white">🦷 Dental Clinics ({sectorCounts.dental_clinics})</option>
-                  <option value="hospitality_fnb" className="bg-slate-900 text-white">☕ Hospitality & F&B ({sectorCounts.hospitality_fnb})</option>
-                  <option value="training_education" className="bg-slate-900 text-white">🎓 Training & Education ({sectorCounts.training_education})</option>
-                  <option value="general" className="bg-slate-900 text-white">🏢 General SME ({sectorCounts.general})</option>
+                  <option value="all" className="bg-slate-900 text-white">All Industries ({sectorCounts.all})</option>
+                  <option value="social_commerce_dtc" className="bg-slate-900 text-white">DTC & Commerce ({sectorCounts.social_commerce_dtc})</option>
+                  <option value="aesthetic_clinics" className="bg-slate-900 text-white">Aesthetic Clinics ({sectorCounts.aesthetic_clinics})</option>
+                  <option value="dental_clinics" className="bg-slate-900 text-white">Dental Clinics ({sectorCounts.dental_clinics})</option>
+                  <option value="hospitality_fnb" className="bg-slate-900 text-white">Hospitality & F&B ({sectorCounts.hospitality_fnb})</option>
+                  <option value="training_education" className="bg-slate-900 text-white">Training & Education ({sectorCounts.training_education})</option>
+                  <option value="general" className="bg-slate-900 text-white">General SME ({sectorCounts.general})</option>
                 </select>
               </div>
 
               <button
                 onClick={onClose}
-                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
                 title="Close modal (Esc)"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
           </div>
         </div>
 
         {/* Progress Bar */}
-        <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5">
+        <div className="w-full bg-slate-100 dark:bg-slate-800 h-1">
           <div
-            className="bg-teal-500 h-1.5 transition-all duration-300"
+            className="bg-teal-500 h-1 transition-all duration-300"
             style={{ width: `${Math.max(5, progressPct)}%` }}
           />
         </div>
@@ -406,22 +481,30 @@ export function PowerHourModal({
           /* Empty State for Selected Filter */
           <div className="p-12 text-center space-y-4 my-auto">
             <div className="h-16 w-16 rounded-2xl bg-amber-500/10 border border-amber-400/20 text-amber-500 flex items-center justify-center mx-auto text-3xl">
-              {selectedSector !== "all" ? SECTOR_CONFIG[selectedSector]?.emoji || "🏢" : "📋"}
+              {selectedPriority !== "all" ? "🎯" : (selectedSector !== "all" ? SECTOR_CONFIG[selectedSector]?.emoji || "🏢" : "📋")}
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                No {selectedSector !== "all" ? SECTOR_CONFIG[selectedSector]?.label : ""} leads found
+                {selectedPriority !== "all"
+                  ? `No leads in ${PRIORITY_CONFIGS[selectedPriority].shortLabel} (${PRIORITY_CONFIGS[selectedPriority].tag})`
+                  : `No ${selectedSector !== "all" ? SECTOR_CONFIG[selectedSector]?.label : ""} leads found`}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-                There are currently no active leads matching this industry filter for {channelCfg.label}.
+                There are currently no uncontacted leads matching your selected priority or sector filter for {channelCfg.label}.
               </p>
             </div>
-            <Button
-              onClick={() => handleSectorFilterChange("all")}
-              className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl cursor-pointer"
-            >
-              Show All Industries ({leads.length})
-            </Button>
+            <div className="flex items-center justify-center gap-2">
+              <Button
+                onClick={() => {
+                  setSelectedPriority("all");
+                  setSelectedSector("all");
+                  setCurrentIndex(0);
+                }}
+                className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl cursor-pointer"
+              >
+                Reset Filters & Show All ({leads.length})
+              </Button>
+            </div>
           </div>
         ) : (
           /* Main Lead Card */
@@ -434,6 +517,22 @@ export function PowerHourModal({
                   <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
                     {currentLead.company_name}
                   </h3>
+
+                  {/* Minimal Priority Badge */}
+                  <span className={cn(
+                    "text-[10px] font-mono font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1",
+                    leadPriority === 1
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                      : leadPriority === 2
+                      ? "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800"
+                      : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
+                  )}>
+                    <span className={cn(
+                      "h-1.5 w-1.5 rounded-full",
+                      leadPriority === 1 ? "bg-emerald-500" : leadPriority === 2 ? "bg-indigo-500" : "bg-slate-400"
+                    )} />
+                    {priorityCfg.shortLabel}: {priorityCfg.tag}
+                  </span>
                   
                   {/* Industry Queue Selector Dropdown (Filters Prospects in Power Hour) */}
                   <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1 shadow-2xs">

@@ -5,6 +5,17 @@ import { requireAuth } from '@/lib/auth-guard'
 import { revalidatePath } from 'next/cache'
 import { CADENCE_DELAYS, calculateNextDueDate, TTT_CATEGORY_PLAYBOOKS, normalizeCategory } from '@/lib/outreach-playbook'
 import { formatWhatsAppNumber, extractInstagramUrl } from '@/lib/utils'
+import {
+  type SequenceTrack,
+  type ProspectPersona,
+  type ReplySentiment,
+  COLD_CADENCE_STAGES,
+  CONVERSATION_STAGES,
+  PROSPECT_PERSONAS,
+  REPLY_SENTIMENTS,
+  resolveSequenceTrack,
+  generateConversationScript,
+} from '@/lib/constants/sequences'
 
 const supabase = getSupabaseAdminClient()
 
@@ -34,7 +45,7 @@ export interface CadenceFollowUpItem {
   description: string | null
   channel: string
   status: 'pending' | 'completed' | 'overdue'
-  current_stage: number // 1: Greeting, 2: Value Check-in, 3: Audit Offer, 4: Coffee / Call, 5: Active
+  current_stage: number // Cold Cadence (1: Greeting, 2: Value Check-in, 3: Audit Offer, 4: Coffee/Call) or Conversation (1: Reply Slide-in, 2: Context/Discovery, 3: Value/Audit, 4: Coffee Close)
   stage_label: string
   next_step_label: string
   next_delay_days: number
@@ -46,6 +57,10 @@ export interface CadenceFollowUpItem {
   assigned_bdm: string | null
   company_status: string
   created_at: string
+  track: SequenceTrack
+  persona: ProspectPersona
+  reply_sentiment: ReplySentiment
+  reply_notes: string | null
 }
 
 export async function getFollowUps(filter: 'due_today' | 'overdue' | 'all' | 'pending') {
@@ -160,53 +175,88 @@ export async function getCadenceFollowUps(): Promise<{ data: CadenceFollowUpItem
         directUrl = `mailto:${cont.email || comp.email}`
       }
 
-      // Determine cadence stage from subject or company status
+      // Resolve Sequence Track (Cold Cadence vs Active Conversation)
+      const rJson = comp.research_json || {}
+      const track: SequenceTrack = resolveSequenceTrack(comp)
+      const persona: ProspectPersona =
+        rJson.target_persona ||
+        (comp.category === 'aesthetic_clinics' || comp.category === 'dental_clinics'
+          ? 'clinical_doctor'
+          : 'owner_founder')
+      const replySentiment: ReplySentiment = rJson.reply_sentiment || 'interested'
+      const replyNotes: string | null = rJson.reply_notes || null
+
       const sub = (fu.subject || '').toLowerCase()
       const coStatus = (comp.status || '').toLowerCase()
 
       let currentStage = 1
       let stageLabel = 'Stage 1: Greeting'
       let nextStepLabel = 'Follow-up 1 (Value Check-in)'
-      let nextDelayDays: number = CADENCE_DELAYS.GREETING_TO_FOLLOWUP_1 // 2 days
+      let nextDelayDays: number = CADENCE_DELAYS.GREETING_TO_FOLLOWUP_1
+      let filledTemplate = ''
 
-      if (sub.includes('follow-up 2') || sub.includes('audit offer') || coStatus === 'follow_up_sent' || coStatus.includes('stage 2')) {
-        currentStage = 2
-        stageLabel = 'Stage 2: Value Check-in'
-        nextStepLabel = 'Follow-up 2 (Audit Offer)'
-        nextDelayDays = CADENCE_DELAYS.FOLLOWUP_1_TO_AUDIT_OFFER // 3 days
-      } else if (sub.includes('follow-up 3') || sub.includes('coffee') || sub.includes('call proposal') || coStatus === 'audit_offered' || coStatus.includes('stage 3')) {
-        currentStage = 3
-        stageLabel = 'Stage 3: Audit Offer'
-        nextStepLabel = 'Follow-up 3 (Coffee / Call Proposal)'
-        nextDelayDays = CADENCE_DELAYS.AUDIT_OFFER_TO_COFFEE_CALL // 5 days
-      } else if (sub.includes('decision') || sub.includes('meeting') || coStatus === 'coffee_invited' || coStatus.includes('stage 4')) {
-        currentStage = 4
-        stageLabel = 'Stage 4: Coffee / Call Proposed'
-        nextStepLabel = 'Meeting Confirmation / Decision'
-        nextDelayDays = 5
-      }
-
-      // Pre-fill stage message template
-      const sector = await normalizeCategory(comp.industry)
-      const playbook = TTT_CATEGORY_PLAYBOOKS[sector] || TTT_CATEGORY_PLAYBOOKS.general
       const contactFirstName = (cont.full_name || 'there').split(' ')[0]
 
-      let template = ''
-      if (currentStage === 1) {
-        template = playbook.touch_2_template
-      } else if (currentStage === 2) {
-        template = playbook.audit_offer_template
-      } else if (currentStage === 3) {
-        template = playbook.touch_3_template
-      } else {
-        template = `Ahlan ${contactFirstName}, following up on our recent note regarding [Company]. Would love to see if we can connect for a 10-minute coffee in Muscat or a direct call this week.`
-      }
+      if (track === 'conversation') {
+        const convStage = Number(rJson.conversation_stage) || (
+          sub.includes('step 4') || sub.includes('coffee') || sub.includes('meeting') ? 4 :
+          sub.includes('step 3') || sub.includes('audit') || sub.includes('value') ? 3 :
+          sub.includes('step 2') || sub.includes('discovery') ? 2 : 1
+        )
+        currentStage = convStage
+        const stageCfg = CONVERSATION_STAGES[convStage] || CONVERSATION_STAGES[1]
+        stageLabel = stageCfg.label
+        nextStepLabel = stageCfg.nextStep
+        nextDelayDays = stageCfg.nextDelayDays
 
-      const filledTemplate = template
-        .replace(/\[Name\]/g, contactFirstName)
-        .replace(/\[Company\]/g, comp.company_name || 'your business')
-        .replace(/\[specific observation\]/g, 'your recent work and growth in Muscat')
-        .replace(/\[Area\]/g, comp.city || 'Muscat')
+        filledTemplate = generateConversationScript({
+          stage: currentStage,
+          persona,
+          replySentiment,
+          companyName: comp.company_name || 'your business',
+          contactName: cont.full_name || 'there',
+          area: comp.city || 'Muscat',
+          channel: directChannel
+        })
+      } else {
+        // Cold Cadence (4-touch sequential outreach)
+        if (sub.includes('follow-up 2') || sub.includes('audit offer') || coStatus === 'follow_up_sent' || coStatus.includes('stage 2')) {
+          currentStage = 2
+          stageLabel = 'Stage 2: Value Check-in'
+          nextStepLabel = 'Follow-up 2 (Audit Offer)'
+          nextDelayDays = CADENCE_DELAYS.FOLLOWUP_1_TO_AUDIT_OFFER // 3 days
+        } else if (sub.includes('follow-up 3') || sub.includes('coffee') || sub.includes('call proposal') || coStatus === 'audit_offered' || coStatus.includes('stage 3')) {
+          currentStage = 3
+          stageLabel = 'Stage 3: Audit Offer'
+          nextStepLabel = 'Follow-up 3 (Coffee / Call Proposal)'
+          nextDelayDays = CADENCE_DELAYS.AUDIT_OFFER_TO_COFFEE_CALL // 5 days
+        } else if (sub.includes('decision') || sub.includes('meeting') || coStatus === 'coffee_invited' || coStatus.includes('stage 4')) {
+          currentStage = 4
+          stageLabel = 'Stage 4: Coffee / Call Proposed'
+          nextStepLabel = 'Meeting Confirmation / Decision'
+          nextDelayDays = 5
+        }
+
+        const sector = await normalizeCategory(comp.industry)
+        const playbook = TTT_CATEGORY_PLAYBOOKS[sector] || TTT_CATEGORY_PLAYBOOKS.general
+
+        let template = ''
+        if (currentStage === 1) {
+          template = playbook.touch_2_template
+        } else if (currentStage === 2) {
+          template = playbook.audit_offer_template
+        } else if (currentStage === 3) {
+          template = playbook.touch_3_template
+        } else {
+          template = `Ahlan ${contactFirstName}, following up on our recent note regarding [Company]. Would love to see if we can connect for a 10-minute coffee in Muscat or a direct call this week.`
+        }
+
+        filledTemplate = template
+          .replace(/\[Name\]/g, contactFirstName)
+          .replace(/\[Company\]/g, comp.company_name || 'your business')
+          .replace(/\[specific observation\]/g, 'your recent work and growth in Muscat')
+          .replace(/\[Area\]/g, comp.city || 'Muscat')
+      }
 
       // Date calculations
       const fuDueDate = fu.due_date ? String(fu.due_date).split('T')[0] : todayStr
@@ -222,7 +272,7 @@ export async function getCadenceFollowUps(): Promise<{ data: CadenceFollowUpItem
         contact_id: cont.id || null,
         company_name: comp.company_name,
         industry: comp.industry || 'General',
-        category: sector,
+        category: comp.category || 'general',
         contact_name: cont.full_name || 'Business Contact',
         contact_title: cont.title || 'Decision Maker',
         phone: comp.phone || null,
@@ -249,7 +299,11 @@ export async function getCadenceFollowUps(): Promise<{ data: CadenceFollowUpItem
         days_until_due: !isOverdue ? Math.max(0, diffDays) : 0,
         assigned_bdm: comp.assigned_bdm || null,
         company_status: comp.status || 'contacted',
-        created_at: fu.created_at
+        created_at: fu.created_at,
+        track,
+        persona,
+        reply_sentiment: replySentiment,
+        reply_notes: replyNotes,
       })
     }
 
@@ -261,10 +315,8 @@ export async function getCadenceFollowUps(): Promise<{ data: CadenceFollowUpItem
 
 /**
  * Advances a lead through the strict non-linear cadence:
- * - Stage 1 (Greeting Sent) -> Auto-schedules Stage 2 in +2 days
- * - Stage 2 (Value Check-in) -> Auto-schedules Stage 3 in +3 days
- * - Stage 3 (Audit Offer) -> Auto-schedules Stage 4 in +5 days
- * - Stage 4 (Coffee / Call) -> Direct meeting booking or closure
+ * - Cold Cadence: Stage 1 (Greeting) -> Stage 2 (Value) -> Stage 3 (Audit) -> Stage 4 (Coffee/Call)
+ * - Conversation Track: Stage 1 (Slide-in) -> Stage 2 (Discovery) -> Stage 3 (Audit Review) -> Stage 4 (Coffee Close)
  */
 export async function advanceCadenceStage(data: {
   companyId: string
@@ -292,7 +344,6 @@ export async function advanceCadenceStage(data: {
         })
         .eq('id', followUpId)
     } else {
-      // Mark all pending follow_ups for this company as completed
       await supabase
         .from('follow_ups')
         .update({
@@ -304,41 +355,78 @@ export async function advanceCadenceStage(data: {
         .eq('status', 'pending')
     }
 
-    let nextStage = currentStage + 1
+    // Fetch company to check track and persona
+    const { data: comp } = await supabase
+      .from('companies')
+      .select('id, company_name, research_json, pipeline_stage, status')
+      .eq('id', companyId)
+      .single()
+
+    const rJson = (typeof comp?.research_json === 'object' && comp?.research_json) ? comp.research_json : {}
+    const track = resolveSequenceTrack(comp)
+
+    let nextStage = Math.min(4, currentStage + 1)
     let delayDays = 2
     let nextSubject = ''
     let nextDescription = ''
     let pipelineStage = 'Contacted'
     let activityTitle = ''
 
-    if (currentStage === 1) {
-      // Stage 1 Greeting sent -> Next is Follow-up 1 (Value Check-in) after +2 days
-      delayDays = CADENCE_DELAYS.GREETING_TO_FOLLOWUP_1 // 2 days
-      pipelineStage = 'Follow-up Sent'
-      activityTitle = `Greeting Sent via ${channel}`
-      nextSubject = 'Follow-up 1: Value Check-in'
-      nextDescription = `Stage 2 follow-up. Value observation check-in after 2 days without reply. [${channel}]`
-    } else if (currentStage === 2) {
-      // Stage 2 Value Check-in sent -> Next is Follow-up 2 (Audit Offer) after +3 days
-      delayDays = CADENCE_DELAYS.FOLLOWUP_1_TO_AUDIT_OFFER // 3 days
-      pipelineStage = 'Audit Offered'
-      activityTitle = `Follow-up 1 (Value Check-in) Sent via ${channel}`
-      nextSubject = 'Follow-up 2: Audit Offer'
-      nextDescription = `Stage 3 follow-up. Offer outside-in business audit ("we looked into their business and prepared an audit and if they would be open to it"). [${channel}]`
-    } else if (currentStage === 3) {
-      // Stage 3 Audit Offer sent -> Next is Follow-up 3 (Coffee / Call) after +5 days
-      delayDays = CADENCE_DELAYS.AUDIT_OFFER_TO_COFFEE_CALL // 5 days
-      pipelineStage = 'Coffee Invited'
-      activityTitle = `Follow-up 2 (Audit Offer) Sent via ${channel}`
-      nextSubject = 'Follow-up 3: Coffee Meet / Call Proposal'
-      nextDescription = `Stage 4 follow-up. Propose 10-minute coffee in Muscat or direct call based on the audit. [${channel}]`
+    if (track === 'conversation') {
+      const persona = rJson.target_persona || 'owner_founder'
+
+      if (currentStage === 1) {
+        delayDays = CONVERSATION_STAGES[2].nextDelayDays
+        pipelineStage = 'Active Conversation'
+        activityTitle = `Conversation Stage 1 (Polite Slide-In) Sent via ${channel}`
+        nextSubject = CONVERSATION_STAGES[2].label
+        nextDescription = `Conversation Stage 2. Context & Discovery question tailored for [${persona}]. [${channel}]`
+      } else if (currentStage === 2) {
+        delayDays = CONVERSATION_STAGES[3].nextDelayDays
+        pipelineStage = 'Audit Review'
+        activityTitle = `Conversation Stage 2 (Discovery) Sent via ${channel}`
+        nextSubject = CONVERSATION_STAGES[3].label
+        nextDescription = `Conversation Stage 3. Delivering tailored audit insights & ROI observations. [${channel}]`
+      } else if (currentStage === 3) {
+        delayDays = CONVERSATION_STAGES[4].nextDelayDays
+        pipelineStage = 'Coffee / Meeting Proposed'
+        activityTitle = `Conversation Stage 3 (Value & Audit Review) Sent via ${channel}`
+        nextSubject = CONVERSATION_STAGES[4].label
+        nextDescription = `Conversation Stage 4. Propose 15-minute coffee meet in Muscat or direct call. [${channel}]`
+      } else {
+        delayDays = 2
+        pipelineStage = 'Meeting Confirmation Pending'
+        activityTitle = `Coffee Meet / Direct Call Proposed via ${channel}`
+        nextSubject = 'Meeting Confirmation Check-in'
+        nextDescription = `Conversation check-in. Awaiting date/time confirmation for Muscat coffee or call. [${channel}]`
+      }
     } else {
-      // Stage 4 Coffee / Call sent -> Next is Decision Check-in after +5 days
-      delayDays = 5
-      pipelineStage = 'Decision Pending'
-      activityTitle = `Coffee Meet / Direct Call Proposed via ${channel}`
-      nextSubject = 'Follow-up 4: Meeting Confirmation & Decision'
-      nextDescription = `Stage 4 check-in. Awaiting date/time confirmation for Muscat coffee or call. [${channel}]`
+      // Cold Cadence
+      if (currentStage === 1) {
+        delayDays = CADENCE_DELAYS.GREETING_TO_FOLLOWUP_1
+        pipelineStage = 'Follow-up Sent'
+        activityTitle = `Greeting Sent via ${channel}`
+        nextSubject = 'Follow-up 1: Value Check-in'
+        nextDescription = `Stage 2 follow-up. Value observation check-in after 2 days without reply. [${channel}]`
+      } else if (currentStage === 2) {
+        delayDays = CADENCE_DELAYS.FOLLOWUP_1_TO_AUDIT_OFFER
+        pipelineStage = 'Audit Offered'
+        activityTitle = `Follow-up 1 (Value Check-in) Sent via ${channel}`
+        nextSubject = 'Follow-up 2: Audit Offer'
+        nextDescription = `Stage 3 follow-up. Offer outside-in business audit. [${channel}]`
+      } else if (currentStage === 3) {
+        delayDays = CADENCE_DELAYS.AUDIT_OFFER_TO_COFFEE_CALL
+        pipelineStage = 'Coffee Invited'
+        activityTitle = `Follow-up 2 (Audit Offer) Sent via ${channel}`
+        nextSubject = 'Follow-up 3: Coffee Meet / Call Proposal'
+        nextDescription = `Stage 4 follow-up. Propose 10-minute coffee in Muscat or direct call based on the audit. [${channel}]`
+      } else {
+        delayDays = 5
+        pipelineStage = 'Decision Pending'
+        activityTitle = `Coffee Meet / Direct Call Proposed via ${channel}`
+        nextSubject = 'Follow-up 4: Meeting Confirmation & Decision'
+        nextDescription = `Stage 4 check-in. Awaiting date/time confirmation for Muscat coffee or call. [${channel}]`
+      }
     }
 
     const nextDueDate = calculateNextDueDate(delayDays, now)
@@ -372,6 +460,7 @@ export async function advanceCadenceStage(data: {
     const fuActivityPayload = {
       stage_completed: currentStage,
       next_stage: nextStage,
+      track,
       channel,
       next_due_date: nextDueDate,
       delay_days: delayDays,
@@ -388,18 +477,180 @@ export async function advanceCadenceStage(data: {
       created_at: nowIso
     })
 
-    // 4. Update company record (companies.status allows: 'contacted' | 'lost' | 'opportunity' | 'in_call_queue' | 'meeting_booked' | 'prospect')
+    // 4. Update company record
+    const updatedRJson = track === 'conversation'
+      ? { ...rJson, conversation_stage: nextStage }
+      : rJson
+
     await supabase
       .from('companies')
       .update({
         status: 'contacted',
         pipeline_stage: pipelineStage,
+        research_json: updatedRJson,
         updated_at: nowIso
       })
       .eq('id', companyId)
 
     revalidateAllCRMPages()
-    return { data: { nextStage, nextDueDate, followUp: newFu }, error: null }
+    return { data: { nextStage, nextDueDate, track, followUp: newFu }, error: null }
+  } catch (error) {
+    return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
+  }
+}
+
+/**
+ * Switches a company between Cold Cadence (4-touch sequential) and
+ * Active Conversation (dialog-driven multi-stage sequence).
+ * Updates persona, reply sentiment, conversation stage, pending follow-ups, and activity log.
+ */
+export async function switchSequenceTrack(data: {
+  companyId: string
+  track: SequenceTrack
+  persona?: ProspectPersona
+  replySentiment?: ReplySentiment
+  replyNotes?: string
+  currentStage?: number
+  followUpId?: string | null
+  directChannel?: string
+}) {
+  try {
+    await requireAuth()
+    const nowIso = new Date().toISOString()
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const todayStr = today.toISOString().split('T')[0]
+
+    const {
+      companyId,
+      track,
+      persona,
+      replySentiment,
+      replyNotes,
+      currentStage = 1,
+      followUpId,
+      directChannel = 'whatsapp'
+    } = data
+
+    // Fetch existing company record
+    const { data: comp, error: compErr } = await supabase
+      .from('companies')
+      .select('id, company_name, industry, city, research_json, pipeline_stage, status')
+      .eq('id', companyId)
+      .single()
+
+    if (compErr || !comp) {
+      return { data: null, error: compErr?.message || 'Company not found' }
+    }
+
+    const rJson = (typeof comp.research_json === 'object' && comp.research_json) ? comp.research_json : {}
+    const chosenPersona = persona || rJson.target_persona || 'owner_founder'
+    const chosenSentiment = replySentiment || rJson.reply_sentiment || 'interested'
+    const stageNum = Math.max(1, Math.min(4, currentStage))
+
+    const updatedRJson = {
+      ...rJson,
+      sequence_track: track,
+      target_persona: chosenPersona,
+      reply_sentiment: chosenSentiment,
+      reply_notes: replyNotes !== undefined ? replyNotes : (rJson.reply_notes || null),
+      conversation_stage: stageNum,
+      track_switched_at: nowIso,
+    }
+
+    let pipelineStage = comp.pipeline_stage || 'Contacted'
+    let subject = ''
+    let description = ''
+    let delayDays = 1
+
+    if (track === 'conversation') {
+      const stageCfg = CONVERSATION_STAGES[stageNum] || CONVERSATION_STAGES[1]
+      pipelineStage = stageNum === 1 ? 'Reply Received' : (stageNum === 4 ? 'Coffee / Meeting Close' : 'Active Conversation')
+      subject = stageCfg.label
+      delayDays = stageCfg.nextDelayDays
+
+      description = `Active Conversation [${chosenPersona} • ${chosenSentiment}]. Next: ${stageCfg.nextStep}`
+    } else {
+      const stageCfg = COLD_CADENCE_STAGES[stageNum] || COLD_CADENCE_STAGES[1]
+      pipelineStage = stageCfg.shortLabel
+      subject = stageCfg.label
+      delayDays = stageCfg.nextDelayDays
+      description = `Cold Cadence [Linear 4-Touch]. Next: ${stageCfg.nextStep}`
+    }
+
+    const dueDate = calculateNextDueDate(delayDays, today)
+
+    // DB constraints: follow_ups.channel only accepts 'whatsapp' | 'call' | 'email' | 'linkedin'
+    const dbChannel = (directChannel === 'instagram_dm' || directChannel === 'instagram')
+      ? 'whatsapp'
+      : (['whatsapp', 'call', 'email', 'linkedin'].includes(directChannel) ? directChannel : 'whatsapp')
+
+    // Update or insert pending follow-up
+    if (followUpId) {
+      await supabase
+        .from('follow_ups')
+        .update({
+          subject,
+          description,
+          due_date: dueDate,
+          status: 'pending',
+          updated_at: nowIso,
+        })
+        .eq('id', followUpId)
+    } else {
+      const { data: existingFu } = await supabase
+        .from('follow_ups')
+        .select('id')
+        .eq('company_id', companyId)
+        .eq('status', 'pending')
+        .limit(1)
+
+      if (existingFu && existingFu.length > 0) {
+        await supabase
+          .from('follow_ups')
+          .update({
+            subject,
+            description,
+            due_date: dueDate,
+            updated_at: nowIso,
+          })
+          .eq('id', existingFu[0].id)
+      } else {
+        await supabase.from('follow_ups').insert({
+          company_id: companyId,
+          subject,
+          description,
+          channel: dbChannel,
+          due_date: dueDate,
+          status: 'pending',
+          created_at: nowIso,
+        })
+      }
+    }
+
+    // Log activity
+    await supabase.from('activities').insert({
+      company_id: companyId,
+      activity_type: 'status_changed',
+      title: `Sequence Track Switched: ${track === 'conversation' ? 'Active Conversation' : 'Cold Cadence'}`,
+      description: `Track: ${track} | Stage ${stageNum} | Persona: ${chosenPersona} | Sentiment: ${chosenSentiment}. ${replyNotes ? `Notes: "${replyNotes}"` : ''}`,
+      metadata: { track, persona: chosenPersona, reply_sentiment: chosenSentiment, stage: stageNum, replyNotes },
+      created_at: nowIso,
+    })
+
+    // Update company
+    await supabase
+      .from('companies')
+      .update({
+        status: 'contacted',
+        pipeline_stage: pipelineStage,
+        research_json: updatedRJson,
+        updated_at: nowIso,
+      })
+      .eq('id', companyId)
+
+    revalidateAllCRMPages()
+    return { data: { track, stage: stageNum, pipelineStage, dueDate }, error: null }
   } catch (error) {
     return { data: null, error: error instanceof Error ? error.message : 'An unexpected error occurred' }
   }

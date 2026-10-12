@@ -15,6 +15,7 @@ import {
   type PipelineStageSummary,
   type PipelineIntelligenceMetrics,
 } from "@/lib/types/pipeline";
+import { resolveSequenceTrack } from "@/lib/constants/sequences";
 
 // ─── GET ALL PIPELINE DATA ───────────────────────────────────────────────────
 export async function getPipelineOverview(): Promise<{
@@ -245,6 +246,11 @@ export async function getPipelineOverview(): Promise<{
         created_at: c.created_at,
         updated_at: c.updated_at,
         mgmt_highlight: Boolean(rJson.mgmt_highlight),
+        sequence_track: resolveSequenceTrack(c),
+        persona: rJson.target_persona || 'owner_founder',
+        reply_sentiment: rJson.reply_sentiment || 'interested',
+        reply_notes: rJson.reply_notes || null,
+        conversation_stage: Number(rJson.conversation_stage) || 1,
       });
     }
 
@@ -456,6 +462,11 @@ export async function updatePipelineLeadDetails(
     assignedBdm?: string;
     notes?: string;
     estDealValue?: number;
+    sequenceTrack?: "cold_cadence" | "conversation";
+    persona?: string;
+    replySentiment?: string;
+    replyNotes?: string;
+    conversationStage?: number;
   }
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -483,6 +494,11 @@ export async function updatePipelineLeadDetails(
       ...(payload.demoUrls !== undefined ? { demo_urls: payload.demoUrls } : {}),
       ...(payload.presentationUrls !== undefined ? { presentation_urls: payload.presentationUrls } : {}),
       ...(payload.assignedBdm !== undefined ? { owner: payload.assignedBdm } : {}),
+      ...(payload.sequenceTrack !== undefined ? { sequence_track: payload.sequenceTrack } : {}),
+      ...(payload.persona !== undefined ? { target_persona: payload.persona } : {}),
+      ...(payload.replySentiment !== undefined ? { reply_sentiment: payload.replySentiment } : {}),
+      ...(payload.replyNotes !== undefined ? { reply_notes: payload.replyNotes } : {}),
+      ...(payload.conversationStage !== undefined ? { conversation_stage: payload.conversationStage } : {}),
       last_updated: new Date().toISOString(),
     };
 

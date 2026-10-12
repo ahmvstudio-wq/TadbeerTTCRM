@@ -26,7 +26,8 @@ import {
   XCircle,
   HelpCircle,
   Loader2,
-  Share2
+  Share2,
+  Layers
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,8 +39,19 @@ import {
   getCadenceFollowUps,
   advanceCadenceStage,
   recordProspectReply,
+  switchSequenceTrack,
   type CadenceFollowUpItem
 } from "@/lib/actions/followups";
+import {
+  type SequenceTrack,
+  type ProspectPersona,
+  type ReplySentiment,
+  COLD_CADENCE_STAGES,
+  CONVERSATION_STAGES,
+  PROSPECT_PERSONAS,
+  REPLY_SENTIMENTS,
+  generateConversationScript,
+} from "@/lib/constants/sequences";
 import { cn } from "@/lib/utils";
 import { CRMCache } from "@/lib/cache/crm-cache";
 
@@ -87,18 +99,30 @@ function ChannelBadge({ channel }: { channel: string }) {
 }
 
 // ─── Stage Stepper Component ───────────────────────────────────────────────────
-function CadenceStageStepper({ currentStage }: { currentStage: number }) {
-  const stages = [
-    { num: 1, label: "Greeting Sent", delay: "Start" },
-    { num: 2, label: "Value Check-in", delay: "+2 Days" },
-    { num: 3, label: "Audit Offer", delay: "+3 Days" },
-    { num: 4, label: "Coffee / Call", delay: "+5 Days" },
-  ];
+function CadenceStageStepper({
+  currentStage,
+  track = "cold_cadence",
+}: {
+  currentStage: number;
+  track?: SequenceTrack;
+}) {
+  const isConversation = track === "conversation";
+  const stageMap = isConversation ? CONVERSATION_STAGES : COLD_CADENCE_STAGES;
+  const stages = [1, 2, 3, 4].map((num) => ({
+    num,
+    label: stageMap[num]?.shortLabel || `Stage ${num}`,
+    delay: stageMap[num]?.delay || "",
+  }));
 
   return (
     <div className="w-full py-2">
       <div className="flex items-center justify-between relative">
-        <div className="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-[2px] bg-neutral-200 -z-0" />
+        <div
+          className={cn(
+            "absolute left-6 right-6 top-1/2 -translate-y-1/2 h-[2px] -z-0",
+            isConversation ? "bg-purple-100" : "bg-neutral-200"
+          )}
+        />
         {stages.map((stage) => {
           const isCompleted = stage.num < currentStage;
           const isCurrent = stage.num === currentStage;
@@ -108,8 +132,8 @@ function CadenceStageStepper({ currentStage }: { currentStage: number }) {
               <div
                 className={cn(
                   "w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-all shadow-xs",
-                  isCompleted && "bg-emerald-600 text-white ring-4 ring-emerald-50",
-                  isCurrent && "bg-black text-white ring-4 ring-neutral-200 scale-110",
+                  isCompleted && (isConversation ? "bg-purple-600 text-white ring-4 ring-purple-50" : "bg-emerald-600 text-white ring-4 ring-emerald-50"),
+                  isCurrent && (isConversation ? "bg-purple-900 text-white ring-4 ring-purple-200 scale-110" : "bg-black text-white ring-4 ring-neutral-200 scale-110"),
                   !isCompleted && !isCurrent && "bg-neutral-100 text-neutral-400 border border-neutral-300"
                 )}
               >
@@ -119,7 +143,9 @@ function CadenceStageStepper({ currentStage }: { currentStage: number }) {
                 <p
                   className={cn(
                     "text-[10px] font-medium leading-tight whitespace-nowrap",
-                    isCurrent ? "text-neutral-900 font-semibold" : "text-neutral-500"
+                    isCurrent
+                      ? isConversation ? "text-purple-950 font-bold" : "text-neutral-900 font-semibold"
+                      : "text-neutral-500"
                   )}
                 >
                   {stage.label}
@@ -149,20 +175,97 @@ export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: C
   const [searchQuery, setSearchQuery] = useState("");
   const [channelFilter, setChannelFilter] = useState<string>("all");
   const [stageFilter, setStageFilter] = useState<string>("all");
+  const [trackFilter, setTrackFilter] = useState<"all" | "cold_cadence" | "conversation">("all");
 
   // Per-card local message edit buffer
   const [editedMessages, setEditedMessages] = useState<Record<string, string>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [advancingId, setAdvancingId] = useState<string | null>(null);
 
-  // Response Popover / Modal state
-  const [replyModalItem, setReplyModalItem] = useState<CadenceFollowUpItem | null>(null);
-  const [replyType, setReplyType] = useState<
-    "audit_requested" | "booking_link_sent" | "meeting_booked" | "reply_received" | "objection" | "dormant"
-  >("audit_requested");
-  const [replyNotes, setReplyNotes] = useState("");
-  const [meetingDate, setMeetingDate] = useState("");
-  const [recordingReply, setRecordingReply] = useState(false);
+  // Track & Persona Switcher modal state
+  const [trackModalItem, setTrackModalItem] = useState<CadenceFollowUpItem | null>(null);
+  const [modalTrack, setModalTrack] = useState<SequenceTrack>("conversation");
+  const [modalPersona, setModalPersona] = useState<ProspectPersona>("owner_founder");
+  const [modalSentiment, setModalSentiment] = useState<ReplySentiment>("interested");
+  const [modalStage, setModalStage] = useState<number>(1);
+  const [modalNotes, setModalNotes] = useState<string>("");
+  const [modalMeetingDate, setModalMeetingDate] = useState<string>("");
+  const [switchingTrack, setSwitchingTrack] = useState(false);
+
+  const openTrackModal = (item: CadenceFollowUpItem, defaultTrack?: SequenceTrack) => {
+    setTrackModalItem(item);
+    const targetTrack = defaultTrack || item.track || "conversation";
+    setModalTrack(targetTrack);
+    setModalPersona(item.persona || "owner_founder");
+    setModalSentiment(item.reply_sentiment || "interested");
+    setModalStage(item.current_stage || 1);
+    setModalNotes(item.reply_notes || "");
+    setModalMeetingDate("");
+  };
+
+  const handleSwitchTrackSubmit = async () => {
+    if (!trackModalItem) return;
+    setSwitchingTrack(true);
+    try {
+      const res = await switchSequenceTrack({
+        companyId: trackModalItem.company_id,
+        track: modalTrack,
+        persona: modalPersona,
+        replySentiment: modalSentiment,
+        replyNotes: modalNotes,
+        currentStage: modalStage,
+        followUpId: trackModalItem.id,
+        directChannel: trackModalItem.direct_channel,
+      });
+
+      if (res.error) {
+        addToast("error", `Failed to switch sequence track: ${res.error}`);
+      } else {
+        addToast(
+          "success",
+          `Switched ${trackModalItem.company_name} to ${modalTrack === "conversation" ? "Active Conversation" : "Cold Cadence"} track!`
+        );
+
+        if (modalTrack === "conversation") {
+          const newScript = generateConversationScript({
+            stage: modalStage,
+            persona: modalPersona,
+            replySentiment: modalSentiment,
+            companyName: trackModalItem.company_name,
+            contactName: trackModalItem.contact_name,
+            channel: trackModalItem.direct_channel,
+          });
+          setEditedMessages((prev) => ({
+            ...prev,
+            [trackModalItem.id]: newScript,
+          }));
+        }
+
+        setTrackModalItem(null);
+        await loadData();
+      }
+    } catch (err: any) {
+      addToast("error", err.message || "Failed to switch sequence track");
+    } finally {
+      setSwitchingTrack(false);
+    }
+  };
+
+  const modalPreviewScript = useMemo(() => {
+    if (!trackModalItem) return "";
+    if (modalTrack === "conversation") {
+      return generateConversationScript({
+        stage: modalStage,
+        persona: modalPersona,
+        replySentiment: modalSentiment,
+        companyName: trackModalItem.company_name,
+        contactName: trackModalItem.contact_name,
+        channel: trackModalItem.direct_channel,
+      });
+    }
+    const stageCfg = COLD_CADENCE_STAGES[modalStage] || COLD_CADENCE_STAGES[1];
+    return `Ahlan ${trackModalItem.contact_name || "there"}, following up on our recent note regarding ${trackModalItem.company_name}. [${stageCfg.label}]`;
+  }, [trackModalItem, modalTrack, modalStage, modalPersona, modalSentiment]);
 
   // Load Cadence Follow-ups with silent background support
   const loadData = useCallback(async (silent = false) => {
@@ -206,6 +309,8 @@ export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: C
   const todayCount = useMemo(() => items.filter((i) => i.is_today).length, [items]);
   const overdueCount = useMemo(() => items.filter((i) => i.is_overdue).length, [items]);
   const upcomingCount = useMemo(() => items.filter((i) => !i.is_today && !i.is_overdue).length, [items]);
+  const coldCadenceCount = useMemo(() => items.filter((i) => i.track === "cold_cadence").length, [items]);
+  const conversationCount = useMemo(() => items.filter((i) => i.track === "conversation").length, [items]);
   const totalCount = items.length;
 
   // Filtered List
@@ -215,6 +320,9 @@ export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: C
       if (activeTab === "today" && !item.is_today) return false;
       if (activeTab === "overdue" && !item.is_overdue) return false;
       if (activeTab === "upcoming" && (item.is_today || item.is_overdue)) return false;
+
+      // Track filter
+      if (trackFilter !== "all" && item.track !== trackFilter) return false;
 
       // Channel filter
       if (channelFilter !== "all") {
@@ -285,37 +393,6 @@ export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: C
     }
   };
 
-  // Record Prospect Reply / Response Branch
-  const handleRecordReplySubmit = async () => {
-    if (!replyModalItem) return;
-    setRecordingReply(true);
-
-    try {
-      const res = await recordProspectReply({
-        companyId: replyModalItem.company_id,
-        contactId: replyModalItem.contact_id,
-        followUpId: replyModalItem.id,
-        replyType,
-        replyText: replyNotes,
-        meetingDate: replyType === "meeting_booked" ? meetingDate : undefined,
-      });
-
-      if (res.error) {
-        addToast("error", `Failed to record reply: ${res.error}`);
-      } else {
-        addToast("success", `Status updated: ${res.data?.pipelineStage}`);
-        setReplyModalItem(null);
-        setReplyNotes("");
-        setMeetingDate("");
-        await loadData();
-      }
-    } catch (err: any) {
-      addToast("error", err.message || "Failed to record reply");
-    } finally {
-      setRecordingReply(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-[#fafafc] pb-24 font-body">
       {/* ─── Top Header & Cadence Rule Banner ─────────────────────────────────── */}
@@ -350,28 +427,54 @@ export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: C
             </div>
           </div>
 
-          {/* ─── Cadence Flow Banner ──────────────────────────────────── */}
-          <div className="mt-5 p-3.5 rounded-2xl bg-neutral-50/80 border border-black/[0.04] flex flex-wrap items-center justify-between gap-3 text-xs text-neutral-600">
-            <div className="flex items-center gap-2 font-medium text-neutral-900">
-              <Sparkles className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-              <span>Cadence Sequence:</span>
+          {/* ─── Dual Track Cadence Showcase Banner ──────────────────────────────────── */}
+          <div className="mt-5 p-3.5 rounded-2xl bg-neutral-50/80 border border-black/[0.04] space-y-2 text-xs text-neutral-600">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 font-medium text-neutral-900">
+                <Sparkles className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                <span>Cold Cadence (Linear 4-Touch):</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-[11px]">
+                <span className="px-2 py-0.5 rounded-md bg-white border border-neutral-200 font-medium">
+                  Stage 1: Greeting
+                </span>
+                <ArrowRight className="h-3 w-3 text-neutral-400" />
+                <span className="px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 font-semibold">
+                  +2 Days: Value Check-in
+                </span>
+                <ArrowRight className="h-3 w-3 text-neutral-400" />
+                <span className="px-2 py-0.5 rounded-md bg-purple-50 border border-purple-200 text-purple-700 font-semibold">
+                  +3 Days: Audit Offer
+                </span>
+                <ArrowRight className="h-3 w-3 text-neutral-400" />
+                <span className="px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-700 font-semibold">
+                  +5 Days: Coffee Meet / Call
+                </span>
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-[11px]">
-              <span className="px-2 py-0.5 rounded-md bg-white border border-neutral-200 font-medium">
-                Stage 1: Greeting
-              </span>
-              <ArrowRight className="h-3 w-3 text-neutral-400" />
-              <span className="px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-700 font-semibold">
-                +2 Days: Value Check-in
-              </span>
-              <ArrowRight className="h-3 w-3 text-neutral-400" />
-              <span className="px-2 py-0.5 rounded-md bg-purple-50 border border-purple-200 text-purple-700 font-semibold">
-                +3 Days: Audit Offer
-              </span>
-              <ArrowRight className="h-3 w-3 text-neutral-400" />
-              <span className="px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-700 font-semibold">
-                +5 Days: Coffee Meet / Call
-              </span>
+
+            <div className="pt-2 border-t border-black/[0.04] flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 font-medium text-purple-900">
+                <MessageSquare className="h-3.5 w-3.5 text-purple-600 shrink-0" />
+                <span>Active Conversation Track (When Replied):</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-[11px]">
+                <span className="px-2 py-0.5 rounded-md bg-purple-100/70 border border-purple-200 text-purple-800 font-medium">
+                  Stage 1: Polite Slide-In
+                </span>
+                <ArrowRight className="h-3 w-3 text-purple-300" />
+                <span className="px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 font-semibold">
+                  +1-2d: Context & Discovery
+                </span>
+                <ArrowRight className="h-3 w-3 text-purple-300" />
+                <span className="px-2 py-0.5 rounded-md bg-fuchsia-50 border border-fuchsia-200 text-fuchsia-700 font-semibold">
+                  +2-3d: Value & Audit Review
+                </span>
+                <ArrowRight className="h-3 w-3 text-purple-300" />
+                <span className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold">
+                  +2-3d: Muscat Coffee / Meeting Close
+                </span>
+              </div>
             </div>
           </div>
 
@@ -467,6 +570,17 @@ export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: C
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Sequence Track Filter */}
+              <select
+                value={trackFilter}
+                onChange={(e) => setTrackFilter(e.target.value as any)}
+                className="bg-neutral-50/70 border border-neutral-200 rounded-xl px-2.5 py-1.5 text-xs text-neutral-700 focus:outline-none focus:border-black cursor-pointer font-medium"
+              >
+                <option value="all">All Tracks ({totalCount})</option>
+                <option value="cold_cadence">Cold Cadence ({coldCadenceCount})</option>
+                <option value="conversation">In Conversation ({conversationCount})</option>
+              </select>
+
               {/* Channel Filter */}
               <select
                 value={channelFilter}
@@ -486,10 +600,10 @@ export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: C
                 className="bg-neutral-50/70 border border-neutral-200 rounded-xl px-2.5 py-1.5 text-xs text-neutral-700 focus:outline-none focus:border-black cursor-pointer"
               >
                 <option value="all">All Stages</option>
-                <option value="1">Stage 1: Greeting Sent</option>
-                <option value="2">Stage 2: Value Check-in (+2d)</option>
-                <option value="3">Stage 3: Audit Offer (+3d)</option>
-                <option value="4">Stage 4: Coffee / Call (+5d)</option>
+                <option value="1">Stage 1: Greeting Sent / Slide-In</option>
+                <option value="2">Stage 2: Value Check-in / Discovery</option>
+                <option value="3">Stage 3: Audit Offer / Value Review</option>
+                <option value="4">Stage 4: Coffee / Meeting Close</option>
               </select>
             </div>
           </div>
@@ -563,6 +677,30 @@ export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: C
                           </Badge>
 
                           <ChannelBadge channel={item.direct_channel} />
+
+                          {item.track === "conversation" ? (
+                            <button
+                              type="button"
+                              onClick={() => openTrackModal(item)}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors cursor-pointer"
+                              title="Click to change track or persona"
+                            >
+                              <MessageSquare className="h-3 w-3 text-purple-600" />
+                              <span>Conversation Track</span>
+                              <span className="text-purple-300">•</span>
+                              <span>{PROSPECT_PERSONAS[item.persona]?.shortLabel || "Founder"}</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => openTrackModal(item, "conversation")}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-neutral-100 text-neutral-600 border border-neutral-200 hover:bg-neutral-200/70 transition-colors cursor-pointer"
+                              title="Click to switch to active conversation track"
+                            >
+                              <Layers className="h-3 w-3 text-neutral-400" />
+                              <span>Cold Cadence (4-Touch)</span>
+                            </button>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-2 mt-1 text-xs text-neutral-500 font-light">
@@ -607,19 +745,31 @@ export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: C
 
                     {/* Cadence Stepper */}
                     <div className="mt-4 pt-3 border-t border-black/[0.03]">
-                      <CadenceStageStepper currentStage={item.current_stage} />
+                      <CadenceStageStepper currentStage={item.current_stage} track={item.track} />
                     </div>
                   </div>
 
                   {/* Card Body: Recommended Message & 1-Click Action */}
                   <div className="p-5 sm:p-6 bg-neutral-50/40">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-1.5 text-xs font-medium text-neutral-700">
-                        <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                        <span>Recommended Playbook Message:</span>
-                        <span className="text-[11px] text-neutral-400 font-light font-mono">
-                          (Stage {item.current_stage}: {item.stage_label})
-                        </span>
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-neutral-700 flex-wrap">
+                        {item.track === "conversation" ? (
+                          <>
+                            <MessageSquare className="h-3.5 w-3.5 text-purple-600 shrink-0" />
+                            <span className="text-purple-950 font-semibold">Tailored Conversation Script:</span>
+                            <span className="text-[11px] text-purple-700 font-normal">
+                              ({item.stage_label}) • {REPLY_SENTIMENTS[item.reply_sentiment]?.shortLabel || "Interested"} • {PROSPECT_PERSONAS[item.persona]?.shortLabel || "Founder"}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                            <span>Recommended Playbook Message:</span>
+                            <span className="text-[11px] text-neutral-400 font-light font-mono">
+                              (Stage {item.current_stage}: {item.stage_label})
+                            </span>
+                          </>
+                        )}
                       </div>
 
                       <Button
@@ -698,20 +848,24 @@ export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: C
 
                       {/* Main Cadence Advancement Actions */}
                       <div className="flex items-center gap-2 self-end sm:self-center">
-                        {/* Prospect Replied Button */}
+                        {/* Switch Track / Update Persona Button */}
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            setReplyModalItem(item);
-                            setReplyType("audit_requested");
-                            setReplyNotes("");
-                            setMeetingDate("");
-                          }}
-                          className="text-xs font-medium text-purple-700 bg-purple-50/70 border-purple-200 hover:bg-purple-100 cursor-pointer"
+                          onClick={() => openTrackModal(item, item.track === "cold_cadence" ? "conversation" : undefined)}
+                          className={cn(
+                            "text-xs font-medium cursor-pointer transition-colors",
+                            item.track === "conversation"
+                              ? "text-purple-700 bg-purple-50/80 border-purple-200 hover:bg-purple-100"
+                              : "text-neutral-700 bg-white border-neutral-200 hover:bg-neutral-50"
+                          )}
                         >
-                          <MessageSquare className="h-3.5 w-3.5 text-purple-600 mr-1.5" />
-                          Prospect Replied...
+                          <MessageSquare className="h-3.5 w-3.5 mr-1.5 text-purple-600" />
+                          {item.track === "conversation" ? (
+                            <span>Persona ({PROSPECT_PERSONAS[item.persona]?.shortLabel || "Founder"})</span>
+                          ) : (
+                            <span>Prospect Replied / Switch Track</span>
+                          )}
                         </Button>
 
                         {/* 1-Click Mark Sent & Advance Stage Button */}
@@ -719,7 +873,10 @@ export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: C
                           size="sm"
                           disabled={isAdvancing}
                           onClick={() => handleAdvanceStage(item)}
-                          className="text-xs font-medium bg-black text-white hover:bg-neutral-800 shadow-sm cursor-pointer min-w-[170px]"
+                          className={cn(
+                            "text-xs font-medium text-white shadow-sm cursor-pointer min-w-[170px]",
+                            item.track === "conversation" ? "bg-purple-950 hover:bg-purple-900" : "bg-black hover:bg-neutral-800"
+                          )}
                         >
                           {isAdvancing ? (
                             <>
@@ -743,189 +900,248 @@ export function CadenceFollowUpsClient({ initialItems = [] }: { initialItems?: C
         )}
       </div>
 
-      {/* ─── Prospect Replied Branching Modal ──────────────────────────────────── */}
-      {replyModalItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl border border-black/[0.08] p-6 max-w-lg w-full shadow-2xl space-y-4">
+      {/* ─── Switch Sequence Track & Persona Modal ────────────────────────────── */}
+      {trackModalItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-150 overflow-y-auto">
+          <div className="bg-white rounded-3xl border border-black/[0.08] p-6 max-w-xl w-full shadow-2xl space-y-5 my-8">
             <div className="flex items-center justify-between pb-3 border-b border-black/[0.05]">
               <div>
                 <h3 className="text-base font-light text-neutral-900 font-display">
-                  Record Prospect Response
+                  Sequence Track & Prospect Persona
                 </h3>
                 <p className="text-xs text-neutral-500 font-light mt-0.5">
-                  {replyModalItem.company_name} ({replyModalItem.contact_name})
+                  {trackModalItem.company_name} ({trackModalItem.contact_name}) • {trackModalItem.industry || "General"}
                 </p>
               </div>
               <button
-                onClick={() => setReplyModalItem(null)}
+                onClick={() => setTrackModalItem(null)}
                 className="p-1.5 rounded-full hover:bg-neutral-100 text-neutral-400 hover:text-black transition-colors cursor-pointer"
               >
                 <XCircle className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="space-y-3">
+            {/* Track Selector Tabs */}
+            <div className="space-y-1.5">
               <label className="text-xs font-medium text-neutral-700 block">
-                Select Response Branch:
+                Select Active Sequence Track:
               </label>
-
-              <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2 bg-neutral-100/80 p-1 rounded-2xl">
                 <button
                   type="button"
-                  onClick={() => setReplyType("audit_requested")}
+                  onClick={() => setModalTrack("conversation")}
                   className={cn(
-                    "w-full p-3 rounded-2xl border text-left flex items-start gap-3 transition-all cursor-pointer",
-                    replyType === "audit_requested"
-                      ? "bg-amber-50/60 border-amber-400 text-amber-950 ring-1 ring-amber-400"
-                      : "bg-neutral-50/50 border-neutral-200 hover:bg-white text-neutral-700"
+                    "py-2 px-3 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2 cursor-pointer",
+                    modalTrack === "conversation"
+                      ? "bg-white text-purple-950 shadow-xs ring-1 ring-black/[0.05]"
+                      : "text-neutral-500 hover:text-neutral-900"
                   )}
                 >
-                  <FileCheck className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                  <div>
-                    <span className="text-xs font-semibold block">
-                      Audit Requested (High Priority)
-                    </span>
-                    <span className="text-[11px] text-neutral-500 font-light">
-                      Prospect is interested in seeing outside-in observations. Auto-schedules audit delivery in +2 days.
-                    </span>
-                  </div>
+                  <MessageSquare className="h-3.5 w-3.5 text-purple-600" />
+                  <span>Active Conversation</span>
                 </button>
-
                 <button
                   type="button"
-                  onClick={() => setReplyType("booking_link_sent")}
+                  onClick={() => setModalTrack("cold_cadence")}
                   className={cn(
-                    "w-full p-3 rounded-2xl border text-left flex items-start gap-3 transition-all cursor-pointer",
-                    replyType === "booking_link_sent"
-                      ? "bg-blue-50/60 border-blue-400 text-blue-950 ring-1 ring-blue-400"
-                      : "bg-neutral-50/50 border-neutral-200 hover:bg-white text-neutral-700"
+                    "py-2 px-3 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2 cursor-pointer",
+                    modalTrack === "cold_cadence"
+                      ? "bg-white text-neutral-950 shadow-xs ring-1 ring-black/[0.05]"
+                      : "text-neutral-500 hover:text-neutral-900"
                   )}
                 >
-                  <Share2 className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
-                  <div>
-                    <span className="text-xs font-semibold block">
-                      Booking Link Sent (Like Abdul Rahman)
-                    </span>
-                    <span className="text-[11px] text-neutral-500 font-light">
-                      Sent TTT calendar link / meeting times. Auto-schedules confirmation follow-up in +3 days.
-                    </span>
-                  </div>
+                  <Clock className="h-3.5 w-3.5 text-neutral-500" />
+                  <span>Cold Cadence (4-Touch)</span>
                 </button>
-
-                <button
-                  type="button"
-                  onClick={() => setReplyType("meeting_booked")}
-                  className={cn(
-                    "w-full p-3 rounded-2xl border text-left flex items-start gap-3 transition-all cursor-pointer",
-                    replyType === "meeting_booked"
-                      ? "bg-emerald-50/60 border-emerald-400 text-emerald-950 ring-1 ring-emerald-400"
-                      : "bg-neutral-50/50 border-neutral-200 hover:bg-white text-neutral-700"
-                  )}
-                >
-                  <CalendarCheck className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
-                  <div>
-                    <span className="text-xs font-semibold block">
-                      Meeting Confirmed / Coffee Booked
-                    </span>
-                    <span className="text-[11px] text-neutral-500 font-light">
-                      Confirmed date & time for Muscat coffee or call. Syncs directly into Meetings calendar.
-                    </span>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setReplyType("reply_received")}
-                  className={cn(
-                    "w-full p-3 rounded-2xl border text-left flex items-start gap-3 transition-all cursor-pointer",
-                    replyType === "reply_received"
-                      ? "bg-purple-50/60 border-purple-400 text-purple-950 ring-1 ring-purple-400"
-                      : "bg-neutral-50/50 border-neutral-200 hover:bg-white text-neutral-700"
-                  )}
-                >
-                  <MessageSquare className="h-4 w-4 text-purple-600 mt-0.5 shrink-0" />
-                  <div>
-                    <span className="text-xs font-semibold block">
-                      General Response / Active Conversation
-                    </span>
-                    <span className="text-[11px] text-neutral-500 font-light">
-                      Prospect engaged with general remarks or questions. Pauses cold cadence for rep response.
-                    </span>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setReplyType("dormant")}
-                  className={cn(
-                    "w-full p-3 rounded-2xl border text-left flex items-start gap-3 transition-all cursor-pointer",
-                    replyType === "dormant"
-                      ? "bg-rose-50/60 border-rose-400 text-rose-950 ring-1 ring-rose-400"
-                      : "bg-neutral-50/50 border-neutral-200 hover:bg-white text-neutral-700"
-                  )}
-                >
-                  <XCircle className="h-4 w-4 text-rose-600 mt-0.5 shrink-0" />
-                  <div>
-                    <span className="text-xs font-semibold block">
-                      Not Interested / Opt Out
-                    </span>
-                    <span className="text-[11px] text-neutral-500 font-light">
-                      Prospect declined or requested to stop contact. Marks lead as dormant.
-                    </span>
-                  </div>
-                </button>
-              </div>
-
-              {replyType === "meeting_booked" && (
-                <div>
-                  <label className="text-xs font-medium text-neutral-700 block mb-1">
-                    Meeting Date & Time:
-                  </label>
-                  <Input
-                    type="datetime-local"
-                    value={meetingDate}
-                    onChange={(e) => setMeetingDate(e.target.value)}
-                    className="text-xs rounded-xl"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="text-xs font-medium text-neutral-700 block mb-1">
-                  Response Details / Notes:
-                </label>
-                <Textarea
-                  value={replyNotes}
-                  onChange={(e) => setReplyNotes(e.target.value)}
-                  placeholder="Record summary of their message or any specific observation they shared..."
-                  rows={3}
-                  className="text-xs rounded-xl resize-none font-light"
-                />
               </div>
             </div>
+
+            {modalTrack === "conversation" ? (
+              <div className="space-y-4">
+                {/* 1. Prospect Persona Selection */}
+                <div>
+                  <label className="text-xs font-medium text-neutral-700 block mb-1.5">
+                    Prospect Persona / Decision Maker:
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(Object.keys(PROSPECT_PERSONAS) as ProspectPersona[]).map((key) => {
+                      const p = PROSPECT_PERSONAS[key];
+                      const isSel = modalPersona === key;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setModalPersona(key)}
+                          className={cn(
+                            "p-2.5 rounded-2xl border text-left transition-all cursor-pointer",
+                            isSel
+                              ? "bg-purple-50/70 border-purple-400 text-purple-950 ring-1 ring-purple-400"
+                              : "bg-neutral-50/50 border-neutral-200 hover:bg-white text-neutral-700"
+                          )}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm">{p.icon}</span>
+                            <span className="text-xs font-semibold">{p.shortLabel}</span>
+                          </div>
+                          <span className="text-[10px] text-neutral-500 font-light block mt-0.5 line-clamp-1">
+                            {p.description}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. Reply Status / Sentiment */}
+                <div>
+                  <label className="text-xs font-medium text-neutral-700 block mb-1.5">
+                    Prospect Reply Sentiment:
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {(Object.keys(REPLY_SENTIMENTS) as ReplySentiment[]).map((key) => {
+                      const s = REPLY_SENTIMENTS[key];
+                      const isSel = modalSentiment === key;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setModalSentiment(key)}
+                          className={cn(
+                            "p-2 rounded-xl border text-left transition-all cursor-pointer",
+                            isSel
+                              ? "bg-indigo-50/70 border-indigo-400 text-indigo-950 ring-1 ring-indigo-400"
+                              : "bg-neutral-50/50 border-neutral-200 hover:bg-white text-neutral-700"
+                          )}
+                        >
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs">{s.icon}</span>
+                            <span className="text-[11px] font-medium leading-tight">{s.shortLabel}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 3. Conversation Stage */}
+                <div>
+                  <label className="text-xs font-medium text-neutral-700 block mb-1.5">
+                    Conversation Stage:
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                    {[1, 2, 3, 4].map((stageNum) => {
+                      const cfg = CONVERSATION_STAGES[stageNum];
+                      const isSel = modalStage === stageNum;
+                      return (
+                        <button
+                          key={stageNum}
+                          type="button"
+                          onClick={() => setModalStage(stageNum)}
+                          className={cn(
+                            "p-2 rounded-xl border text-center transition-all cursor-pointer",
+                            isSel
+                              ? "bg-black text-white border-black font-semibold"
+                              : "bg-neutral-50/60 border-neutral-200 text-neutral-700 hover:bg-white text-xs"
+                          )}
+                        >
+                          <div className="text-[11px] font-medium">{cfg.shortLabel}</div>
+                          <div className="text-[9px] opacity-70 font-mono">{cfg.delay}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 4. Notes / Prospect Reply Summary */}
+                <div>
+                  <label className="text-xs font-medium text-neutral-700 block mb-1">
+                    Prospect Response / Notes:
+                  </label>
+                  <Textarea
+                    value={modalNotes}
+                    onChange={(e) => setModalNotes(e.target.value)}
+                    placeholder="e.g. Asked if we do Instagram ad management and how much it costs..."
+                    rows={2}
+                    className="text-xs rounded-xl resize-none font-light"
+                  />
+                </div>
+
+                {/* 5. Live Script Preview */}
+                <div className="p-3 bg-purple-50/50 border border-purple-100 rounded-2xl space-y-1">
+                  <div className="flex items-center justify-between text-[11px] font-medium text-purple-900">
+                    <span className="flex items-center gap-1">
+                      <Sparkles className="h-3 w-3 text-purple-600" />
+                      Generated Next Script Preview:
+                    </span>
+                    <span className="text-[10px] text-purple-600 font-mono">Auto-populates on apply</span>
+                  </div>
+                  <p className="text-xs text-neutral-800 font-light italic leading-relaxed">
+                    &ldquo;{modalPreviewScript}&rdquo;
+                  </p>
+                </div>
+              </div>
+            ) : (
+              /* Cold Cadence Options */
+              <div className="space-y-4">
+                <div className="p-3.5 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs text-neutral-600 font-light leading-relaxed">
+                  Resetting to linear Cold Cadence for accounts without reply. Follows strict 2d → 3d → 5d cadence timing.
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-neutral-700 block mb-1.5">
+                    Cold Cadence Stage:
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                    {[1, 2, 3, 4].map((stageNum) => {
+                      const cfg = COLD_CADENCE_STAGES[stageNum];
+                      const isSel = modalStage === stageNum;
+                      return (
+                        <button
+                          key={stageNum}
+                          type="button"
+                          onClick={() => setModalStage(stageNum)}
+                          className={cn(
+                            "p-2 rounded-xl border text-center transition-all cursor-pointer",
+                            isSel
+                              ? "bg-black text-white border-black font-semibold"
+                              : "bg-neutral-50/60 border-neutral-200 text-neutral-700 hover:bg-white text-xs"
+                          )}
+                        >
+                          <div className="text-[11px] font-medium">{cfg.shortLabel}</div>
+                          <div className="text-[9px] opacity-70 font-mono">{cfg.delay}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-black/[0.05]">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setReplyModalItem(null)}
+                onClick={() => setTrackModalItem(null)}
                 className="text-xs cursor-pointer"
               >
                 Cancel
               </Button>
               <Button
                 size="sm"
-                disabled={recordingReply}
-                onClick={handleRecordReplySubmit}
-                className="text-xs bg-black text-white hover:bg-neutral-800 cursor-pointer min-w-[120px]"
+                disabled={switchingTrack}
+                onClick={handleSwitchTrackSubmit}
+                className={cn(
+                  "text-xs text-white cursor-pointer min-w-[150px]",
+                  modalTrack === "conversation" ? "bg-purple-950 hover:bg-purple-900" : "bg-black hover:bg-neutral-800"
+                )}
               >
-                {recordingReply ? (
+                {switchingTrack ? (
                   <>
                     <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                    Saving...
+                    Updating Track...
                   </>
                 ) : (
-                  "Save Response"
+                  "Update Sequence Track"
                 )}
               </Button>
             </div>

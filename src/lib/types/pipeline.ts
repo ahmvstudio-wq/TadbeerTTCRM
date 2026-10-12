@@ -95,6 +95,11 @@ export interface PipelineLead {
   created_at: string;
   updated_at: string;
   mgmt_highlight?: boolean;
+  sequence_track?: 'cold_cadence' | 'conversation';
+  persona?: string;
+  reply_sentiment?: string;
+  reply_notes?: string | null;
+  conversation_stage?: number;
 }
 
 export interface PipelineStageSummary {

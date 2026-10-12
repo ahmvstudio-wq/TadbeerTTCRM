@@ -35,6 +35,7 @@ import { Badge } from "@/components/ui/badge";
 import { DateRangeFilter } from "@/components/ui/date-range-filter";
 import { CRMCache } from "@/lib/cache/crm-cache";
 import { DashboardFollowUpsPanel } from "@/components/dashboard/dashboard-followups-panel";
+import { type LeadPriority, PRIORITY_CONFIGS } from "@/lib/constants/priorities";
 
 // Semi-Circular Dark Teal Speedometer Gauge for Conversion Rate
 function TealGauge({ percentage = 0 }: { percentage?: number }) {
@@ -124,6 +125,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData?: Dashboar
   const [powerHourLeads, setPowerHourLeads] = useState<OutreachLead[]>([]);
   const [loadingChannel, setLoadingChannel] = useState<string | null>(null);
   const [selectedIndustry, setSelectedIndustry] = useState<string>('all');
+  const [selectedPriority, setSelectedPriority] = useState<LeadPriority | 'all'>('all');
 
   // Save initialData to cache if provided
   useEffect(() => {
@@ -145,7 +147,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData?: Dashboar
   const handleLaunchChannelPowerHour = async (channel: OutreachChannel) => {
     setLoadingChannel(channel);
     try {
-      const res = await getChannelDailyBatch(channel, 50, selectedIndustry);
+      const res = await getChannelDailyBatch(channel, 25, selectedIndustry !== 'all' ? selectedIndustry : undefined);
       if (res.data && res.data.length > 0) {
         setPowerHourLeads(res.data);
         setPowerHourChannel(channel);
@@ -580,6 +582,23 @@ export function TealCRMDashboardClient({ initialData }: { initialData?: Dashboar
               </p>
             </div>
             <div className="flex items-center gap-3 flex-wrap">
+              {/* Who are you looking to send it to? Priority Selector */}
+              <div className="flex items-center gap-1.5 bg-white border border-neutral-200 rounded-xl px-2.5 py-1.5 shadow-2xs">
+                <Target className="h-3.5 w-3.5 text-neutral-500" />
+                <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider">Send To:</span>
+                <select
+                  value={selectedPriority}
+                  onChange={(e) => setSelectedPriority(e.target.value === 'all' ? 'all' : (Number(e.target.value) as LeadPriority))}
+                  className="bg-transparent text-xs font-bold text-neutral-900 focus:outline-none cursor-pointer"
+                  title="Who are you looking to send it to? (Filter by lead priority)"
+                >
+                  <option value="all">All Priorities</option>
+                  <option value={1}>P1: Retail, Clinics & Spas</option>
+                  <option value={2}>P2: Real Estate & Supermarkets</option>
+                  <option value={3}>P3: Other Industries</option>
+                </select>
+              </div>
+
               {/* Industry Selector */}
               <div className="flex items-center gap-1.5 bg-white border border-neutral-200 rounded-xl px-2.5 py-1.5 shadow-2xs">
                 <Filter className="h-3.5 w-3.5 text-neutral-500" />
@@ -1023,6 +1042,7 @@ export function TealCRMDashboardClient({ initialData }: { initialData?: Dashboar
         channel={powerHourChannel}
         leads={powerHourLeads}
         initialSector={selectedIndustry !== 'all' ? (selectedIndustry as any) : 'all'}
+        initialPriority={selectedPriority}
         onLeadSent={(sentId) => {
           setPowerHourLeads(prev => prev.filter(l => l.id !== sentId));
         }}
