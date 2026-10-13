@@ -111,7 +111,7 @@ export function createDefaultProposalData(companyName: string, industry: string,
   return {
     coverTitleFormat: `Tadbeer × ${companyName}`,
     tagline: `A Simple Roadmap to Help ${companyName} Save Time & Grow Faster`,
-    subtitle: `A practical operational plan built specifically for ${companyName}. We looked closely at your customer flow and daily operations to show how simple connected systems can remove bottlenecks and boost results.`,
+    subtitle: `A practical operational plan built specifically for ${companyName}. We looked closely at your AI lead generation and daily operations to show how simple connected systems can remove bottlenecks and boost results.`,
     preparedDate: preparedStr,
     
     aboutTadbeerContext: `Tadbeer TT is an Omani consulting and technology partner based in Madinat Qaboos, Muscat. We help growing GCC businesses connect their daily operations, software, customer communications, and team workflows in simple, effective ways.`,
