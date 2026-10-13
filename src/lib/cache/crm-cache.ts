@@ -60,11 +60,26 @@ function removeFromSession(prefixOrKey?: string) {
   }
 }
 
-// Listen to global lead-updated event to optimistically patch cached data across all screens
+// Listen to global lead-updated and outreach-imported events
 if (typeof window !== "undefined") {
+  window.addEventListener("outreach-imported", () => {
+    CRMCache.invalidate("outreach");
+    CRMCache.invalidate("cadence");
+    CRMCache.invalidate("dashboard");
+    CRMCache.invalidate("prospects");
+  });
+
   window.addEventListener("lead-updated", (event: any) => {
     const detail = event?.detail;
     if (!detail) return;
+
+    if (detail.invalidateAll || detail.source === "outreach_import") {
+      CRMCache.invalidate("outreach");
+      CRMCache.invalidate("cadence");
+      CRMCache.invalidate("dashboard");
+      CRMCache.invalidate("prospects");
+      return;
+    }
 
     const companyId = detail.companyId;
     const newStatus = detail.status;

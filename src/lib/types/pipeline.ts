@@ -100,6 +100,16 @@ export interface PipelineLead {
   reply_sentiment?: string;
   reply_notes?: string | null;
   conversation_stage?: number;
+  meeting?: {
+    id: string;
+    title: string;
+    meeting_date: string;
+    duration_minutes: number;
+    meeting_type: string;
+    location: string | null;
+    status: string;
+    description: string | null;
+  } | null;
 }
 
 export interface PipelineStageSummary {

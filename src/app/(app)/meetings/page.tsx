@@ -76,8 +76,15 @@ export default function MeetingsPage() {
       if (e?.detail?.source === "meetings_page") return;
       fetchData(true);
     };
+    const handleMeetingsUpdated = () => {
+      fetchData(true);
+    };
     window.addEventListener("lead-updated", handleLeadUpdated);
-    return () => window.removeEventListener("lead-updated", handleLeadUpdated);
+    window.addEventListener("meetings-updated", handleMeetingsUpdated);
+    return () => {
+      window.removeEventListener("lead-updated", handleLeadUpdated);
+      window.removeEventListener("meetings-updated", handleMeetingsUpdated);
+    };
   }, []);
 
   const upcomingMeetings = meetings.filter((m) => m.status === "scheduled");

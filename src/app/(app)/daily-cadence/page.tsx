@@ -23,7 +23,8 @@ import {
   MessageSquare,
   Mail,
   ExternalLink,
-  X
+  X,
+  Upload
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +48,8 @@ import { ColdCallScriptModal } from "@/components/outreach/cold-call-script-moda
 import { DMEmailTemplateModal } from "@/components/outreach/dm-email-template-modal";
 import { ShareProgressModal, isHumanReply } from "@/components/cadence/share-progress-modal";
 import { OutreachAnalyticsDashboard } from "@/components/cadence/outreach-analytics-dashboard";
+import { CsvOutreachImportModal } from "@/components/outreach/csv-outreach-import-modal";
+import { BookMeetingModal } from "@/components/meetings/book-meeting-modal";
 import { useUnifiedLead } from "@/context/unified-lead-context";
 import { CRMCache } from "@/lib/cache/crm-cache";
 import { getUnifiedStatus } from "@/lib/constants/statuses";
@@ -91,6 +94,7 @@ export default function DailyCadencePage() {
   const [channelFilter, setChannelFilter] = useState<OutreachChannel | "all">("all");
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
   const [cadenceSearch, setCadenceSearch] = useState("");
 
   useEffect(() => {
@@ -204,11 +208,28 @@ export default function DailyCadencePage() {
       fetchDateLeads(true);
       fetchMonthCounts();
     };
+    const handleOutreachImported = (e: any) => {
+      const targetDate = e?.detail?.date;
+      if (targetDate && targetDate !== selectedDate) {
+        setSelectedDate(targetDate);
+        const [y, m] = targetDate.split("-").map(Number);
+        if (y && m) {
+          setCurrentYear(y);
+          setCurrentMonth(m);
+        }
+      }
+      fetchDateLeads(true);
+      fetchMonthCounts();
+    };
     if (typeof window !== "undefined") {
       window.addEventListener("lead-updated", handleLeadUpdated);
-      return () => window.removeEventListener("lead-updated", handleLeadUpdated);
+      window.addEventListener("outreach-imported", handleOutreachImported);
+      return () => {
+        window.removeEventListener("lead-updated", handleLeadUpdated);
+        window.removeEventListener("outreach-imported", handleOutreachImported);
+      };
     }
-  }, [fetchDateLeads, fetchMonthCounts]);
+  }, [fetchDateLeads, fetchMonthCounts, selectedDate]);
 
   // Month Navigation
   const prevMonth = () => {
@@ -428,6 +449,14 @@ export default function DailyCadencePage() {
                   </h2>
                 </div>
                 <div className="flex items-center gap-2 font-mono">
+                  <Button
+                    onClick={() => setImportModalOpen(true)}
+                    variant="outline"
+                    className="h-8 bg-white hover:bg-neutral-50 text-neutral-800 font-bold text-xs px-3 rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer transition-all border border-neutral-300"
+                  >
+                    <Upload className="h-3.5 w-3.5 text-neutral-700" />
+                    Import CSV
+                  </Button>
                   <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-neutral-100 text-black border border-neutral-200">
                     {total} Messages
                   </span>
@@ -522,25 +551,32 @@ export default function DailyCadencePage() {
                 <Send className="h-7 w-7 text-neutral-300 mx-auto" />
                 <div>
                   <p className="text-xs font-bold text-neutral-700">No messages logged on {selectedDate}</p>
-                  <p className="text-[11px] text-neutral-400 mt-0.5">Select an active day on the calendar or jump directly to the latest outreach session.</p>
+                  <p className="text-[11px] text-neutral-400 mt-0.5">Select an active day on the calendar, or import outreach activity via CSV for this date.</p>
                 </div>
-                {(() => {
-                  const latestDate = Object.keys(dailyCounts)
-                    .filter(d => (dailyCounts[d] || 0) > 0)
-                    .sort()
-                    .reverse()[0];
-                  if (!latestDate || latestDate === selectedDate) return null;
-                  return (
-                    <div className="pt-1">
+                <div className="pt-1 flex items-center justify-center gap-2 flex-wrap">
+                  <Button
+                    onClick={() => setImportModalOpen(true)}
+                    className="bg-black hover:bg-neutral-800 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    Import Outreach (CSV) for {selectedDate}
+                  </Button>
+                  {(() => {
+                    const latestDate = Object.keys(dailyCounts)
+                      .filter(d => (dailyCounts[d] || 0) > 0)
+                      .sort()
+                      .reverse()[0];
+                    if (!latestDate || latestDate === selectedDate) return null;
+                    return (
                       <Button
                         onClick={() => changeSelectedDate(latestDate)}
                         className="bg-[#0f343c] hover:bg-[#091f24] text-[#e8d5a7] text-xs font-bold px-4 py-2 rounded-xl shadow-xs cursor-pointer border border-[#16434d]"
                       >
                         View Latest Session ({latestDate} · {dailyCounts[latestDate]} messages) →
                       </Button>
-                    </div>
-                  );
-                })()}
+                    );
+                  })()}
+                </div>
               </div>
             ) : displayedLeads.length === 0 ? (
               <div className="bg-white border border-dashed border-neutral-300 rounded-2xl p-10 text-center">
@@ -577,6 +613,21 @@ export default function DailyCadencePage() {
         />
       )}
 
+      {importModalOpen && (
+        <CsvOutreachImportModal
+          isOpen={importModalOpen}
+          initialDate={selectedDate}
+          onClose={() => setImportModalOpen(false)}
+          onSuccess={(info) => {
+            if (info?.date && info.date !== selectedDate) {
+              changeSelectedDate(info.date);
+            }
+            fetchDateLeads(true);
+            fetchMonthCounts();
+          }}
+        />
+      )}
+
     </div>
   );
 }
@@ -599,6 +650,7 @@ function CalendarLeadCard({
   const [editing, setEditing] = useState(false);
   const [scriptModalOpen, setScriptModalOpen] = useState(false);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [meetingModalOpen, setMeetingModalOpen] = useState(false);
 
   const [companyName, setCompanyName] = useState(lead.company_name);
   const [handle, setHandle] = useState(lead.handle || "");
@@ -623,6 +675,10 @@ function CalendarLeadCard({
   }, [lead]);
 
   const handleStatusChange = async (newStatus: OutreachStatus) => {
+    if (newStatus === "meeting_booked") {
+      setMeetingModalOpen(true);
+      return;
+    }
     setStatus(newStatus);
     setSaving(true);
     await updateOutreachEntry(lead.id, {
@@ -1083,6 +1139,22 @@ function CalendarLeadCard({
             handle: lead.handle
           }}
           onClose={() => setTemplateModalOpen(false)}
+        />
+      )}
+
+      {meetingModalOpen && (
+        <BookMeetingModal
+          isOpen={meetingModalOpen}
+          companyId={lead.company_id || lead.id}
+          companyName={companyName}
+          contactName={lead.contact_name || undefined}
+          contactPhone={phone || undefined}
+          initialDate={outreachDate}
+          onClose={() => setMeetingModalOpen(false)}
+          onSuccess={async () => {
+            setStatus("meeting_booked");
+            await onUpdate();
+          }}
         />
       )}
     </div>

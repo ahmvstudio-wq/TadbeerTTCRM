@@ -57,6 +57,7 @@ export function StatusFollowUpModal({
   // followUpOption: 'none' | '1d' | '2d' | '3d' | '7d' | 'custom'
   const [followUpOption, setFollowUpOption] = useState<"none" | "1d" | "2d" | "3d" | "7d" | "custom">("none");
   const [customDate, setCustomDate] = useState("");
+  const [meetingTime, setMeetingTime] = useState("10:00");
   const [followUpNote, setFollowUpNote] = useState("");
   const [followUpChannel, setFollowUpChannel] = useState(defaultChannel || "call");
   const [saving, setSaving] = useState(false);
@@ -151,8 +152,12 @@ export function StatusFollowUpModal({
 
   const handleSave = async () => {
     const targetStatusConfig = getUnifiedStatus(primaryStatus || selectedStatuses[0]);
-    const targetDueDate = currentFollowUp.dateStr;
-    const noteText = followUpNote || `Follow up with ${companyName} (${targetStatusConfig.label})`;
+    const isMeeting = targetStatusConfig.id === "meeting_booked" || selectedStatuses.includes("meeting_booked");
+    let targetDueDate = currentFollowUp.dateStr;
+    if (isMeeting && targetDueDate) {
+      targetDueDate = `${targetDueDate}T${meetingTime || "10:00"}:00.000Z`;
+    }
+    const noteText = followUpNote || (isMeeting ? `Discovery meeting with ${companyName}` : `Follow up with ${companyName} (${targetStatusConfig.label})`);
 
     // 1. Instant Optimistic UI Update (0ms perceived latency)
     if (onSuccess) {
@@ -172,6 +177,9 @@ export function StatusFollowUpModal({
           },
         })
       );
+      if (isMeeting) {
+        window.dispatchEvent(new CustomEvent("meetings-updated"));
+      }
     }
 
     if (targetDueDate) {
@@ -452,6 +460,25 @@ export function StatusFollowUpModal({
                     className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-teal-500 font-mono"
                   />
                 </div>
+              </div>
+            )}
+
+            {/* Meeting Time Selector for Meeting Booked */}
+            {(primaryStatus === "meeting_booked" || selectedStatuses.includes("meeting_booked")) && (
+              <div className="mt-3 p-3 bg-purple-50/80 rounded-xl border border-purple-200 flex items-center justify-between gap-3 animate-in fade-in duration-100">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-purple-700 shrink-0" />
+                  <div>
+                    <label className="text-[11px] font-bold text-purple-950 block">Meeting Time (GST)</label>
+                    <span className="text-[10px] text-purple-700">Gulf Standard Time</span>
+                  </div>
+                </div>
+                <input
+                  type="time"
+                  value={meetingTime}
+                  onChange={(e) => setMeetingTime(e.target.value)}
+                  className="bg-white border border-purple-300 rounded-lg px-2.5 py-1 text-xs text-neutral-900 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-purple-500"
+                />
               </div>
             )}
 

@@ -72,6 +72,29 @@ function extractActivityPayload(act: any): any {
   return {};
 }
 
+function normalizeCompanyName(name?: string | null): string {
+  if (!name) return '';
+  return name
+    .toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function cleanDigits(phone?: string | null): string {
+  if (!phone) return '';
+  return String(phone).replace(/\D/g, '');
+}
+
+function cleanLinkedinSlug(url?: string | null): string {
+  if (!url) return '';
+  return url
+    .toLowerCase()
+    .replace(/^https?:\/\/(www\.)?([a-z]{2}\.)?linkedin\.com\/in\//i, '')
+    .replace(/\/+$/, '')
+    .trim();
+}
+
 // ─── Log outreach ─────────────────────────────────────────────────────────────
 export async function logOutreach(data: {
   company_name: string
@@ -85,12 +108,20 @@ export async function logOutreach(data: {
 }) {
   try {
     await requireAuth()
-    const { data: existing } = await supabase
+    const rawCoName = data.company_name.trim()
+    const normCoName = normalizeCompanyName(rawCoName)
+
+    // Check existing company by exact name, normalized name, or phone
+    const { data: allCos } = await supabase
       .from('companies')
-      .select('id')
-      .ilike('company_name', data.company_name.trim())
-      .limit(1)
-      .maybeSingle()
+      .select('id, company_name, phone, linkedin_url, contacts(id, full_name, phone, whatsapp, linkedin_url)')
+      .limit(3000)
+
+    const existing = (allCos || []).find((c: any) =>
+      c.company_name?.toLowerCase().trim() === rawCoName.toLowerCase() ||
+      normalizeCompanyName(c.company_name) === normCoName ||
+      (data.phone && cleanDigits(c.phone) === cleanDigits(data.phone) && cleanDigits(data.phone).length >= 7)
+    )
 
     let companyId = existing?.id
 
@@ -98,11 +129,12 @@ export async function logOutreach(data: {
       const { data: newCo, error: coErr } = await supabase
         .from('companies')
         .insert({
-          company_name: data.company_name.trim(),
+          company_name: rawCoName,
           industry: data.industry.trim() || 'General',
           phone: data.phone || null,
           status: 'contacted',
           pipeline_stage: 'Contacted',
+          lead_status: 'Contacted',
           notes: CHANNEL_CONFIG[data.channel].handleLabel + ': ' + data.handle,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -117,14 +149,36 @@ export async function logOutreach(data: {
         .update({
           status: 'contacted',
           pipeline_stage: 'Contacted',
+          lead_status: 'Contacted',
           updated_at: new Date().toISOString(),
         })
         .eq('id', companyId)
     }
 
-    const createdAt = data.outreach_date
-      ? new Date(data.outreach_date).toISOString()
-      : new Date().toISOString()
+    // Contact Deduplication: Ensure contact exists for this company
+    const { data: existingContacts } = await supabase
+      .from('contacts')
+      .select('id, full_name, phone')
+      .eq('company_id', companyId)
+
+    if (!existingContacts || existingContacts.length === 0) {
+      await supabase.from('contacts').insert({
+        company_id: companyId,
+        full_name: data.handle && !data.handle.startsWith('@') && !/^[\d\+\-\s]+$/.test(data.handle)
+          ? data.handle
+          : `${rawCoName} Contact`,
+        phone: data.phone || null,
+        title: 'Decision Maker',
+        is_primary: true,
+        created_at: new Date().toISOString()
+      })
+    }
+
+    const effectiveDate = data.outreach_date
+      ? data.outreach_date.split('T')[0]
+      : new Date().toISOString().split('T')[0]
+
+    const createdAt = `${effectiveDate}T12:00:00.000Z`
 
     const payload = {
       channel: data.channel,
@@ -135,22 +189,51 @@ export async function logOutreach(data: {
       pain_point: '',
       call_opening_line: '',
       notes: data.notes || '',
+      outreach_date: effectiveDate,
     }
 
-    const { data: activity, error: actErr } = await supabase
+    // Activity Deduplication: check if activity already logged for this company on this date
+    const { data: existingActs } = await supabase
       .from('activities')
-      .insert({
-        company_id: companyId,
-        activity_type: getValidActivityType(data.channel),
-        title: CHANNEL_CONFIG[data.channel].label + ' — ' + TEMPLATE_LABELS[data.template_used],
-        description: data.notes || `${CHANNEL_CONFIG[data.channel].label} outreach sent`,
-        metadata: payload,
-        created_at: createdAt,
-      })
-      .select()
-      .single()
+      .select('id, metadata')
+      .eq('company_id', companyId)
+      .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent'])
+      .gte('created_at', `${effectiveDate}T00:00:00.000Z`)
+      .lte('created_at', `${effectiveDate}T23:59:59.999Z`)
+      .limit(1)
 
-    if (actErr) return { data: null, error: actErr.message }
+    let activityId: string
+    if (existingActs && existingActs.length > 0) {
+      // Update existing activity
+      const actId = existingActs[0].id
+      await supabase
+        .from('activities')
+        .update({
+          title: CHANNEL_CONFIG[data.channel].label + ' — ' + TEMPLATE_LABELS[data.template_used],
+          description: data.notes || `${CHANNEL_CONFIG[data.channel].label} outreach updated`,
+          metadata: { ...existingActs[0].metadata, ...payload },
+          created_at: createdAt
+        })
+        .eq('id', actId)
+      activityId = actId
+    } else {
+      // Insert new activity
+      const { data: newAct, error: actErr } = await supabase
+        .from('activities')
+        .insert({
+          company_id: companyId,
+          activity_type: getValidActivityType(data.channel),
+          title: CHANNEL_CONFIG[data.channel].label + ' — ' + TEMPLATE_LABELS[data.template_used],
+          description: data.notes || `${CHANNEL_CONFIG[data.channel].label} outreach sent`,
+          metadata: payload,
+          created_at: createdAt,
+        })
+        .select()
+        .single()
+
+      if (actErr) return { data: null, error: actErr.message }
+      activityId = newAct.id
+    }
 
     // Dual-write to outreach_touches for unified pipeline normalization
     const rawCh = String(data.channel).toLowerCase()
@@ -194,7 +277,7 @@ export async function logOutreach(data: {
     })
 
     revalidateAllCRMPages()
-    return { data: { activityId: activity.id, companyId }, error: null }
+    return { data: { activityId, companyId, date: effectiveDate }, error: null }
   } catch (err) {
     return { data: null, error: (err as Error).message }
   }
@@ -210,11 +293,27 @@ export async function bulkLogOutreach(data: {
 }) {
   try {
     await requireAuth()
-    const createdAt = data.outreach_date
-      ? new Date(data.outreach_date).toISOString()
-      : new Date().toISOString()
+    const effectiveDate = data.outreach_date
+      ? data.outreach_date.split('T')[0]
+      : new Date().toISOString().split('T')[0]
+    const createdAt = `${effectiveDate}T12:00:00.000Z`
 
-    const records = data.companies.map(co => {
+    const compIds = data.companies.map(c => c.id).filter(Boolean)
+    if (compIds.length === 0) return { error: 'No companies selected' }
+
+    // Deduplication: Fetch any activities already logged for these companies on this date
+    const { data: existingActs } = await supabase
+      .from('activities')
+      .select('id, company_id, metadata')
+      .in('company_id', compIds)
+      .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent'])
+      .gte('created_at', `${effectiveDate}T00:00:00.000Z`)
+      .lte('created_at', `${effectiveDate}T23:59:59.999Z`)
+
+    const existingActByCo = new Map<string, any>()
+    ;(existingActs || []).forEach((a: any) => existingActByCo.set(a.company_id, a))
+
+    for (const co of data.companies) {
       const payload = {
         channel: data.channel,
         handle: co.phone || 'Existing Contact',
@@ -224,31 +323,43 @@ export async function bulkLogOutreach(data: {
         pain_point: '',
         call_opening_line: '',
         notes: data.notes || '',
+        outreach_date: effectiveDate,
       }
-      return {
-        company_id: co.id,
-        activity_type: getValidActivityType(data.channel),
-        title: CHANNEL_CONFIG[data.channel].label + ' — ' + TEMPLATE_LABELS[data.template_used],
-        description: data.notes || `${CHANNEL_CONFIG[data.channel].label} outreach sent`,
-        metadata: payload,
-        created_at: createdAt,
+
+      if (existingActByCo.has(co.id)) {
+        const existing = existingActByCo.get(co.id)
+        await supabase
+          .from('activities')
+          .update({
+            title: CHANNEL_CONFIG[data.channel].label + ' — ' + TEMPLATE_LABELS[data.template_used],
+            description: data.notes || `${CHANNEL_CONFIG[data.channel].label} outreach updated`,
+            metadata: { ...existing.metadata, ...payload },
+            created_at: createdAt
+          })
+          .eq('id', existing.id)
+      } else {
+        await supabase
+          .from('activities')
+          .insert({
+            company_id: co.id,
+            activity_type: getValidActivityType(data.channel),
+            title: CHANNEL_CONFIG[data.channel].label + ' — ' + TEMPLATE_LABELS[data.template_used],
+            description: data.notes || `${CHANNEL_CONFIG[data.channel].label} outreach sent`,
+            metadata: payload,
+            created_at: createdAt,
+          })
       }
-    })
-
-    const { error } = await supabase.from('activities').insert(records)
-    if (error) return { error: error.message }
-
-    const compIds = data.companies.map(c => c.id).filter(Boolean)
-    if (compIds.length > 0) {
-      await supabase
-        .from('companies')
-        .update({
-          status: 'contacted',
-          pipeline_stage: 'Contacted',
-          updated_at: createdAt,
-        })
-        .in('id', compIds)
     }
+
+    await supabase
+      .from('companies')
+      .update({
+        status: 'contacted',
+        pipeline_stage: 'Contacted',
+        lead_status: 'Contacted',
+        updated_at: createdAt,
+      })
+      .in('id', compIds)
 
     revalidateAllCRMPages()
     return { error: null }
@@ -740,17 +851,23 @@ export async function getAllLeadsForPipeline(
 
     let actQuery = supabase
       .from('activities')
-      .select('id, company_id, description, activity_type, title, created_at, companies(id, company_name, industry, phone, notes, research_json, category, draft_message, status, pipeline_stage)')
+      .select('id, company_id, description, activity_type, title, created_at, metadata, companies(id, company_name, industry, phone, notes, research_json, category, draft_message, status, pipeline_stage)')
       .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent'])
       .order('created_at', { ascending: false })
       .range(0, 4999)
 
     if (range.startDate && range.endDate) {
+      const sBuf = new Date(range.startDate);
+      sBuf.setDate(sBuf.getDate() - 1);
+      const eBuf = new Date(range.endDate);
+      eBuf.setDate(eBuf.getDate() + 1);
       actQuery = actQuery
-        .gte('created_at', `${range.startDate}T00:00:00.000Z`)
-        .lte('created_at', `${range.endDate}T23:59:59.999Z`)
+        .gte('created_at', `${sBuf.toISOString().split('T')[0]}T00:00:00.000Z`)
+        .lte('created_at', `${eBuf.toISOString().split('T')[0]}T23:59:59.999Z`);
     } else if (range.startDate) {
-      actQuery = actQuery.gte('created_at', `${range.startDate}T00:00:00.000Z`)
+      const sBuf = new Date(range.startDate);
+      sBuf.setDate(sBuf.getDate() - 1);
+      actQuery = actQuery.gte('created_at', `${sBuf.toISOString().split('T')[0]}T00:00:00.000Z`);
     }
 
     const coQuery = supabase
@@ -1007,8 +1124,8 @@ export async function getAllLeadsForPipeline(
         const updatedDate = payload.updated_at ? payload.updated_at.split('T')[0] : null
 
         const isMatch =
-          isDateInRange(createdDate, range.startDate, range.endDate) ||
           (explicitDate && isDateInRange(explicitDate, range.startDate, range.endDate)) ||
+          (createdDate && isDateInRange(createdDate, range.startDate, range.endDate)) ||
           (updatedDate && isDateInRange(updatedDate, range.startDate, range.endDate))
 
         if (isMatch) {
@@ -1019,7 +1136,21 @@ export async function getAllLeadsForPipeline(
         }
       })
 
-      // 2. Assemble rich lead records from leadMap for active outreach touches
+      // 2. Also match companies created/contacted in target date range
+      activeOutreachCompanies.forEach((co: any) => {
+        const coDate = co.created_at ? co.created_at.split('T')[0] : null
+        const coUpd = co.updated_at ? co.updated_at.split('T')[0] : null
+        const dateAdded = co.date_added || null
+        if (
+          (dateAdded && isDateInRange(dateAdded, range.startDate, range.endDate)) ||
+          (coDate && isDateInRange(coDate, range.startDate, range.endDate)) ||
+          (coUpd && isDateInRange(coUpd, range.startDate, range.endDate))
+        ) {
+          matchedCompanyIds.add(co.id)
+        }
+      })
+
+      // 3. Assemble rich lead records from leadMap for active outreach touches
       matchedCompanyIds.forEach(compId => {
         const lead = leadMap.get(compId)
         if (lead) {
@@ -1262,6 +1393,7 @@ export async function markChannelTouchSent(data: {
       call_opening_line: '',
       notes: data.notes || '',
       sent_message: data.message || '',
+      outreach_date: createdAt.split('T')[0],
     }
 
     // 1. Insert activity log
@@ -1352,16 +1484,18 @@ export async function getOutreachCountsForMonth(year: number, month: number) {
     const lastDayOfMonth = new Date(year, month, 0).getDate()
     const endDayStr = `${year}-${formattedMonth}-${lastDayOfMonth < 10 ? `0${lastDayOfMonth}` : lastDayOfMonth}`
 
-    const startDate = `${startDayStr}T00:00:00.000Z`
-    const endDate = `${endDayStr}T23:59:59.999Z`
+    const sBuf = new Date(startDayStr)
+    sBuf.setDate(sBuf.getDate() - 1)
+    const eBuf = new Date(endDayStr)
+    eBuf.setDate(eBuf.getDate() + 1)
 
     const [actRes, coRes] = await Promise.all([
       supabase
         .from('activities')
-        .select('created_at, company_id, description, activity_type')
+        .select('id, created_at, company_id, description, activity_type, metadata')
         .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent'])
-        .gte('created_at', startDate)
-        .lte('created_at', endDate)
+        .gte('created_at', `${sBuf.toISOString().split('T')[0]}T00:00:00.000Z`)
+        .lte('created_at', `${eBuf.toISOString().split('T')[0]}T23:59:59.999Z`)
         .range(0, 4999),
       supabase
         .from('companies')
@@ -1433,9 +1567,64 @@ export async function importCSVOutreach(data: {
   defaultTemplate?: OutreachTemplate
 }) {
   try {
+    await requireAuth()
     if (!data.rows || data.rows.length === 0) {
-      return { count: 0, error: "No rows provided for import" }
+      return { count: 0, imported: 0, matched: 0, newCos: 0, error: "No rows provided for import" }
     }
+
+    const effectiveDefaultDate = (data.defaultDate && /^\d{4}-\d{2}-\d{2}$/.test(data.defaultDate.trim()))
+      ? data.defaultDate.trim()
+      : new Date().toISOString().split('T')[0]
+
+    // 1. Fetch all existing companies and their contacts to build index lookups
+    const { data: allExistingCos, error: fetchErr } = await supabase
+      .from('companies')
+      .select('id, company_name, industry, phone, email, website, linkedin_url, status, contacts(id, full_name, phone, whatsapp, email, linkedin_url)')
+      .range(0, 4999)
+
+    if (fetchErr) {
+      return { count: 0, error: fetchErr.message }
+    }
+
+    const coById = new Map<string, any>()
+    const coByExactName = new Map<string, string>() // lower -> id
+    const coByNormName = new Map<string, string>()  // normalized -> id
+    const coByLinkedin = new Map<string, string>()  // clean slug -> id
+    const coByPhone = new Map<string, string>()     // clean digits -> id
+    const coByContactName = new Map<string, string>() // normalized contact -> companyId
+
+    const registerCompanyInMaps = (co: any) => {
+      coById.set(co.id, co)
+      if (co.company_name) {
+        coByExactName.set(co.company_name.toLowerCase().trim(), co.id)
+        coByNormName.set(normalizeCompanyName(co.company_name), co.id)
+      }
+      if (co.linkedin_url) {
+        const slug = cleanLinkedinSlug(co.linkedin_url)
+        if (slug) coByLinkedin.set(slug, co.id)
+      }
+      if (co.phone) {
+        const digits = cleanDigits(co.phone)
+        if (digits.length >= 7) coByPhone.set(digits, co.id)
+      }
+      if (co.contacts && Array.isArray(co.contacts)) {
+        co.contacts.forEach((ct: any) => {
+          if (ct.full_name) {
+            coByContactName.set(normalizeCompanyName(ct.full_name), co.id)
+          }
+          if (ct.linkedin_url) {
+            const slug = cleanLinkedinSlug(ct.linkedin_url)
+            if (slug) coByLinkedin.set(slug, co.id)
+          }
+          if (ct.phone || ct.whatsapp) {
+            const digits = cleanDigits(ct.phone || ct.whatsapp)
+            if (digits.length >= 7) coByPhone.set(digits, co.id)
+          }
+        })
+      }
+    }
+
+    ;(allExistingCos || []).forEach(registerCompanyInMaps)
 
     const getRowCompanyName = (r: MappedCSVRow, idx: number): string => {
       if (r.company_name?.trim()) return r.company_name.trim();
@@ -1444,155 +1633,208 @@ export async function importCSVOutreach(data: {
       return `Lead ${idx + 1}`;
     };
 
-    // 1. Gather all unique company names to resolve or create
-    const companyNames = Array.from(
-      new Set(
-        data.rows
-          .map((r, i) => getRowCompanyName(r, i))
-          .filter(Boolean)
-      )
-    )
+    let matchedCount = 0
+    let createdCoCount = 0
+    let createdActCount = 0
+    let updatedActCount = 0
 
-    // 2. Fetch existing companies matching these names in Supabase
-    const { data: existingCos } = await supabase
-      .from('companies')
-      .select('id, company_name')
-      .in('company_name', companyNames)
+    // Fetch existing activities on candidate dates to avoid intra-day duplicates
+    const { data: existingActivitiesForDates } = await supabase
+      .from('activities')
+      .select('id, company_id, created_at, activity_type, metadata')
+      .in('activity_type', ['call_made', 'email_sent', 'whatsapp_sent', 'ig_dm', 'outreach', 'outreach_sent'])
+      .range(0, 4999)
 
-    const companyMap = new Map<string, string>()
-    if (existingCos) {
-      existingCos.forEach(co => {
-        companyMap.set(co.company_name.toLowerCase().trim(), co.id)
-      })
-    }
-
-    // 3. Find names that don't exist yet and insert into `companies` table
-    const missingNames = companyNames.filter(
-      name => !companyMap.has(name.toLowerCase().trim())
-    )
-
-    if (missingNames.length > 0) {
-      const newCompaniesPayload = missingNames.map(name => {
-        const sampleRow = data.rows.find(
-          (r, i) => getRowCompanyName(r, i).toLowerCase().trim() === name.toLowerCase().trim()
-        )
-        const rowLi = (sampleRow?.linkedin_url || '').trim().toLowerCase()
-        const isLi = rowLi.includes('linkedin.com') || sampleRow?.channel === 'linkedin' || data.defaultChannel === 'linkedin'
-        const isIg = (sampleRow?.handle && (sampleRow.handle.startsWith('@') || sampleRow.handle.includes('instagram.com'))) || sampleRow?.channel === 'instagram_dm'
-
-        return {
-          company_name: name,
-          industry: sampleRow?.industry?.trim() || 'General',
-          phone: sampleRow?.phone?.trim() || null,
-          website: sampleRow?.website?.trim() || null,
-          email: sampleRow?.email?.trim() || null,
-          linkedin_url: sampleRow?.linkedin_url?.trim() || null,
-          lead_source: isLi ? 'LinkedIn' : isIg ? 'Instagram' : 'CSV Import',
-          status: 'contacted',
-          pipeline_stage: 'Contacted',
-          lead_status: 'Contacted',
-          notes: sampleRow?.notes?.trim() || 'Imported via CSV',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }
-      })
-
-      const { data: insertedCos, error: coErr } = await supabase
-        .from('companies')
-        .insert(newCompaniesPayload)
-        .select('id, company_name')
-
-      if (coErr) return { count: 0, error: coErr.message }
-
-      if (insertedCos) {
-        insertedCos.forEach(co => {
-          companyMap.set(co.company_name.toLowerCase().trim(), co.id)
-        })
-      }
-    }
-
-    // Update existing companies to contacted status
-    const allCompanyIds = Array.from(companyMap.values()).filter(Boolean)
-    if (allCompanyIds.length > 0) {
-      await supabase
-        .from('companies')
-        .update({
-          status: 'contacted',
-          pipeline_stage: 'Contacted',
-          updated_at: new Date().toISOString(),
-        })
-        .in('id', allCompanyIds)
-    }
-
-    // 4. Create primary contacts in Supabase `contacts` table
-    const contactsPayload: any[] = []
-    data.rows.forEach((row, idx) => {
-      const rawName = getRowCompanyName(row, idx)
-      const companyId = companyMap.get(rawName.toLowerCase().trim())
-      if (companyId && (row.contact_name || row.contact_title || row.contact_whatsapp || row.phone || row.email || row.linkedin_url)) {
-        contactsPayload.push({
-          company_id: companyId,
-          full_name: row.contact_name?.trim() || `${rawName} Representative`,
-          title: row.contact_title?.trim() || 'Decision Maker',
-          phone: row.phone?.trim() || null,
-          whatsapp: row.contact_whatsapp?.trim() || row.phone?.trim() || null,
-          email: row.email?.trim() || null,
-          linkedin_url: row.linkedin_url?.trim() || null,
-          is_primary: true,
-          created_at: new Date().toISOString(),
-        })
+    // Map of `${companyId}_${day}` -> activity
+    const activityByCoAndDay = new Map<string, any>()
+    ;(existingActivitiesForDates || []).forEach((act: any) => {
+      const payload = extractActivityPayload(act)
+      const day = payload.outreach_date ? payload.outreach_date.split('T')[0] : act.created_at?.split('T')[0]
+      if (act.company_id && day) {
+        activityByCoAndDay.set(`${act.company_id}_${day}`, act)
       }
     })
 
-    if (contactsPayload.length > 0) {
-      await supabase.from('contacts').insert(contactsPayload)
-    }
-
-    // 5. Create activity logs in Supabase `activities` table
-    const activityRecords = data.rows.map((row, idx) => {
+    // Process each row with complete duplicate immunity
+    for (let idx = 0; idx < data.rows.length; idx++) {
+      const row = data.rows[idx]
       const rawName = getRowCompanyName(row, idx)
-      const companyId = companyMap.get(rawName.toLowerCase().trim())
-      
-      let ch = (row.channel || data.defaultChannel) as OutreachChannel
-      const rawHandle = (row.handle || '').trim().toLowerCase()
-      const rawLi = (row.linkedin_url || '').trim().toLowerCase()
+      const normName = normalizeCompanyName(rawName)
+      const rowPhone = row.phone || row.contact_whatsapp || null
+      const rowDigits = cleanDigits(rowPhone)
+      const rowLi = row.linkedin_url || (row.handle?.includes('linkedin.com') ? row.handle : null)
+      const rowLiSlug = cleanLinkedinSlug(rowLi)
+      const rowContactName = row.contact_name?.trim() || null
 
-      if (rawLi.includes('linkedin.com') || rawHandle.includes('linkedin.com') || row.channel === 'linkedin' || data.defaultChannel === 'linkedin') {
+      // Find company match with complete duplicate immunity
+      let companyId: string | undefined = undefined
+
+      if (coByExactName.has(rawName.toLowerCase().trim())) {
+        companyId = coByExactName.get(rawName.toLowerCase().trim())
+      } else if (normName && coByNormName.has(normName)) {
+        companyId = coByNormName.get(normName)
+      } else if (rowLiSlug && coByLinkedin.has(rowLiSlug)) {
+        companyId = coByLinkedin.get(rowLiSlug)
+      } else if (rowDigits.length >= 7 && coByPhone.has(rowDigits)) {
+        companyId = coByPhone.get(rowDigits)
+      } else if (rowContactName && coByContactName.has(normalizeCompanyName(rowContactName))) {
+        companyId = coByContactName.get(normalizeCompanyName(rowContactName))
+      }
+
+      if (companyId) {
+        matchedCount++
+        // Update company with any missing fields provided in this row
+        const existingCo = coById.get(companyId)
+        const updates: any = {
+          status: 'contacted',
+          pipeline_stage: 'Contacted',
+          lead_status: 'Contacted',
+          updated_at: new Date().toISOString()
+        }
+        if (!existingCo?.phone && rowPhone) updates.phone = rowPhone
+        if (!existingCo?.linkedin_url && rowLi) updates.linkedin_url = rowLi
+        if (!existingCo?.email && row.email) updates.email = row.email
+        if (!existingCo?.website && row.website) updates.website = row.website
+        if ((!existingCo?.industry || existingCo.industry === 'General') && row.industry) updates.industry = row.industry
+
+        await supabase.from('companies').update(updates).eq('id', companyId)
+      } else {
+        // Create new company
+        createdCoCount++
+        const isLi = Boolean(rowLiSlug || row.channel === 'linkedin' || data.defaultChannel === 'linkedin')
+        const isIg = Boolean(row.handle && (row.handle.startsWith('@') || row.handle.includes('instagram.com'))) || row.channel === 'instagram_dm' || data.defaultChannel === 'instagram_dm'
+
+        const { data: newCo, error: newCoErr } = await supabase
+          .from('companies')
+          .insert({
+            company_name: rawName,
+            industry: row.industry?.trim() || 'General',
+            phone: rowPhone,
+            website: row.website?.trim() || null,
+            email: row.email?.trim() || null,
+            linkedin_url: rowLi,
+            lead_source: isLi ? 'LinkedIn' : isIg ? 'Instagram' : 'CSV Import',
+            status: 'contacted',
+            pipeline_stage: 'Contacted',
+            lead_status: 'Contacted',
+            notes: row.notes?.trim() || 'Imported via CSV',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .select('id, company_name, phone, email, website, linkedin_url, industry, status')
+          .single()
+
+        if (newCoErr) {
+          console.error("Failed to insert company:", newCoErr.message)
+          continue
+        }
+        companyId = newCo.id
+        registerCompanyInMaps({ ...newCo, contacts: [] })
+      }
+
+      if (!companyId) continue
+
+      // Contact Deduplication: check if contact exists for this company
+      const existingCo = coById.get(companyId)
+      const existingContacts = existingCo?.contacts || []
+      const hasContactMatch = existingContacts.some((c: any) =>
+        (rowContactName && normalizeCompanyName(c.full_name) === normalizeCompanyName(rowContactName)) ||
+        (rowDigits.length >= 7 && cleanDigits(c.phone || c.whatsapp) === rowDigits) ||
+        (rowLiSlug && cleanLinkedinSlug(c.linkedin_url) === rowLiSlug)
+      )
+
+      if (!hasContactMatch && (rowContactName || rowPhone || rowLi || row.email)) {
+        const { data: newContact } = await supabase.from('contacts').insert({
+          company_id: companyId,
+          full_name: rowContactName || `${rawName} Contact`,
+          title: row.contact_title?.trim() || 'Decision Maker',
+          phone: rowPhone,
+          whatsapp: row.contact_whatsapp?.trim() || rowPhone,
+          email: row.email?.trim() || null,
+          linkedin_url: rowLi,
+          is_primary: existingContacts.length === 0,
+          created_at: new Date().toISOString()
+        }).select().maybeSingle()
+
+        if (newContact) {
+          existingContacts.push(newContact)
+          registerCompanyInMaps({ ...existingCo, contacts: existingContacts })
+        }
+      }
+
+      // Outreach Activity Deduplication on Target Date
+      const rowDate = (row.outreach_date?.trim() && /^\d{4}-\d{2}-\d{2}$/.test(row.outreach_date.trim()))
+        ? row.outreach_date.trim().slice(0, 10)
+        : effectiveDefaultDate
+
+      let ch = (row.channel || data.defaultChannel) as OutreachChannel
+      if (rowLiSlug || row.channel === 'linkedin' || data.defaultChannel === 'linkedin') {
         ch = 'linkedin'
-      } else if (rawHandle.includes('instagram.com') || rawHandle.startsWith('@') || row.channel === 'instagram_dm' || data.defaultChannel === 'instagram_dm') {
+      } else if ((row.handle && (row.handle.startsWith('@') || row.handle.includes('instagram.com'))) || row.channel === 'instagram_dm' || data.defaultChannel === 'instagram_dm') {
         ch = 'instagram_dm'
       }
 
       const st = (row.status || 'sent') as OutreachStatus
-      const dt = row.outreach_date?.trim() || data.defaultDate
-      const createdAt = dt ? new Date(dt + 'T12:00:00.000Z').toISOString() : new Date().toISOString()
+      const createdAt = `${rowDate}T12:00:00.000Z`
+      const actKey = `${companyId}_${rowDate}`
 
       const payload = {
         channel: ch,
-        handle: row.handle?.trim() || row.linkedin_url?.trim() || row.phone?.trim() || row.contact_whatsapp?.trim() || '',
+        handle: row.handle?.trim() || row.linkedin_url?.trim() || rowPhone || '',
         template_used: data.defaultTemplate || 'growth_offer',
         status: st,
         prospect_reply: row.prospect_reply?.trim() || '',
         pain_point: row.pain_point?.trim() || '',
         call_opening_line: row.call_opening_line?.trim() || '',
         notes: row.notes?.trim() || '',
+        outreach_date: rowDate,
       }
 
-      return {
-        company_id: companyId,
-        activity_type: getValidActivityType(ch),
-        title: (CHANNEL_CONFIG[ch]?.label || 'Outreach') + ' — CSV Import',
-        description: row.notes?.trim() || 'Imported via CSV',
-        metadata: payload,
-        created_at: createdAt,
-      }
-    })
+      if (activityByCoAndDay.has(actKey)) {
+        // UPDATE existing activity (duplicate immunity)
+        const existingAct = activityByCoAndDay.get(actKey)
+        await supabase
+          .from('activities')
+          .update({
+            title: (CHANNEL_CONFIG[ch]?.label || 'Outreach') + ' — ' + (STATUS_CONFIG[st]?.label || 'CSV Import'),
+            description: row.notes?.trim() || existingAct.description || 'Imported via CSV',
+            metadata: { ...existingAct.metadata, ...payload },
+            created_at: createdAt
+          })
+          .eq('id', existingAct.id)
+        updatedActCount++
+      } else {
+        // INSERT new activity
+        const { data: newAct } = await supabase
+          .from('activities')
+          .insert({
+            company_id: companyId,
+            activity_type: getValidActivityType(ch),
+            title: (CHANNEL_CONFIG[ch]?.label || 'Outreach') + ' — ' + (STATUS_CONFIG[st]?.label || 'CSV Import'),
+            description: row.notes?.trim() || 'Imported via CSV',
+            metadata: payload,
+            created_at: createdAt,
+          })
+          .select('id, company_id, created_at, metadata')
+          .maybeSingle()
 
-    const { error: actErr } = await supabase.from('activities').insert(activityRecords)
-    if (actErr) return { count: 0, error: actErr.message }
+        if (newAct) {
+          activityByCoAndDay.set(actKey, newAct)
+          createdActCount++
+        }
+      }
+    }
 
     revalidateAllCRMPages()
-    return { count: activityRecords.length, error: null }
+    return {
+      count: createdActCount + updatedActCount,
+      imported: createdActCount,
+      updated: updatedActCount,
+      matched: matchedCount,
+      newCos: createdCoCount,
+      date: effectiveDefaultDate,
+      error: null
+    }
   } catch (err) {
     return { count: 0, error: (err as Error).message }
   }

@@ -38,6 +38,8 @@ import { UnifiedStatusBadge } from "@/components/status/unified-status-badge";
 import { UNIFIED_STATUSES, getUnifiedStatus } from "@/lib/constants/statuses";
 import { DateRangeFilter } from "@/components/ui/date-range-filter";
 import { CRMCache } from "@/lib/cache/crm-cache";
+import { CsvOutreachImportModal } from "@/components/outreach/csv-outreach-import-modal";
+import { BookMeetingModal } from "@/components/meetings/book-meeting-modal";
 
 // ─── Channel Icon Renderer ────────────────────────────────────────────────────
 function ChannelIcon({ channel, size = 14 }: { channel: OutreachChannel; size?: number }) {
@@ -170,6 +172,7 @@ export default function OutreachPipelinePage() {
   const [powerHourChannel, setPowerHourChannel] = useState<OutreachChannel>("instagram_dm");
   const [powerHourLeads, setPowerHourLeads] = useState<OutreachLead[]>([]);
   const [isFreshImportOpen, setIsFreshImportOpen] = useState(false);
+  const [isOutreachCsvOpen, setIsOutreachCsvOpen] = useState(false);
 
   // Pagination State for Table View
   const [currentPage, setCurrentPage] = useState(1);
@@ -242,10 +245,15 @@ export default function OutreachPipelinePage() {
         fetchLeads(true);
       }, 600);
     };
+    const handleOutreachImported = () => {
+      fetchLeads(false);
+    };
     if (typeof window !== "undefined") {
       window.addEventListener("lead-updated", handleLeadUpdated);
+      window.addEventListener("outreach-imported", handleOutreachImported);
       return () => {
         window.removeEventListener("lead-updated", handleLeadUpdated);
+        window.removeEventListener("outreach-imported", handleOutreachImported);
         if (outreachDebounceRef.current) clearTimeout(outreachDebounceRef.current);
       };
     }
@@ -614,6 +622,14 @@ export default function OutreachPipelinePage() {
               className="h-9 px-3.5 rounded-xl text-xs font-bold border-slate-300 text-slate-700 hover:bg-slate-50 cursor-pointer flex items-center gap-1.5 shadow-2xs"
             >
               <Upload className="h-3.5 w-3.5 text-teal-600" /> Import Fresh Leads (CSV)
+            </Button>
+
+            <Button
+              onClick={() => setIsOutreachCsvOpen(true)}
+              variant="outline"
+              className="h-9 px-3.5 rounded-xl text-xs font-bold border-slate-300 text-slate-700 hover:bg-slate-50 cursor-pointer flex items-center gap-1.5 shadow-2xs"
+            >
+              <Table className="h-3.5 w-3.5 text-slate-700" /> Import Activity (CSV)
             </Button>
 
             <Button
@@ -1219,16 +1235,32 @@ export default function OutreachPipelinePage() {
         }}
       />
 
-      {/* ── Log Past Outreach & CSV Outreach Import Modal ────────────────── */}
+      {/* ── Log Past Outreach Modal ─────────────────────────────────────── */}
       {logOpen && (
         <LogModal
           onClose={() => setLogOpen(false)}
           onSuccess={() => {
             setLogOpen(false);
+            CRMCache.invalidate("outreach");
+            CRMCache.invalidate("cadence");
             fetchLeads(false);
             if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("outreach-imported"));
               window.dispatchEvent(new CustomEvent("lead-updated"));
             }
+          }}
+        />
+      )}
+
+      {/* ── Universal CSV Outreach Activity Import Modal ──────────────────── */}
+      {isOutreachCsvOpen && (
+        <CsvOutreachImportModal
+          isOpen={isOutreachCsvOpen}
+          initialDate={dateFilter !== "all" && /^\d{4}-\d{2}-\d{2}$/.test(dateFilter) ? dateFilter : new Date().toISOString().split("T")[0]}
+          initialChannel={channelFilter !== "all" ? channelFilter : undefined}
+          onClose={() => setIsOutreachCsvOpen(false)}
+          onSuccess={() => {
+            fetchLeads(false);
           }}
         />
       )}
@@ -1389,6 +1421,7 @@ function CallReadyCard({ lead, expanded, onToggle, onUpdate }: { lead: OutreachL
   const [marking, setMarking] = useState(false);
   const [scriptModalOpen, setScriptModalOpen] = useState(false);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [meetingModalOpen, setMeetingModalOpen] = useState(false);
   const markCalled = async () => {
     setMarking(true);
     await updateOutreachStatus(lead.id, { status: "called" });
@@ -1400,16 +1433,8 @@ function CallReadyCard({ lead, expanded, onToggle, onUpdate }: { lead: OutreachL
     await onUpdate();
     setMarking(false);
   };
-  const markBooked = async () => {
-    setMarking(true);
-    await updateOutreachStatus(lead.id, { status: "meeting_booked" });
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("lead-updated", {
-        detail: { companyId: lead.company_id || lead.id, status: "meeting_booked" }
-      }));
-    }
-    await onUpdate();
-    setMarking(false);
+  const markBooked = () => {
+    setMeetingModalOpen(true);
   };
   const phone = lead.phone || (lead.channel === "cold_call" || lead.channel === "whatsapp" ? lead.handle : null);
   const waDigits = phone ? formatWhatsAppNumber(phone) : "";
@@ -1509,6 +1534,19 @@ function CallReadyCard({ lead, expanded, onToggle, onUpdate }: { lead: OutreachL
           onClose={() => setTemplateModalOpen(false)}
         />
       )}
+      {meetingModalOpen && (
+        <BookMeetingModal
+          isOpen={meetingModalOpen}
+          companyId={lead.company_id || lead.id}
+          companyName={lead.company_name}
+          contactName={lead.contact_name || undefined}
+          contactPhone={phone || undefined}
+          onClose={() => setMeetingModalOpen(false)}
+          onSuccess={async () => {
+            await onUpdate();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -1521,6 +1559,7 @@ function OutreachCard({ lead, expanded, onToggle, onUpdate, compact }: { lead: O
   const [scriptModalOpen, setScriptModalOpen] = useState(false);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [meetingModalOpen, setMeetingModalOpen] = useState(false);
 
   // Editable fields
   const [companyName, setCompanyName] = useState(lead.company_name);
@@ -1546,6 +1585,10 @@ function OutreachCard({ lead, expanded, onToggle, onUpdate, compact }: { lead: O
   }, [lead]);
 
   const handleStatusChange = async (newStatus: OutreachStatus) => {
+    if (newStatus === "meeting_booked") {
+      setMeetingModalOpen(true);
+      return;
+    }
     setStatus(newStatus);
     setSaving(true);
     await updateOutreachEntry(lead.id, {
@@ -1819,6 +1862,21 @@ function OutreachCard({ lead, expanded, onToggle, onUpdate, compact }: { lead: O
             handle: lead.handle,
           }}
           onClose={() => setTemplateModalOpen(false)}
+        />
+      )}
+      {meetingModalOpen && (
+        <BookMeetingModal
+          isOpen={meetingModalOpen}
+          companyId={lead.company_id || lead.id}
+          companyName={companyName}
+          contactName={lead.contact_name || undefined}
+          contactPhone={isPhone ? cleanHandle : (lead.phone || undefined)}
+          initialDate={outreachDate}
+          onClose={() => setMeetingModalOpen(false)}
+          onSuccess={async () => {
+            setStatus("meeting_booked");
+            await onUpdate();
+          }}
         />
       )}
     </div>
@@ -2187,6 +2245,12 @@ function LogModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () =
           setSaving(false);
           return;
         }
+      }
+      CRMCache.invalidate("outreach");
+      CRMCache.invalidate("cadence");
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("outreach-imported", { detail: { date: outreachDate } }));
+        window.dispatchEvent(new CustomEvent("lead-updated", { detail: { date: outreachDate } }));
       }
       onSuccess();
     } catch (err) {

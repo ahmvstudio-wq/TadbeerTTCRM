@@ -431,6 +431,44 @@ export async function updateCompanyStatus(
         .eq('status', 'pending')
     }
 
+    // If marked as meeting_booked, synchronize meetings table record
+    if (actStatus === 'meeting_booked' || status === 'meeting_booked' || dbStatus === 'meeting_booked') {
+      const targetMeetingDate = options?.followUpDate
+        ? (options.followUpDate.includes('T') ? options.followUpDate : `${options.followUpDate}T10:00:00.000Z`)
+        : new Date(Date.now() + 86400000).toISOString()
+
+      const { data: existingMeeting } = await supabase
+        .from('meetings')
+        .select('id')
+        .eq('company_id', cleanId)
+        .eq('status', 'scheduled')
+        .maybeSingle()
+
+      if (existingMeeting) {
+        await supabase
+          .from('meetings')
+          .update({
+            meeting_date: targetMeetingDate,
+            title: options?.followUpNote || `Discovery Meeting with ${company.company_name}`,
+            description: options?.followUpNote || 'Scheduled discovery & presentation meeting',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingMeeting.id)
+      } else {
+        await supabase.from('meetings').insert({
+          company_id: cleanId,
+          title: options?.followUpNote || `Discovery Meeting with ${company.company_name}`,
+          meeting_date: targetMeetingDate,
+          duration_minutes: 30,
+          meeting_type: 'in_person',
+          location: 'Muscat Office / Client Location',
+          description: options?.followUpNote || 'Scheduled discovery & presentation meeting',
+          status: 'scheduled',
+          created_at: new Date().toISOString(),
+        })
+      }
+    }
+
     // Audit status change
     await supabase.from('activities').insert({
       company_id: cleanId,

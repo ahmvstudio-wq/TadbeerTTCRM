@@ -108,7 +108,21 @@ export async function getPipelineOverview(): Promise<{
       }
     });
 
-    // 5. Build Pipeline Leads
+    // 5. Fetch meetings
+    const { data: allMeetings } = await sb
+      .from("meetings")
+      .select("*")
+      .order("meeting_date", { ascending: false });
+
+    const meetingMap = new Map<string, any>();
+    allMeetings?.forEach((m) => {
+      const existing = meetingMap.get(m.company_id);
+      if (!existing || (m.status === 'scheduled' && existing.status !== 'scheduled')) {
+        meetingMap.set(m.company_id, m);
+      }
+    });
+
+    // 6. Build Pipeline Leads
     const leads: PipelineLead[] = [];
     const stageSummaries: Record<PipelineStageKey, PipelineStageSummary> = {
       outreach: { stage: "outreach", count: 0, totalValue: 0 },
@@ -251,6 +265,35 @@ export async function getPipelineOverview(): Promise<{
         reply_sentiment: rJson.reply_sentiment || 'interested',
         reply_notes: rJson.reply_notes || null,
         conversation_stage: Number(rJson.conversation_stage) || 1,
+        meeting: (() => {
+          const m = meetingMap.get(c.id);
+          if (m) {
+            return {
+              id: m.id,
+              title: m.title,
+              meeting_date: m.meeting_date,
+              duration_minutes: m.duration_minutes || 30,
+              meeting_type: m.meeting_type || 'in_person',
+              location: m.location,
+              status: m.status,
+              description: m.description,
+            };
+          }
+          if (c.status === 'meeting_booked' || canonicalStage === 'meeting' || rJson.meeting_date) {
+            const dateVal = rJson.meeting_date || effectiveDueDate || c.updated_at;
+            return {
+              id: `virtual-${c.id}`,
+              title: rJson.meeting_title || `Discovery Meeting with ${c.company_name}`,
+              meeting_date: dateVal.includes('T') ? dateVal : `${dateVal}T10:00:00.000Z`,
+              duration_minutes: 30,
+              meeting_type: rJson.meeting_type || 'in_person',
+              location: rJson.meeting_location || null,
+              status: 'scheduled',
+              description: rJson.next_action || 'Scheduled discovery & presentation meeting',
+            };
+          }
+          return null;
+        })(),
       });
     }
 
@@ -395,7 +438,44 @@ export async function updatePipelineLeadStage(
       }
     }
 
-    // 3. If next follow-up date given, schedule/update follow-up
+    // 3. If newStage is meeting, schedule/update meetings table record
+    if (newStage === "meeting") {
+      const targetDate = nextFollowUpDate
+        ? (nextFollowUpDate.includes('T') ? nextFollowUpDate : `${nextFollowUpDate}T10:00:00.000Z`)
+        : new Date(Date.now() + 86400000).toISOString();
+
+      const { data: existingMeeting } = await sb
+        .from("meetings")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("status", "scheduled")
+        .maybeSingle();
+
+      if (existingMeeting) {
+        await sb
+          .from("meetings")
+          .update({
+            meeting_date: targetDate,
+            title: nextAction ? `Meeting: ${nextAction}` : `Discovery Meeting with ${currentCo.company_name}`,
+            description: nextAction || 'Scheduled discovery & presentation meeting',
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingMeeting.id);
+      } else {
+        await sb.from("meetings").insert({
+          company_id: companyId,
+          title: nextAction ? `Meeting: ${nextAction}` : `Discovery Meeting with ${currentCo.company_name}`,
+          meeting_date: targetDate,
+          duration_minutes: 30,
+          meeting_type: "in_person",
+          description: nextAction || 'Scheduled discovery & presentation meeting',
+          status: "scheduled",
+          created_at: new Date().toISOString(),
+        });
+      }
+    }
+
+    // 4. If next follow-up date given, schedule/update follow-up
     if (nextFollowUpDate) {
       const { data: existingFu } = await sb
         .from("follow_ups")

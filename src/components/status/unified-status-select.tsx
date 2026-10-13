@@ -7,6 +7,7 @@ import {
   type UnifiedStatusConfig
 } from "@/lib/constants/statuses";
 import { StatusFollowUpModal } from "./status-follow-up-modal";
+import { BookMeetingModal } from "@/components/meetings/book-meeting-modal";
 import { updateLeadStatusAndScheduleFollowUp } from "@/lib/actions/companies";
 import { cn } from "@/lib/utils";
 import { addToast } from "@/components/ui/toast";
@@ -32,9 +33,16 @@ export function UnifiedStatusSelect({
 }: UnifiedStatusSelectProps) {
   const currentConfig = getUnifiedStatus(status);
   const [modalOpen, setModalOpen] = useState(false);
+  const [meetingModalOpen, setMeetingModalOpen] = useState(false);
   const [targetModalStatus, setTargetModalStatus] = useState<string>(currentConfig.id);
 
   const handleChange = async (newStatusId: string) => {
+    // If user picks meeting_booked: prompt with exact date & time selector!
+    if (newStatusId === "meeting_booked") {
+      setMeetingModalOpen(true);
+      return;
+    }
+
     // If user picks a status that benefits from immediate follow-up scheduling (e.g. reply_received, no_reply, opening_identified):
     // Open the compound modal so they can confirm +2d or +3d with 1 click!
     if (["reply_received", "no_reply", "opening_identified", "proposal_requested", "coffee_invited"].includes(newStatusId)) {
@@ -149,6 +157,20 @@ export function UnifiedStatusSelect({
           onSuccess={(newStatus, dueDate) => {
             if (onStatusChanged) {
               onStatusChanged(newStatus, dueDate);
+            }
+          }}
+        />
+      )}
+
+      {meetingModalOpen && (
+        <BookMeetingModal
+          isOpen={meetingModalOpen}
+          onClose={() => setMeetingModalOpen(false)}
+          companyId={companyId}
+          companyName={companyName}
+          onSuccess={(meeting) => {
+            if (onStatusChanged) {
+              onStatusChanged("meeting_booked", meeting?.meeting_date || null);
             }
           }}
         />

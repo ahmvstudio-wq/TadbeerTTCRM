@@ -43,6 +43,7 @@ import { AuditsClient } from "@/app/(app)/audits/page";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { BookMeetingModal } from "@/components/meetings/book-meeting-modal";
 import {
   Dialog,
   DialogHeader,
@@ -268,6 +269,7 @@ export default function PipelinePage() {
   // Edit Action / Demo Modal state
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<PipelineLead | null>(null);
+  const [meetingModalLead, setMeetingModalLead] = useState<PipelineLead | null>(null);
   const [editForm, setEditForm] = useState<{
     stage: PipelineStageKey;
     nextAction: string;
@@ -470,6 +472,15 @@ export default function PipelinePage() {
 
   // ─── STAGE TRANSITIONS ───────────────────────────────────────────────────────
   const handleQuickStageMove = async (leadId: string, newStage: PipelineStageKey) => {
+    // If advancing or moving to Meeting stage, prompt user for date & time
+    if (newStage === "meeting") {
+      const target = leads.find((l) => l.id === leadId);
+      if (target) {
+        setMeetingModalLead(target);
+        return;
+      }
+    }
+
     // Optimistic UI update
     setLeads((prev) =>
       prev.map((l) =>
@@ -1062,6 +1073,70 @@ export default function PipelinePage() {
 
                   {/* ─── REQUIRED NEXT ACTION & PLAYBOOK BOX ─────────────────── */}
                   <div className="p-5 sm:p-6 space-y-4">
+                    {/* Scheduled Discovery Meeting Box */}
+                    {(lead.canonical_stage === "meeting" || lead.meeting) && (
+                      <div className="bg-purple-50/70 p-4 sm:p-5 rounded-2xl border border-purple-200/90 space-y-3">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-purple-900 flex items-center gap-1.5">
+                            <Calendar className="h-3.5 w-3.5 text-purple-700" />
+                            <span>Scheduled Discovery Meeting</span>
+                          </span>
+
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-purple-200/80 text-purple-950 border border-purple-300 capitalize">
+                              {lead.meeting?.meeting_type?.replace("_", " ") || "In-Person"}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setMeetingModalLead(lead)}
+                              className="h-6 px-2 text-[11px] text-purple-950 bg-white hover:bg-purple-100 border-purple-300 font-semibold rounded-lg cursor-pointer"
+                            >
+                              <Edit3 className="h-3 w-3 mr-1 text-purple-700" />
+                              <span>Reschedule / Edit</span>
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                          <div className="flex items-center gap-2 text-xs font-semibold text-neutral-900">
+                            <Clock className="h-4 w-4 text-purple-600 shrink-0" />
+                            <span>
+                              {lead.meeting?.meeting_date ? (
+                                new Date(lead.meeting.meeting_date).toLocaleString("en-US", {
+                                  weekday: "short",
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                }) + " (GST)"
+                              ) : (
+                                "Timing to be set"
+                              )}
+                            </span>
+                            <span className="text-neutral-500 font-mono text-[11px]">
+                              ({lead.meeting?.duration_minutes || 30}m)
+                            </span>
+                          </div>
+
+                          {lead.meeting?.location && (
+                            <div className="flex items-center gap-2 text-xs text-neutral-700 truncate">
+                              <span className="font-mono text-purple-600">📍</span>
+                              <span className="truncate">{lead.meeting.location}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {lead.meeting?.description && (
+                          <div className="bg-white/80 p-2.5 rounded-xl border border-purple-100 text-xs text-neutral-700 font-light">
+                            <span className="font-semibold text-neutral-900 mr-1.5">Agenda / Notes:</span>
+                            <span>{lead.meeting.description}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div className="bg-neutral-50/70 p-4 sm:p-5 rounded-2xl border border-black/[0.04] space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-neutral-500 flex items-center gap-1.5">
@@ -1268,16 +1343,27 @@ export default function PipelinePage() {
                       </td>
 
                       <td className="py-4 px-4">
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[11px] font-mono capitalize text-neutral-700">
-                            {lead.demo_status !== "none" ? `Demo: ${lead.demo_status.replace("_", " ")}` : "—"}
-                          </span>
-                          {lead.demo_urls && lead.demo_urls.length > 0 && (
-                            <span className="text-[10px] font-mono text-blue-600 font-medium">
-                              {lead.demo_urls.length} link(s)
+                        {lead.canonical_stage === "meeting" && lead.meeting?.meeting_date ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[11px] font-mono font-bold text-purple-900 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200 inline-block w-fit">
+                              📅 {new Date(lead.meeting.meeting_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })} • {new Date(lead.meeting.meeting_date).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
                             </span>
-                          )}
-                        </div>
+                            <span className="text-[10px] text-neutral-500 font-mono capitalize">
+                              {lead.meeting.meeting_type?.replace("_", " ") || "In-Person"}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[11px] font-mono capitalize text-neutral-700">
+                              {lead.demo_status !== "none" ? `Demo: ${lead.demo_status.replace("_", " ")}` : "—"}
+                            </span>
+                            {lead.demo_urls && lead.demo_urls.length > 0 && (
+                              <span className="text-[10px] font-mono text-blue-600 font-medium">
+                                {lead.demo_urls.length} link(s)
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </td>
 
                       <td className="py-4 px-4 font-mono">
@@ -1704,6 +1790,27 @@ export default function PipelinePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {meetingModalLead && (
+        <BookMeetingModal
+          isOpen={Boolean(meetingModalLead)}
+          companyId={meetingModalLead.id}
+          companyName={meetingModalLead.company_name}
+          contactName={meetingModalLead.primary_contact?.full_name || undefined}
+          contactPhone={meetingModalLead.primary_contact?.phone || meetingModalLead.phone || undefined}
+          initialDate={meetingModalLead.meeting?.meeting_date ? meetingModalLead.meeting.meeting_date.split('T')[0] : undefined}
+          initialTime={meetingModalLead.meeting?.meeting_date && meetingModalLead.meeting.meeting_date.includes('T') ? meetingModalLead.meeting.meeting_date.split('T')[1].substring(0, 5) : "10:00"}
+          onClose={() => setMeetingModalLead(null)}
+          onSuccess={() => {
+            setMeetingModalLead(null);
+            fetchPipeline(true);
+            setToast({
+              type: "success",
+              message: `Meeting synced to Meetings tab for ${meetingModalLead.company_name}!`,
+            });
+          }}
+        />
+      )}
         </>
       )}
     </div>

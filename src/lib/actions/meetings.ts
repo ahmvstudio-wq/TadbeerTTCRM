@@ -3,15 +3,66 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth-guard'
 import { revalidatePath } from 'next/cache'
+import { invalidateServerCache } from '@/lib/cache/server-cache'
 
 function revalidateAllCRMPages() {
-  // Client components maintain instant state via optimistic UI and CustomEvents.
+  invalidateServerCache()
+  try {
+    revalidatePath('/pipeline')
+    revalidatePath('/meetings')
+    revalidatePath('/outreach')
+    revalidatePath('/daily-cadence')
+  } catch {}
 }
 
 export async function getMeetings(filter: 'upcoming' | 'past' | 'all') {
   try {
     await requireAuth()
     const supabase = await createClient()
+
+    // 1. Auto-sync missing meetings for companies that have status meeting_booked
+    try {
+      const { data: bookedCos } = await supabase
+        .from('companies')
+        .select('id, company_name, phone, status, pipeline_stage, research_json, updated_at, contacts(id, full_name, phone)')
+        .or('status.eq.meeting_booked,pipeline_stage.ilike.%meeting%')
+
+      if (bookedCos && bookedCos.length > 0) {
+        const { data: existingMeetings } = await supabase
+          .from('meetings')
+          .select('company_id')
+
+        const meetingCoIds = new Set((existingMeetings || []).map((m: any) => m.company_id))
+
+        for (const co of bookedCos) {
+          if (!meetingCoIds.has(co.id)) {
+            let rJson: any = {}
+            try {
+              if (typeof co.research_json === 'string') rJson = JSON.parse(co.research_json)
+              else if (typeof co.research_json === 'object') rJson = co.research_json
+            } catch {}
+
+            const targetDate = rJson.meeting_date || rJson.action_due_date || new Date().toISOString()
+            const primaryContact = co.contacts?.[0] || null
+
+            await supabase.from('meetings').insert({
+              company_id: co.id,
+              contact_id: primaryContact?.id || null,
+              title: rJson.meeting_title || `Discovery Meeting with ${co.company_name}`,
+              meeting_date: targetDate.includes('T') ? targetDate : `${targetDate}T10:00:00.000Z`,
+              duration_minutes: 30,
+              meeting_type: rJson.meeting_type || 'in_person',
+              location: rJson.meeting_location || null,
+              description: rJson.next_action || 'Scheduled discovery & presentation meeting',
+              status: 'scheduled',
+              created_at: new Date().toISOString(),
+            })
+          }
+        }
+      }
+    } catch (syncErr) {
+      console.warn("Meeting auto-sync notice:", syncErr)
+    }
 
     let query = supabase
       .from('meetings')
@@ -83,11 +134,47 @@ export async function bookMeeting(data: {
 
     if (meetingError) return { data: null, error: meetingError.message }
 
+    // Preserve and enrich research_json with scheduled meeting details
+    const { data: currentCo } = await supabase
+      .from('companies')
+      .select('research_json')
+      .eq('id', data.company_id)
+      .maybeSingle()
+
+    let curR: any = {}
+    if (currentCo?.research_json) {
+      if (typeof currentCo.research_json === 'string') {
+        try { curR = JSON.parse(currentCo.research_json) } catch {}
+      } else if (typeof currentCo.research_json === 'object') {
+        curR = currentCo.research_json
+      }
+    }
+
+    const meetingDateObj = new Date(data.meeting_date)
+    const timeFormatted = isNaN(meetingDateObj.getTime())
+      ? ''
+      : meetingDateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+
+    const updatedR = {
+      ...curR,
+      unified_status: 'meeting_booked',
+      pipeline_stage: 'meeting',
+      meeting_date: data.meeting_date,
+      meeting_time: timeFormatted,
+      meeting_title: data.title,
+      meeting_type: data.meeting_type || 'in_person',
+      meeting_location: data.location || null,
+      action_due_date: data.meeting_date.split('T')[0],
+      next_action: `Meeting: ${data.title} (${timeFormatted})`,
+      stage_updated_at: new Date().toISOString(),
+    }
+
     const { error: statusError } = await supabase
       .from('companies')
       .update({
         status: 'meeting_booked',
         pipeline_stage: 'Meeting Booked',
+        research_json: updatedR,
         updated_at: new Date().toISOString()
       })
       .eq('id', data.company_id)
