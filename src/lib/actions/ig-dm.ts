@@ -1121,12 +1121,9 @@ export async function getAllLeadsForPipeline(
 
         const createdDate = act.created_at ? act.created_at.split('T')[0] : null
         const explicitDate = payload.outreach_date ? payload.outreach_date.split('T')[0] : null
-        const updatedDate = payload.updated_at ? payload.updated_at.split('T')[0] : null
+        const targetDay = explicitDate || createdDate
 
-        const isMatch =
-          (explicitDate && isDateInRange(explicitDate, range.startDate, range.endDate)) ||
-          (createdDate && isDateInRange(createdDate, range.startDate, range.endDate)) ||
-          (updatedDate && isDateInRange(updatedDate, range.startDate, range.endDate))
+        const isMatch = targetDay && isDateInRange(targetDay, range.startDate, range.endDate)
 
         if (isMatch) {
           const compId = act.company_id || act.id
@@ -1136,19 +1133,15 @@ export async function getAllLeadsForPipeline(
         }
       })
 
-      // 2. Also match companies created/contacted in target date range
-      activeOutreachCompanies.forEach((co: any) => {
-        const coDate = co.created_at ? co.created_at.split('T')[0] : null
-        const coUpd = co.updated_at ? co.updated_at.split('T')[0] : null
-        const dateAdded = co.date_added || null
-        if (
-          (dateAdded && isDateInRange(dateAdded, range.startDate, range.endDate)) ||
-          (coDate && isDateInRange(coDate, range.startDate, range.endDate)) ||
-          (coUpd && isDateInRange(coUpd, range.startDate, range.endDate))
-        ) {
-          matchedCompanyIds.add(co.id)
-        }
-      })
+      // 2. Fallback only for non-date-specific directory range queries
+      if (!range.startDate || !range.endDate || range.startDate !== range.endDate) {
+        activeOutreachCompanies.forEach((co: any) => {
+          const dateAdded = co.date_added || null
+          if (dateAdded && isDateInRange(dateAdded, range.startDate, range.endDate)) {
+            matchedCompanyIds.add(co.id)
+          }
+        })
+      }
 
       // 3. Assemble rich lead records from leadMap for active outreach touches
       matchedCompanyIds.forEach(compId => {
